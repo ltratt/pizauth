@@ -1,0 +1,21 @@
+%%
+[0-9]+ "INT"
+"(?:\\\\|\\"|[^"])*" "STRING"
+= "="
+, ","
+\{ "{"
+\} "}"
+\[ "["
+\] "]"
+; ";"
+account "ACCOUNT"
+auth_uri "AUTH_URI"
+client_id "CLIENT_ID"
+client_secret "CLIENT_SECRET"
+login_hint "LOGIN_HINT"
+redirect_uri "REDIRECT_URI"
+scopes "SCOPES"
+token_uri "TOKEN_URI"
+//.*?$ ;
+[ \t\n\r]+ ;
+. "UNMATCHED"

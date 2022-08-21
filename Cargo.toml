@@ -1,0 +1,42 @@
+[package]
+name = "pizauth"
+description = "Command-line OAuth2 authentication daemon"
+version = "0.1.0"
+repository = "https://github.com/ltratt/pizauth/"
+authors = ["Laurence Tratt <laurie@tratt.net>"]
+license = "Apache-2.0 OR MIT"
+categories = ["authentication"]
+keywords = ["oauth", "oauth2", "authentication"]
+edition = "2021"
+
+[build-dependencies]
+cfgrammar = "0.12"
+lrlex = "0.12"
+lrpar = "0.12"
+
+[dependencies]
+cfgrammar = "0.12"
+getopts = "0.2"
+getrandom = "0.2"
+json = "0.12"
+log = "0.4"
+lrlex = "0.12"
+lrpar = "0.12"
+nix = "0.25"
+rand = "0.8"
+stderrlog = "0.5"
+syslog = "6"
+ureq = "2"
+url = "2"
+urlencoding = "2"
+
+[profile.release]
+opt-level = 3
+debug = false
+rpath = false
+lto = true
+debug-assertions = false
+codegen-units = 1
+panic = 'abort'
+incremental = false
+overflow-checks = true

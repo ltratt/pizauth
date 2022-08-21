@@ -1,0 +1,168 @@
+mod authenticator;
+mod config;
+mod config_ast;
+mod token_request;
+
+use std::{
+    env::{self, current_exe},
+    fs,
+    path::PathBuf,
+    process,
+};
+
+use getopts::Options;
+use log::error;
+use nix::unistd::daemon;
+
+use authenticator::authenticator;
+use config::Config;
+use token_request::oauthtoken_req;
+
+/// Name of cache directory within $XDG_DATA_HOME.
+const PIZAUTH_CACHE_LEAF: &str = "pizauth";
+/// Name of socket file within $XDG_DATA_HOME/PIZAUTH_CACHE_LEAF.
+const PIZAUTH_CACHE_SOCK_LEAF: &str = "pizauth.sock";
+/// Name of `pizauth.conf` file relative to $XDG_CONFIG_HOME.
+const PIZAUTH_CONF_LEAF: &str = "pizauth.conf";
+/// The literal string that we will search and replace in redirect URIs.
+const PORT_ESCAPE: &str = "${PORT}";
+
+fn progname() -> String {
+    match current_exe() {
+        Ok(p) => p
+            .file_name()
+            .map(|x| x.to_str().unwrap_or("pizauth"))
+            .unwrap_or("pizauth")
+            .to_owned(),
+        Err(_) => "pizauth".to_owned(),
+    }
+}
+
+/// Exit with a fatal error: only to be called before the log crate is setup.
+fn fatal(msg: &str) -> ! {
+    eprintln!("{msg:}");
+    process::exit(1);
+}
+
+/// Print out program usage then exit. This function must not be called after daemonisation.
+fn usage() -> ! {
+    let pn = progname();
+    eprintln!(
+        "Usage:\n  {pn:} authenticator [-c <config-path>] [-d]\n  {pn:} oauthtoken [-c <config-path>] <account>"
+    );
+    process::exit(1)
+}
+
+fn cache_path() -> PathBuf {
+    let mut p = PathBuf::new();
+    match env::var_os("XDG_DATA_HOME") {
+        Some(s) => p.push(s),
+        None => match env::var_os("HOME") {
+            Some(s) => {
+                p.push(s);
+                p.push(".cache")
+            }
+            None => fatal("Neither $DATA_HOME or $HOME set"),
+        },
+    }
+    p.push(PIZAUTH_CACHE_LEAF);
+    fs::create_dir_all(&p).unwrap_or_else(|e| fatal(&format!("Can't create cache dir: {}", e)));
+    p
+}
+
+fn conf_path(matches: &getopts::Matches) -> PathBuf {
+    match matches.opt_str("c") {
+        Some(p) => PathBuf::from(&p),
+        None => {
+            let mut p = PathBuf::new();
+            match env::var_os("XDG_CONFIG_HOME") {
+                Some(s) => p.push(s),
+                None => match env::var_os("HOME") {
+                    Some(s) => {
+                        p.push(s);
+                        p.push(".config")
+                    }
+                    None => fatal("Neither $XDG_CONFIG_HOME or $HOME set"),
+                },
+            }
+            p.push(PIZAUTH_CONF_LEAF);
+            if !p.is_file() {
+                fatal(&format!(
+                    "No config file found at {}",
+                    p.to_str().unwrap_or("pizauth.conf")
+                ));
+            }
+            p
+        }
+    }
+}
+
+fn main() {
+    let args: Vec<String> = env::args().collect();
+    if args.len() < 2 {
+        usage();
+    }
+    let mut opts = Options::new();
+    opts.optmulti("c", "config", "Path to pizauth.conf.", "<conf-path>")
+        .optflag("h", "help", "");
+
+    let cache_path = cache_path();
+    match args[1].as_str() {
+        "authenticator" => {
+            let matches = opts
+                .optflag("d", "", "Don't detach from the terminal.")
+                .parse(&args[2..])
+                .unwrap_or_else(|_| usage());
+            if matches.opt_present("h") || !matches.free.is_empty() {
+                usage();
+            }
+            let daemonise = !matches.opt_present("d");
+            if daemonise {
+                let formatter = syslog::Formatter3164 {
+                    process: progname(),
+                    ..Default::default()
+                };
+                let logger = syslog::unix(formatter)
+                    .unwrap_or_else(|e| fatal(&format!("Cannot connect to syslog: {e:}")));
+                log::set_boxed_logger(Box::new(syslog::BasicLogger::new(logger)))
+                    .map(|()| log::set_max_level(log::LevelFilter::Info))
+                    .unwrap_or_else(|e| fatal(&format!("Cannot set logger: {e:}")));
+                daemon(true, false).unwrap_or_else(|e| fatal(&format!("Cannot daemonise: {e:}")));
+            } else {
+                stderrlog::new()
+                    .module(module_path!())
+                    .verbosity(1)
+                    .init()
+                    .unwrap();
+            }
+            let conf_path = conf_path(&matches);
+            let conf = Config::from_path(&conf_path).unwrap_or_else(|m| fatal(&m));
+            if let Err(e) = authenticator(conf, cache_path.as_path()) {
+                error!("{e:}");
+                process::exit(1);
+            }
+        }
+        "oauthtoken" => {
+            let matches = opts.parse(&args[2..]).unwrap_or_else(|_| usage());
+            if matches.opt_present("h") {
+                usage();
+            }
+            if matches.free.len() != 1 {
+                usage();
+            }
+            stderrlog::new()
+                .module(module_path!())
+                .verbosity(1)
+                .init()
+                .unwrap();
+            let account = matches.free[0].as_str();
+            let conf_path = conf_path(&matches);
+            let conf = Config::from_path(&conf_path).unwrap_or_else(|m| fatal(&m));
+            if let Err(e) = oauthtoken_req(conf, cache_path.as_path(), account) {
+                error!("{e:}");
+                process::exit(1);
+            }
+        }
+        _ => usage(),
+    }
+}
