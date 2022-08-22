@@ -1,4 +1,5 @@
 %%
+[0-9]+[dhms] "TIME"
 [0-9]+ "INT"
 "(?:\\\\|\\"|[^"])*" "STRING"
 = "="
@@ -14,6 +15,8 @@ client_id "CLIENT_ID"
 client_secret "CLIENT_SECRET"
 login_hint "LOGIN_HINT"
 redirect_uri "REDIRECT_URI"
+refresh_before_expiry "REFRESH_BEFORE_EXPIRY"
+refresh_at_least "REFRESH_AT_LEAST"
 scopes "SCOPES"
 token_uri "TOKEN_URI"
 //.*?$ ;

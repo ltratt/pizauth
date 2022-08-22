@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fs::read_to_string, path::Path};
+use std::{collections::HashMap, error::Error, fs::read_to_string, path::Path, time::Duration};
 
 use lrlex::{lrlex_mod, DefaultLexeme, LRNonStreamingLexer};
 use lrpar::{lrpar_mod, NonStreamingLexer, Span};
@@ -71,6 +71,22 @@ fn check_not_assigned_str<T>(
     }
 }
 
+fn check_not_assigned_time<'a, T>(
+    lexer: &'a LRNonStreamingLexer<DefaultLexeme<StorageT>, StorageT>,
+    name: &str,
+    span: Span,
+    v: Option<T>,
+) -> Result<&'a str, String> {
+    match v {
+        None => Ok(lexer.span_str(span)),
+        Some(_) => Err(error_at_span(
+            lexer,
+            span,
+            &format!("Mustn't specify '{name:}' more than once"),
+        )),
+    }
+}
+
 fn check_assigned<T>(
     lexer: &LRNonStreamingLexer<DefaultLexeme<StorageT>, StorageT>,
     name: &str,
@@ -93,6 +109,8 @@ pub struct Account {
     pub client_secret: String,
     pub login_hint: Option<String>,
     redirect_uri: String,
+    pub refresh_before_expiry: Option<Duration>,
+    pub refresh_at_least: Option<Duration>,
     pub scopes: Vec<String>,
     pub token_uri: String,
 }
@@ -108,6 +126,8 @@ impl Account {
         let mut client_secret = None;
         let mut login_hint = None;
         let mut redirect_uri = None;
+        let mut refresh_before_expiry = None;
+        let mut refresh_at_least = None;
         let mut scopes = None;
         let mut token_uri = None;
 
@@ -158,6 +178,32 @@ impl Account {
                     }
                     redirect_uri = Some(uri);
                 }
+                config_ast::AccountField::RefreshBeforeExpiry(span) => {
+                    match time_str_to_duration(check_not_assigned_time(
+                        lexer,
+                        "refresh_before_expiry",
+                        span,
+                        refresh_before_expiry,
+                    )?) {
+                        Ok(t) => refresh_before_expiry = Some(t),
+                        Err(e) => {
+                            return Err(error_at_span(lexer, span, &format!("Invalid time: {e:}")))
+                        }
+                    }
+                }
+                config_ast::AccountField::RefreshAtLeast(span) => {
+                    match time_str_to_duration(check_not_assigned_time(
+                        lexer,
+                        "refresh_at_least",
+                        span,
+                        refresh_at_least,
+                    )?) {
+                        Ok(t) => refresh_at_least = Some(t),
+                        Err(e) => {
+                            return Err(error_at_span(lexer, span, &format!("Invalid time: {e:}")))
+                        }
+                    }
+                }
                 config_ast::AccountField::Scopes(span, spans) => {
                     if scopes.is_some() {
                         debug_assert!(!spans.is_empty());
@@ -200,6 +246,8 @@ impl Account {
             client_secret,
             login_hint,
             redirect_uri,
+            refresh_before_expiry,
+            refresh_at_least,
             scopes,
             token_uri,
         })
@@ -210,6 +258,29 @@ impl Account {
         self.redirect_uri
             .replace(PORT_ESCAPE, &http_port.to_string())
     }
+}
+
+/// Given a time duration in the format `[0-9]+[dhms]` return a [Duration].
+///
+/// # Panics
+///
+/// If `t` is not in the format `[0-9]+[dhms]`.
+fn time_str_to_duration(t: &str) -> Result<Duration, Box<dyn Error>> {
+    let last_char_idx = t
+        .chars()
+        .filter(|c| c.is_numeric())
+        .map(|c| c.len_utf8())
+        .sum();
+    debug_assert!(last_char_idx < t.len());
+    let num = t[..last_char_idx].parse::<u64>()?;
+    let secs = match t.chars().last().unwrap() {
+        'd' => num.checked_mul(86400).ok_or("Number too big")?,
+        'h' => num.checked_mul(3600).ok_or("Number too big")?,
+        'm' => num.checked_mul(60).ok_or("Number too big")?,
+        's' => num,
+        _ => unreachable!(),
+    };
+    Ok(Duration::from_secs(secs))
 }
 
 /// Take a quoted string from the config file and unescape it (i.e. strip the start and end quote
@@ -273,5 +344,26 @@ mod test {
         assert_eq!(unescape_str("\"a\\\"\""), "a\"");
         assert_eq!(unescape_str("\"a\\\"b\""), "a\"b");
         assert_eq!(unescape_str("\"\\\\\""), "\\");
+    }
+
+    #[test]
+    fn test_time_str_to_duration() {
+        assert_eq!(time_str_to_duration("0s").unwrap(), Duration::from_secs(0));
+        assert_eq!(time_str_to_duration("1s").unwrap(), Duration::from_secs(1));
+        assert_eq!(time_str_to_duration("1m").unwrap(), Duration::from_secs(60));
+        assert_eq!(
+            time_str_to_duration("2m").unwrap(),
+            Duration::from_secs(120)
+        );
+        assert_eq!(
+            time_str_to_duration("1h").unwrap(),
+            Duration::from_secs(3600)
+        );
+        assert_eq!(
+            time_str_to_duration("1d").unwrap(),
+            Duration::from_secs(86400)
+        );
+
+        assert!(time_str_to_duration("9223372036854775808m").is_err());
     }
 }

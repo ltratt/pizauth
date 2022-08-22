@@ -4,17 +4,13 @@ use std::{
     net::{TcpListener, TcpStream},
     sync::Arc,
     thread,
+    time::{Duration, Instant},
 };
 
-use log::warn;
+use log::{info, warn};
 use url::Url;
 
-use super::{AuthenticatorState, TokenState};
-
-pub fn http_server_setup() -> Result<(u16, TcpListener), Box<dyn Error>> {
-    let listener = TcpListener::bind("127.0.0.1:0")?;
-    Ok((listener.local_addr()?.port(), listener))
-}
+use super::{refresher::update_refresher, AuthenticatorState, TokenState};
 
 fn request(pstate: Arc<AuthenticatorState>, stream: TcpStream) -> Result<(), Box<dyn Error>> {
     let mut rdr = BufReader::new(&stream);
@@ -31,7 +27,6 @@ fn request(pstate: Arc<AuthenticatorState>, stream: TcpStream) -> Result<(), Box
             };
 
             // Check the state we receive matches a pending request.
-            dbg!(url.query_pairs().collect::<Vec<_>>());
             let state = match url.query_pairs().find(|(k, _)| k == "state") {
                 Some((_, v)) => v,
                 None => {
@@ -99,15 +94,25 @@ fn request(pstate: Arc<AuthenticatorState>, stream: TcpStream) -> Result<(), Box
                 (Some(token_type), Some(expires_in), Some(access_token), refresh_token)
                     if token_type == "Bearer" =>
                 {
+                    let refreshed_at = Instant::now();
+                    let expiry = refreshed_at
+                        .checked_add(Duration::from_secs(expires_in))
+                        .ok_or("Can't represent expiry")?;
                     let mut ct_lk = pstate.conf_tokens.lock().unwrap();
                     if let Some(e) = ct_lk.1.get_mut(&act_name) {
+                        info!(
+                            "New token for {act_name:} (token valid for {} seconds)",
+                            expires_in
+                        );
                         *e = TokenState::Active {
                             access_token: access_token.to_owned(),
-                            expires_in,
+                            expiry,
+                            refreshed_at,
                             refresh_token: refresh_token.map(|x| x.to_owned()),
                         };
+                        drop(ct_lk);
+                        update_refresher(pstate);
                     }
-                    drop(ct_lk);
                 }
                 _ => todo!(),
             }
@@ -140,6 +145,11 @@ fn http_success_msg(mut stream: TcpStream, msg: &str) {
             format!("HTTP/1.1 200 OK\r\n\r\n<html><body><h2>{msg}</h2></body></html>").as_bytes(),
         )
         .ok();
+}
+
+pub fn http_server_setup() -> Result<(u16, TcpListener), Box<dyn Error>> {
+    let listener = TcpListener::bind("127.0.0.1:0")?;
+    Ok((listener.local_addr()?.port(), listener))
 }
 
 pub fn http_server(

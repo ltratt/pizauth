@@ -10,6 +10,8 @@ pub enum AccountField {
     ClientSecret(Span),
     LoginHint(Span),
     RedirectUri(Span),
+    RefreshBeforeExpiry(Span),
+    RefreshAtLeast(Span),
     Scopes(Span, Vec<Span>),
     TokenUri(Span),
 }

@@ -1,4 +1,5 @@
 mod http_server;
+mod refresher;
 mod user_requests;
 
 use std::{
@@ -10,11 +11,13 @@ use std::{
     path::{Path, PathBuf},
     sync::{mpsc::Sender, Arc, Mutex},
     thread,
+    time::Instant,
 };
 
 use log::warn;
 
 use crate::{config::Config, PIZAUTH_CACHE_SOCK_LEAF};
+use refresher::Refresher;
 
 /// Length of the OAuth state in bytes.
 const STATE_LEN: usize = 8;
@@ -28,6 +31,7 @@ pub fn sock_path(cache_path: &Path) -> PathBuf {
 pub struct AuthenticatorState {
     conf_tokens: Mutex<(Config, HashMap<String, TokenState>)>,
     http_port: u16,
+    refresher: Refresher,
 }
 
 pub enum TokenState {
@@ -38,7 +42,8 @@ pub enum TokenState {
     },
     Active {
         access_token: String,
-        expires_in: u64,
+        refreshed_at: Instant,
+        expiry: Instant,
         refresh_token: Option<String>,
     },
 }
@@ -68,7 +73,8 @@ fn request(
                 }
                 Some(TokenState::Active {
                     access_token,
-                    expires_in: _,
+                    expiry: _,
+                    refreshed_at: _,
                     refresh_token: _,
                 }) => {
                     let response = format!("access_token:{access_token:}");
@@ -97,6 +103,7 @@ pub fn authenticator(conf: Config, cache_path: &Path) -> Result<(), Box<dyn Erro
     }
 
     let (http_port, http_state) = http_server::http_server_setup()?;
+    let refresher = refresher::refresher_setup()?;
 
     let tokens = conf
         .accounts
@@ -106,10 +113,12 @@ pub fn authenticator(conf: Config, cache_path: &Path) -> Result<(), Box<dyn Erro
     let pstate = Arc::new(AuthenticatorState {
         conf_tokens: Mutex::new((conf, tokens)),
         http_port,
+        refresher,
     });
 
     let user_req_tx = user_requests::user_requests_processor(Arc::clone(&pstate));
     http_server::http_server(Arc::clone(&pstate), http_state)?;
+    refresher::refresher(Arc::clone(&pstate))?;
 
     let listener = UnixListener::bind(sock_path)?;
     for stream in listener.incoming().flatten() {
