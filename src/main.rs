@@ -48,7 +48,7 @@ fn fatal(msg: &str) -> ! {
 fn usage() -> ! {
     let pn = progname();
     eprintln!(
-        "Usage:\n  {pn:} authenticator [-c <config-path>] [-d]\n  {pn:} oauthtoken [-c <config-path>] <account>"
+        "Usage:\n  {pn:} authenticator [-c <config-path>] [-dv]\n  {pn:} oauthtoken [-c <config-path>] [-v] <account>"
     );
     process::exit(1)
 }
@@ -104,7 +104,8 @@ fn main() {
     }
     let mut opts = Options::new();
     opts.optmulti("c", "config", "Path to pizauth.conf.", "<conf-path>")
-        .optflag("h", "help", "");
+        .optflag("h", "help", "")
+        .optflagmulti("v", "verbose", "");
 
     let cache_path = cache_path();
     match args[1].as_str() {
@@ -124,14 +125,21 @@ fn main() {
                 };
                 let logger = syslog::unix(formatter)
                     .unwrap_or_else(|e| fatal(&format!("Cannot connect to syslog: {e:}")));
+                let levelfilter = match matches.opt_count("v") {
+                    0 => log::LevelFilter::Error,
+                    1 => log::LevelFilter::Warn,
+                    2 => log::LevelFilter::Info,
+                    3 => log::LevelFilter::Debug,
+                    _ => log::LevelFilter::Trace,
+                };
                 log::set_boxed_logger(Box::new(syslog::BasicLogger::new(logger)))
-                    .map(|()| log::set_max_level(log::LevelFilter::Info))
+                    .map(|()| log::set_max_level(levelfilter))
                     .unwrap_or_else(|e| fatal(&format!("Cannot set logger: {e:}")));
                 daemon(true, false).unwrap_or_else(|e| fatal(&format!("Cannot daemonise: {e:}")));
             } else {
                 stderrlog::new()
                     .module(module_path!())
-                    .verbosity(1)
+                    .verbosity(matches.opt_count("v"))
                     .init()
                     .unwrap();
             }
@@ -152,7 +160,7 @@ fn main() {
             }
             stderrlog::new()
                 .module(module_path!())
-                .verbosity(1)
+                .verbosity(matches.opt_count("v"))
                 .init()
                 .unwrap();
             let account = matches.free[0].as_str();
