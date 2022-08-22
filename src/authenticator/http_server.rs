@@ -2,7 +2,7 @@ use std::{
     error::Error,
     io::{BufRead, BufReader, Write},
     net::{TcpListener, TcpStream},
-    sync::{Arc, Mutex},
+    sync::Arc,
     thread,
 };
 
@@ -16,10 +16,7 @@ pub fn http_server_setup() -> Result<(u16, TcpListener), Box<dyn Error>> {
     Ok((listener.local_addr()?.port(), listener))
 }
 
-fn request(
-    pstate: Arc<Mutex<AuthenticatorState>>,
-    stream: TcpStream,
-) -> Result<(), Box<dyn Error>> {
+fn request(pstate: Arc<AuthenticatorState>, stream: TcpStream) -> Result<(), Box<dyn Error>> {
     let mut rdr = BufReader::new(&stream);
     let mut line = String::new();
     rdr.read_line(&mut line).unwrap();
@@ -43,8 +40,8 @@ fn request(
                 }
             };
             let state = urlencoding::decode_binary(state.as_bytes()).into_owned();
-            let lk = pstate.lock().unwrap();
-            let act_name = match lk.tokens.iter().find(|(_, v)|matches!(*v, &TokenState::Pending { state: s, .. } if s == state.as_slice())) {
+            let ct_lk = pstate.conf_tokens.lock().unwrap();
+            let act_name = match ct_lk.1.iter().find(|(_, v)|matches!(*v, &TokenState::Pending { state: s, .. } if s == state.as_slice())) {
                 Some((k, _)) => k.to_owned(),
                 None => {
                     http_error_msg(
@@ -55,7 +52,7 @@ fn request(
                 }
             };
 
-            let act = match lk.conf.accounts.get(&act_name) {
+            let act = match ct_lk.0.accounts.get(&act_name) {
                 Some(x) => x,
                 None => {
                     // Account has been deleted on config reload.
@@ -73,12 +70,10 @@ fn request(
             }
             .into_owned();
 
-            http_success_msg(stream, "pizauth successfully received authentication code");
-
             let token_uri = act.token_uri.clone();
             let client_id = act.client_id.clone();
             let client_secret = act.client_secret.clone();
-            let redirect_uri = act.redirect_uri(lk.http_port);
+            let redirect_uri = act.redirect_uri(pstate.http_port);
             let pairs = [
                 ("code", code.as_str()),
                 ("client_id", client_id.as_str()),
@@ -86,8 +81,10 @@ fn request(
                 ("redirect_uri", redirect_uri.as_str()),
                 ("grant_type", "authorization_code"),
             ];
+
             // Make sure that we don't hold the lock while performing a network request.
-            drop(lk);
+            drop(ct_lk);
+            http_success_msg(stream, "pizauth successfully received authentication code");
             let body = ureq::post(token_uri.as_str())
                 .send_form(&pairs)?
                 .into_string()?;
@@ -102,15 +99,15 @@ fn request(
                 (Some(token_type), Some(expires_in), Some(access_token), refresh_token)
                     if token_type == "Bearer" =>
                 {
-                    let mut lk = pstate.lock().unwrap();
-                    if let Some(e) = lk.tokens.get_mut(&act_name) {
+                    let mut ct_lk = pstate.conf_tokens.lock().unwrap();
+                    if let Some(e) = ct_lk.1.get_mut(&act_name) {
                         *e = TokenState::Active {
                             access_token: access_token.to_owned(),
                             expires_in,
                             refresh_token: refresh_token.map(|x| x.to_owned()),
                         };
                     }
-                    drop(lk);
+                    drop(ct_lk);
                 }
                 _ => todo!(),
             }
@@ -146,7 +143,7 @@ fn http_success_msg(mut stream: TcpStream, msg: &str) {
 }
 
 pub fn http_server(
-    pstate: Arc<Mutex<AuthenticatorState>>,
+    pstate: Arc<AuthenticatorState>,
     listener: TcpListener,
 ) -> Result<(), Box<dyn Error>> {
     thread::spawn(move || {

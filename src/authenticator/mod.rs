@@ -26,9 +26,8 @@ pub fn sock_path(cache_path: &Path) -> PathBuf {
 }
 
 pub struct AuthenticatorState {
-    conf: Config,
+    conf_tokens: Mutex<(Config, HashMap<String, TokenState>)>,
     http_port: u16,
-    tokens: HashMap<String, TokenState>,
 }
 
 pub enum TokenState {
@@ -45,7 +44,7 @@ pub enum TokenState {
 }
 
 fn request(
-    pstate: Arc<Mutex<AuthenticatorState>>,
+    pstate: Arc<AuthenticatorState>,
     mut stream: UnixStream,
     queue_tx: Sender<String>,
 ) -> Result<(), Box<dyn Error>> {
@@ -56,15 +55,15 @@ fn request(
         ["oauthtoken", act] => {
             // If unwrap()ing the lock fails, we're in such deep trouble that trying to carry on is
             // pointless.
-            let lk = pstate.lock().unwrap();
-            match lk.tokens.get(act.to_owned()) {
+            let ct_lk = pstate.conf_tokens.lock().unwrap();
+            match ct_lk.1.get(act.to_owned()) {
                 Some(TokenState::Empty) => {
+                    drop(ct_lk);
                     queue_tx.send(act.to_string())?;
-                    drop(lk);
                     stream.write_all(b"pending:")?;
                 }
                 Some(TokenState::Pending { state: _ }) => {
-                    drop(lk);
+                    drop(ct_lk);
                     stream.write_all(b"pending:")?;
                 }
                 Some(TokenState::Active {
@@ -72,10 +71,12 @@ fn request(
                     expires_in: _,
                     refresh_token: _,
                 }) => {
-                    stream.write_all(format!("access_token:{access_token:}").as_bytes())?;
+                    let response = format!("access_token:{access_token:}");
+                    drop(ct_lk);
+                    stream.write_all(response.as_bytes())?;
                 }
                 None => {
-                    drop(lk);
+                    drop(ct_lk);
                     stream.write_all(format!("error:No account '{act:}'").as_bytes())?;
                 }
             }
@@ -102,11 +103,10 @@ pub fn authenticator(conf: Config, cache_path: &Path) -> Result<(), Box<dyn Erro
         .iter()
         .map(|(k, _)| (k.to_owned(), TokenState::Empty))
         .collect();
-    let pstate = Arc::new(Mutex::new(AuthenticatorState {
-        conf,
+    let pstate = Arc::new(AuthenticatorState {
+        conf_tokens: Mutex::new((conf, tokens)),
         http_port,
-        tokens,
-    }));
+    });
 
     let user_req_tx = user_requests::user_requests_processor(Arc::clone(&pstate));
     http_server::http_server(Arc::clone(&pstate), http_state)?;
