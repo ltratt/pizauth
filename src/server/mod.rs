@@ -92,7 +92,7 @@ fn request(
     }
 }
 
-pub fn authenticator(conf: Config, cache_path: &Path) -> Result<(), Box<dyn Error>> {
+pub fn server(conf: Config, cache_path: &Path) -> Result<(), Box<dyn Error>> {
     let sock_path = sock_path(cache_path);
     if sock_path.exists() {
         // Is an existing authenticator running?

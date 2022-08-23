@@ -6,7 +6,7 @@ use std::{
     path::Path,
 };
 
-use crate::{authenticator::sock_path, config::Config};
+use crate::{config::Config, server::sock_path};
 
 pub fn oauthtoken_req(
     _conf: Config,
