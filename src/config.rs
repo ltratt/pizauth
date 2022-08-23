@@ -157,7 +157,7 @@ impl Account {
         for f in fields {
             match f {
                 config_ast::AccountField::AuthUri(span) => {
-                    auth_uri = Some(check_not_assigned_str(lexer, "auth_uri", span, auth_uri)?)
+                    auth_uri = Some(check_not_assigned_uri(lexer, "auth_uri", span, auth_uri)?)
                 }
                 config_ast::AccountField::ClientId(span) => {
                     client_id = Some(check_not_assigned_str(lexer, "client_id", span, client_id)?)
@@ -236,7 +236,7 @@ impl Account {
                     );
                 }
                 config_ast::AccountField::TokenUri(span) => {
-                    token_uri = Some(check_not_assigned_str(lexer, "token_uri", span, token_uri)?)
+                    token_uri = Some(check_not_assigned_uri(lexer, "token_uri", span, token_uri)?)
                 }
             }
         }
