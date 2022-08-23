@@ -33,7 +33,7 @@ fn process(
                 let state_str = urlencoding::encode_binary(&state).into_owned();
 
                 let scopes_join = act.scopes.join(" ");
-                let redirect_uri = act.redirect_uri(pstate.http_port);
+                let redirect_uri = act.redirect_uri(pstate.http_port)?.to_string();
                 let mut params = vec![
                     ("access_type", "offline"),
                     ("scope", scopes_join.as_str()),

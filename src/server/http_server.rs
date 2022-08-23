@@ -68,7 +68,7 @@ fn request(pstate: Arc<AuthenticatorState>, stream: TcpStream) -> Result<(), Box
             let token_uri = act.token_uri.clone();
             let client_id = act.client_id.clone();
             let client_secret = act.client_secret.clone();
-            let redirect_uri = act.redirect_uri(pstate.http_port);
+            let redirect_uri = act.redirect_uri(pstate.http_port)?.to_string();
             let pairs = [
                 ("code", code.as_str()),
                 ("client_id", client_id.as_str()),

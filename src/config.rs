@@ -2,8 +2,9 @@ use std::{collections::HashMap, error::Error, fs::read_to_string, path::Path, ti
 
 use lrlex::{lrlex_mod, DefaultLexeme, LRNonStreamingLexer};
 use lrpar::{lrpar_mod, NonStreamingLexer, Span};
+use url::Url;
 
-use crate::{config_ast, PORT_ESCAPE};
+use crate::config_ast;
 
 type StorageT = u8;
 
@@ -87,6 +88,28 @@ fn check_not_assigned_time<'a, T>(
     }
 }
 
+fn check_not_assigned_uri<T>(
+    lexer: &LRNonStreamingLexer<DefaultLexeme<StorageT>, StorageT>,
+    name: &str,
+    span: Span,
+    v: Option<T>,
+) -> Result<String, String> {
+    match v {
+        None => {
+            let s = unescape_str(lexer.span_str(span));
+            match Url::parse(&s) {
+                Ok(_) => Ok(s),
+                Err(e) => Err(error_at_span(lexer, span, &format!("Invalid URI: {e:}"))),
+            }
+        }
+        Some(_) => Err(error_at_span(
+            lexer,
+            span,
+            &format!("Mustn't specify '{name:}' more than once"),
+        )),
+    }
+}
+
 fn check_assigned<T>(
     lexer: &LRNonStreamingLexer<DefaultLexeme<StorageT>, StorageT>,
     name: &str,
@@ -156,27 +179,12 @@ impl Account {
                     )?)
                 }
                 config_ast::AccountField::RedirectUri(span) => {
-                    let uri = check_not_assigned_str(lexer, "redirect_uri", span, redirect_uri)?;
-                    match uri.match_indices(PORT_ESCAPE).count() {
-                        0 => {
-                            return Err(error_at_span(
-                                lexer,
-                                span,
-                                &format!("redirect_uri must contain '{PORT_ESCAPE:}'"),
-                            ))
-                        }
-                        1 => (),
-                        _ => {
-                            return Err(error_at_span(
-                                lexer,
-                                span,
-                                &format!(
-                                "redirect_uri must contain only one instance of '{PORT_ESCAPE:}'"
-                            ),
-                            ))
-                        }
-                    }
-                    redirect_uri = Some(uri);
+                    redirect_uri = Some(check_not_assigned_uri(
+                        lexer,
+                        "redirect_uri",
+                        span,
+                        redirect_uri,
+                    )?)
                 }
                 config_ast::AccountField::RefreshBeforeExpiry(span) => {
                     match time_str_to_duration(check_not_assigned_time(
@@ -253,10 +261,11 @@ impl Account {
         })
     }
 
-    pub fn redirect_uri(&self, http_port: u16) -> String {
-        debug_assert_eq!(self.redirect_uri.match_indices(PORT_ESCAPE).count(), 1);
-        self.redirect_uri
-            .replace(PORT_ESCAPE, &http_port.to_string())
+    pub fn redirect_uri(&self, http_port: u16) -> Result<Url, Box<dyn Error>> {
+        let mut url = Url::parse(&self.redirect_uri)?;
+        url.set_port(Some(http_port))
+            .map_err(|_| "Cannot set port")?;
+        Ok(url)
     }
 }
 

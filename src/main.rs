@@ -23,8 +23,6 @@ const PIZAUTH_CACHE_LEAF: &str = "pizauth";
 const PIZAUTH_CACHE_SOCK_LEAF: &str = "pizauth.sock";
 /// Name of `pizauth.conf` file relative to $XDG_CONFIG_HOME.
 const PIZAUTH_CONF_LEAF: &str = "pizauth.conf";
-/// The literal string that we will search and replace in redirect URIs.
-const PORT_ESCAPE: &str = "${PORT}";
 
 fn progname() -> String {
     match current_exe() {
