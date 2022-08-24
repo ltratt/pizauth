@@ -1,7 +1,7 @@
 mod config;
 mod config_ast;
 mod server;
-mod token_request;
+mod show_token;
 
 use std::{
     env::{self, current_exe},
@@ -15,7 +15,7 @@ use log::error;
 use nix::unistd::daemon;
 
 use config::Config;
-use token_request::oauthtoken_req;
+use show_token::show_token;
 
 /// Name of cache directory within $XDG_DATA_HOME.
 const PIZAUTH_CACHE_LEAF: &str = "pizauth";
@@ -45,7 +45,7 @@ fn fatal(msg: &str) -> ! {
 fn usage() -> ! {
     let pn = progname();
     eprintln!(
-        "Usage:\n  {pn:} oauthtoken [-c <config-path>] [-v] <account>\n  {pn:} server [-c <config-path>] [-dv]"
+        "Usage:\n  {pn:} server [-c <config-path>] [-dv]\n  {pn:} show [-c <config-path>] [-v] <account>"
     );
     process::exit(1)
 }
@@ -106,27 +106,6 @@ fn main() {
 
     let cache_path = cache_path();
     match args[1].as_str() {
-        "oauthtoken" => {
-            let matches = opts.parse(&args[2..]).unwrap_or_else(|_| usage());
-            if matches.opt_present("h") {
-                usage();
-            }
-            if matches.free.len() != 1 {
-                usage();
-            }
-            stderrlog::new()
-                .module(module_path!())
-                .verbosity(matches.opt_count("v"))
-                .init()
-                .unwrap();
-            let account = matches.free[0].as_str();
-            let conf_path = conf_path(&matches);
-            let conf = Config::from_path(&conf_path).unwrap_or_else(|m| fatal(&m));
-            if let Err(e) = oauthtoken_req(conf, cache_path.as_path(), account) {
-                error!("{e:}");
-                process::exit(1);
-            }
-        }
         "server" => {
             let matches = opts
                 .optflag("d", "", "Don't detach from the terminal.")
@@ -164,6 +143,27 @@ fn main() {
             let conf_path = conf_path(&matches);
             let conf = Config::from_path(&conf_path).unwrap_or_else(|m| fatal(&m));
             if let Err(e) = server::server(conf, cache_path.as_path()) {
+                error!("{e:}");
+                process::exit(1);
+            }
+        }
+        "show" => {
+            let matches = opts.parse(&args[2..]).unwrap_or_else(|_| usage());
+            if matches.opt_present("h") {
+                usage();
+            }
+            if matches.free.len() != 1 {
+                usage();
+            }
+            stderrlog::new()
+                .module(module_path!())
+                .verbosity(matches.opt_count("v"))
+                .init()
+                .unwrap();
+            let account = matches.free[0].as_str();
+            let conf_path = conf_path(&matches);
+            let conf = Config::from_path(&conf_path).unwrap_or_else(|m| fatal(&m));
+            if let Err(e) = show_token(conf, cache_path.as_path(), account) {
                 error!("{e:}");
                 process::exit(1);
             }

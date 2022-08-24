@@ -57,7 +57,7 @@ fn request(
     stream.read_to_string(&mut cmd)?;
 
     match &cmd.split(' ').collect::<Vec<_>>()[..] {
-        ["oauthtoken", act] => {
+        ["showtoken", act] => {
             // If unwrap()ing the lock fails, we're in such deep trouble that trying to carry on is
             // pointless.
             let ct_lk = pstate.conf_tokens.lock().unwrap();
