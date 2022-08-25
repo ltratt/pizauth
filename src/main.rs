@@ -45,7 +45,7 @@ fn fatal(msg: &str) -> ! {
 fn usage() -> ! {
     let pn = progname();
     eprintln!(
-        "Usage:\n  {pn:} force [-c <config-path>] [<account> ... <account>]\n  {pn:} server [-c <config-path>] [-dv]\n  {pn:} show [-c <config-path>] [-v] <account>"
+        "Usage:\n  {pn:} force [-c <config-path>] [<account> ... <account>]\n  {pn:} reload [-c <config-path>]\n  {pn:} server [-c <config-path>] [-dv]\n  {pn:} show [-c <config-path>] [-v] <account>"
     );
     process::exit(1)
 }
@@ -124,6 +124,23 @@ fn main() {
                 matches.free
             };
             if let Err(e) = user_sender::force(conf, &cache_path, accounts) {
+                error!("{e:}");
+                process::exit(1);
+            }
+        }
+        "reload" => {
+            let matches = opts.parse(&args[2..]).unwrap_or_else(|_| usage());
+            if matches.opt_present("h") || !matches.free.is_empty() {
+                usage();
+            }
+            stderrlog::new()
+                .module(module_path!())
+                .verbosity(matches.opt_count("v"))
+                .init()
+                .unwrap();
+            let conf_path = conf_path(&matches);
+            let conf = Config::from_path(&conf_path).unwrap_or_else(|m| fatal(&m));
+            if let Err(e) = user_sender::reload(conf, conf_path, &cache_path) {
                 error!("{e:}");
                 process::exit(1);
             }

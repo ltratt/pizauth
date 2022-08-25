@@ -1,6 +1,7 @@
 mod http_server;
 mod refresher;
 mod request_token;
+mod user_listener;
 
 use std::{
     collections::HashMap,
@@ -57,6 +58,13 @@ fn request(
     stream.read_to_string(&mut cmd)?;
 
     match &cmd.split(' ').collect::<Vec<_>>()[..] {
+        ["reload", conf_path] => {
+            match user_listener::reload_conf(pstate, conf_path) {
+                Ok(()) => stream.write_all(b"ok:")?,
+                Err(e) => stream.write_all(format!("error:{e:}").as_bytes())?,
+            }
+            Ok(())
+        }
         ["force", act] => {
             let ct_lk = pstate.conf_tokens.lock().unwrap();
             match ct_lk.1.get(act.to_owned()) {
