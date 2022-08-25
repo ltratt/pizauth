@@ -1,7 +1,7 @@
 mod config;
 mod config_ast;
 mod server;
-mod show_token;
+mod user_sender;
 
 use std::{
     env::{self, current_exe},
@@ -15,7 +15,7 @@ use log::error;
 use nix::unistd::daemon;
 
 use config::Config;
-use show_token::show_token;
+use user_sender::show_token;
 
 /// Name of cache directory within $XDG_DATA_HOME.
 const PIZAUTH_CACHE_LEAF: &str = "pizauth";
@@ -123,7 +123,7 @@ fn main() {
             } else {
                 matches.free
             };
-            if let Err(e) = show_token::force(conf, &cache_path, accounts) {
+            if let Err(e) = user_sender::force(conf, &cache_path, accounts) {
                 error!("{e:}");
                 process::exit(1);
             }
