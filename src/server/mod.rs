@@ -17,7 +17,7 @@ use std::{
 use log::warn;
 
 use crate::{config::Config, PIZAUTH_CACHE_SOCK_LEAF};
-use refresher::Refresher;
+use refresher::{update_refresher, Refresher};
 
 /// Length of the OAuth state in bytes.
 const STATE_LEN: usize = 8;
@@ -57,6 +57,27 @@ fn request(
     stream.read_to_string(&mut cmd)?;
 
     match &cmd.split(' ').collect::<Vec<_>>()[..] {
+        ["force", act] => {
+            let ct_lk = pstate.conf_tokens.lock().unwrap();
+            match ct_lk.1.get(act.to_owned()) {
+                Some(TokenState::Empty) | Some(TokenState::Pending { .. }) => {
+                    drop(ct_lk);
+                    queue_tx.send(act.to_string())?;
+                    stream.write_all(b"ok:")?;
+                }
+                Some(TokenState::Active { .. }) => {
+                    drop(ct_lk);
+                    refresher::refresh(Arc::clone(&pstate), act.to_string())?;
+                    update_refresher(pstate);
+                    stream.write_all(b"ok:")?;
+                }
+                None => {
+                    drop(ct_lk);
+                    stream.write_all(format!("error:No account '{act:}'").as_bytes())?;
+                }
+            }
+            Ok(())
+        }
         ["showtoken", act] => {
             // If unwrap()ing the lock fails, we're in such deep trouble that trying to carry on is
             // pointless.

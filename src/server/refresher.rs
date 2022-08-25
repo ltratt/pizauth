@@ -18,7 +18,7 @@ pub struct Refresher {
 
 /// Force a refresh of the token for `act_name`, blocking until the token is refreshed or an error
 /// occurred.
-fn refresh(pstate: Arc<AuthenticatorState>, act_name: String) -> Result<(), Box<dyn Error>> {
+pub fn refresh(pstate: Arc<AuthenticatorState>, act_name: String) -> Result<(), Box<dyn Error>> {
     let ct_lk = pstate.conf_tokens.lock().unwrap();
     let act = match ct_lk.0.accounts.get(&act_name) {
         Some(x) => x,

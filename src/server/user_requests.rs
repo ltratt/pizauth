@@ -24,7 +24,7 @@ fn process(
         let mut new_token_state = None;
         let mut url = None;
         match ct_lk.1.get(act_name.as_str()) {
-            Some(TokenState::Empty) => {
+            Some(_) => {
                 // lk.tokens and lk.accounts always contain the same keys so this unwrap() is safe.
                 let act = ct_lk.0.accounts.get(act_name.as_str()).unwrap();
 
@@ -56,14 +56,6 @@ fn process(
                     &params,
                 )?);
                 new_token_state = Some(TokenState::Pending { state });
-            }
-            Some(TokenState::Pending { state: _ }) => {
-                // FIXME: We might need to renew the request if it's too old.
-                todo!();
-            }
-            Some(TokenState::Active { .. }) => {
-                // FIXME: We might need to renew the request if the token has been revoked.
-                todo!();
             }
             None => {
                 // This account disappeared during a config reload so we just ignore it.

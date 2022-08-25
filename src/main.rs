@@ -45,7 +45,7 @@ fn fatal(msg: &str) -> ! {
 fn usage() -> ! {
     let pn = progname();
     eprintln!(
-        "Usage:\n  {pn:} server [-c <config-path>] [-dv]\n  {pn:} show [-c <config-path>] [-v] <account>"
+        "Usage:\n  {pn:} force [-c <config-path>] [<account> ... <account>]\n  {pn:} server [-c <config-path>] [-dv]\n  {pn:} show [-c <config-path>] [-v] <account>"
     );
     process::exit(1)
 }
@@ -106,6 +106,28 @@ fn main() {
 
     let cache_path = cache_path();
     match args[1].as_str() {
+        "force" => {
+            let matches = opts.parse(&args[2..]).unwrap_or_else(|_| usage());
+            if matches.opt_present("h") {
+                usage();
+            }
+            stderrlog::new()
+                .module(module_path!())
+                .verbosity(matches.opt_count("v"))
+                .init()
+                .unwrap();
+            let conf_path = conf_path(&matches);
+            let conf = Config::from_path(&conf_path).unwrap_or_else(|m| fatal(&m));
+            let accounts = if matches.free.is_empty() {
+                conf.accounts.keys().cloned().collect::<Vec<_>>()
+            } else {
+                matches.free
+            };
+            if let Err(e) = show_token::force(conf, &cache_path, accounts) {
+                error!("{e:}");
+                process::exit(1);
+            }
+        }
         "server" => {
             let matches = opts
                 .optflag("d", "", "Don't detach from the terminal.")
