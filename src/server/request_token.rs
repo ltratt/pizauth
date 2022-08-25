@@ -72,7 +72,7 @@ fn process(
     Ok(())
 }
 
-pub fn user_requests_processor(pstate: Arc<AuthenticatorState>) -> Sender<String> {
+pub fn request_token_processor(pstate: Arc<AuthenticatorState>) -> Sender<String> {
     let (queue_tx, queue_rx) = channel::<String>();
     thread::spawn(move || {
         if let Err(e) = process(pstate, queue_rx) {

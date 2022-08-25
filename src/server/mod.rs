@@ -1,6 +1,6 @@
 mod http_server;
 mod refresher;
-mod user_requests;
+mod request_token;
 
 use std::{
     collections::HashMap,
@@ -137,7 +137,7 @@ pub fn server(conf: Config, cache_path: &Path) -> Result<(), Box<dyn Error>> {
         refresher,
     });
 
-    let user_req_tx = user_requests::user_requests_processor(Arc::clone(&pstate));
+    let user_req_tx = request_token::request_token_processor(Arc::clone(&pstate));
     http_server::http_server(Arc::clone(&pstate), http_state)?;
     refresher::refresher(Arc::clone(&pstate))?;
 
