@@ -23,12 +23,17 @@ log = "0.4"
 lrlex = "0.12"
 lrpar = "0.12"
 nix = "0.25"
+notify-rust = { version = "4", optional = true }
 rand = "0.8"
 stderrlog = "0.5"
 syslog = "6"
 ureq = "2"
 url = "2"
 urlencoding = "2"
+
+[features]
+default = ["frontend_notify-rust"]
+frontend_notify-rust = ["dep:notify-rust"]
 
 [profile.release]
 opt-level = 3

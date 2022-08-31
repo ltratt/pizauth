@@ -1,5 +1,6 @@
 mod config;
 mod config_ast;
+mod frontends;
 mod server;
 mod user_sender;
 

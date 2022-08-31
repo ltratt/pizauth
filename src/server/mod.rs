@@ -1,4 +1,5 @@
 mod http_server;
+mod notifier;
 mod refresher;
 mod request_token;
 mod user_listener;
@@ -16,8 +17,14 @@ use std::{
 };
 
 use log::warn;
+use url::Url;
 
-use crate::{config::Config, PIZAUTH_CACHE_SOCK_LEAF};
+use crate::{
+    config::Config,
+    frontends::{preferred_frontend, Frontend},
+    PIZAUTH_CACHE_SOCK_LEAF,
+};
+use notifier::Notifier;
 use refresher::{update_refresher, Refresher};
 
 /// Length of the OAuth state in bytes.
@@ -32,14 +39,19 @@ pub fn sock_path(cache_path: &Path) -> PathBuf {
 pub struct AuthenticatorState {
     conf_tokens: Mutex<(Config, HashMap<String, TokenState>)>,
     http_port: u16,
+    frontend: Arc<Box<dyn Frontend>>,
+    notifier: Arc<Notifier>,
     refresher: Refresher,
 }
 
+#[derive(Debug)]
 pub enum TokenState {
     Empty,
     /// Pending authentication
     Pending {
+        last_notification: Option<Instant>,
         state: [u8; STATE_LEN],
+        url: Url,
     },
     Active {
         access_token: String,
@@ -96,7 +108,11 @@ fn request(
                     queue_tx.send(act.to_string())?;
                     stream.write_all(b"pending:")?;
                 }
-                Some(TokenState::Pending { state: _ }) => {
+                Some(TokenState::Pending {
+                    last_notification: _,
+                    state: _,
+                    url: _,
+                }) => {
                     drop(ct_lk);
                     stream.write_all(b"pending:")?;
                 }
@@ -132,6 +148,8 @@ pub fn server(conf: Config, cache_path: &Path) -> Result<(), Box<dyn Error>> {
     }
 
     let (http_port, http_state) = http_server::http_server_setup()?;
+    let frontend = Arc::new(preferred_frontend()?);
+    let notifier = Arc::new(Notifier::new()?);
     let refresher = refresher::refresher_setup()?;
 
     let tokens = conf
@@ -142,23 +160,28 @@ pub fn server(conf: Config, cache_path: &Path) -> Result<(), Box<dyn Error>> {
     let pstate = Arc::new(AuthenticatorState {
         conf_tokens: Mutex::new((conf, tokens)),
         http_port,
+        frontend: Arc::clone(&frontend),
+        notifier: Arc::clone(&notifier),
         refresher,
     });
 
     let user_req_tx = request_token::request_token_processor(Arc::clone(&pstate));
     http_server::http_server(Arc::clone(&pstate), http_state)?;
     refresher::refresher(Arc::clone(&pstate))?;
+    notifier.notifier(Arc::clone(&pstate))?;
 
     let listener = UnixListener::bind(sock_path)?;
-    for stream in listener.incoming().flatten() {
-        let pstate = Arc::clone(&pstate);
-        let user_req_tx = Sender::clone(&user_req_tx);
-        thread::spawn(|| {
+    thread::spawn(move || {
+        for stream in listener.incoming().flatten() {
+            let pstate = Arc::clone(&pstate);
+            let user_req_tx = Sender::clone(&user_req_tx);
             if let Err(e) = request(pstate, stream, user_req_tx) {
                 warn!("{e:}");
             }
-        });
-    }
+        }
+    });
+
+    frontend.main_loop()?;
 
     Ok(())
 }

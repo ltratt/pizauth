@@ -2,6 +2,7 @@ use lrpar::Span;
 
 pub enum TopLevel {
     Account(Span, Span, Vec<AccountField>),
+    Renotify(Span),
 }
 
 pub enum AccountField {

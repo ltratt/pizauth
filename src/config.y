@@ -11,6 +11,7 @@ TopLevels -> Result<Vec<TopLevel>, ()>:
 
 TopLevel -> Result<TopLevel, ()>:
     "ACCOUNT" "STRING" "{" AccountFields "}" { Ok(TopLevel::Account(overall_span($1, $5), map_err($2)?, $4?)) }
+  | "RENOTIFY" "=" "TIME" ";" { Ok(TopLevel::Renotify(map_err($3)?)) }
   ;
 
 AccountFields -> Result<Vec<AccountField>, ()>:

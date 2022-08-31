@@ -6,13 +6,18 @@ use url::Url;
 
 use crate::config_ast;
 
-type StorageT = u8;
-
 lrlex_mod!("config.l");
 lrpar_mod!("config.y");
 
+type StorageT = u8;
+
+/// How many seconds do we raise a notification if it only contains authorisations that have been
+/// shown before?
+const RENOTIFY_DEFAULT: u64 = 15 * 60;
+
 pub struct Config {
     pub accounts: HashMap<String, Account>,
+    pub renotify: Duration,
 }
 
 impl Config {
@@ -36,6 +41,7 @@ impl Config {
         }
 
         let mut accounts = HashMap::new();
+        let mut renotify = None;
         match astopt {
             Some(Ok(opts)) => {
                 for opt in opts {
@@ -46,13 +52,30 @@ impl Config {
                                 Account::from_fields(&lexer, overall_span, fields)?,
                             );
                         }
+                        config_ast::TopLevel::Renotify(span) => {
+                            match time_str_to_duration(check_not_assigned_time(
+                                &lexer, "renotify", span, renotify,
+                            )?) {
+                                Ok(t) => renotify = Some(t),
+                                Err(e) => {
+                                    return Err(error_at_span(
+                                        &lexer,
+                                        span,
+                                        &format!("Invalid time: {e:}"),
+                                    ))
+                                }
+                            }
+                        }
                     }
                 }
             }
             _ => unreachable!(),
         }
 
-        Ok(Config { accounts })
+        Ok(Config {
+            accounts,
+            renotify: renotify.unwrap_or_else(|| Duration::from_secs(RENOTIFY_DEFAULT)),
+        })
     }
 }
 

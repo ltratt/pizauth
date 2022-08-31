@@ -22,7 +22,6 @@ fn process(
         // pointless.
         let mut ct_lk = pstate.conf_tokens.lock().unwrap();
         let mut new_token_state = None;
-        let mut url = None;
         match ct_lk.1.get(act_name.as_str()) {
             Some(_) => {
                 // lk.tokens and lk.accounts always contain the same keys so this unwrap() is safe.
@@ -45,7 +44,7 @@ fn process(
                 if let Some(x) = &act.login_hint {
                     params.push(("login_hint", x));
                 }
-                url = Some(Url::parse_with_params(
+                let url = Url::parse_with_params(
                     ct_lk
                         .0
                         .accounts
@@ -54,8 +53,12 @@ fn process(
                         .auth_uri
                         .as_str(),
                     &params,
-                )?);
-                new_token_state = Some(TokenState::Pending { state });
+                )?;
+                new_token_state = Some(TokenState::Pending {
+                    last_notification: None,
+                    url,
+                    state,
+                });
             }
             None => {
                 // This account disappeared during a config reload so we just ignore it.
@@ -63,10 +66,8 @@ fn process(
         }
         if let Some(x) = new_token_state {
             *ct_lk.1.get_mut(act_name.as_str()).unwrap() = x;
-        }
-        drop(ct_lk);
-        if let Some(url) = url {
-            println!("{url:}");
+            drop(ct_lk);
+            pstate.notifier.notify_new(Arc::clone(&pstate));
         }
     }
     Ok(())
