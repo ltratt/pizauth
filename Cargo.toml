@@ -4,6 +4,7 @@ description = "Command-line OAuth2 authentication daemon"
 version = "0.1.0"
 repository = "https://github.com/ltratt/pizauth/"
 authors = ["Laurence Tratt <laurie@tratt.net>"]
+readme = "README.md"
 license = "Apache-2.0 OR MIT"
 categories = ["authentication"]
 keywords = ["oauth", "oauth2", "authentication"]
