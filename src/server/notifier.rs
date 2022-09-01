@@ -6,9 +6,9 @@ use std::{
     time::Instant,
 };
 
-use log::error;
 #[cfg(debug_assertions)]
 use log::debug;
+use log::error;
 
 use super::{AuthenticatorState, Config, TokenState};
 
