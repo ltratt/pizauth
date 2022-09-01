@@ -56,6 +56,28 @@ pub fn refresh(pstate: Arc<AuthenticatorState>, act_name: String) -> Result<(), 
         .into_string()?;
     let parsed = json::parse(&body)?;
 
+    if parsed["error"].as_str().is_some() {
+        // Refreshing failed. Unfortunately there is no standard way of knowing why it failed, so
+        // we take the most pessimistic assumption which is that the refresh token is no longer
+        // valid at all.
+        let mut ct_lk = pstate.conf_tokens.lock().unwrap();
+        if let Some(e) = ct_lk.1.get_mut(&act_name) {
+            // Since we released and regained the lock, the TokenState might have changed in
+            // another thread: if it's changed from what it was above, we don't do anything.
+            match e {
+                TokenState::Active {
+                    refresh_token: Some(x),
+                    ..
+                } if x == &refresh_token => {
+                    info!("Refreshing {act_name:} failed");
+                    *e = TokenState::Empty;
+                }
+                _ => (),
+            }
+        }
+        return Ok(());
+    }
+
     match (
         parsed["access_token"].as_str(),
         parsed["expires_in"].as_u64(),
