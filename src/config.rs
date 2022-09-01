@@ -11,6 +11,11 @@ lrpar_mod!("config.y");
 
 type StorageT = u8;
 
+/// How many seconds before an access token's expiry do we try refreshing it?
+const REFRESH_BEFORE_EXPIRY_DEFAULT: u64 = 60;
+/// How many seconds before we forcibly try refreshing an access token, even if it's not yet
+/// expired?
+const REFRESH_AT_LEAST_DEFAULT: u64 = 90 * 60;
 /// How many seconds do we raise a notification if it only contains authorisations that have been
 /// shown before?
 const RENOTIFY_DEFAULT: u64 = 15 * 60;
@@ -277,8 +282,10 @@ impl Account {
             client_secret,
             login_hint,
             redirect_uri,
-            refresh_before_expiry,
-            refresh_at_least,
+            refresh_before_expiry: refresh_before_expiry
+                .or_else(|| Some(Duration::from_secs(REFRESH_BEFORE_EXPIRY_DEFAULT))),
+            refresh_at_least: refresh_at_least
+                .or_else(|| Some(Duration::from_secs(REFRESH_AT_LEAST_DEFAULT))),
             scopes,
             token_uri,
         })
