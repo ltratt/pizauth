@@ -151,3 +151,26 @@ account "officesmtp" {
     refresh_at_least = 90m;
 }
 ```
+
+
+## Command-line interface
+
+pizauth's usage is:
+
+```
+pizauth refresh [-c <config-path>] [<account> ... <account>]
+pizauth reload [-c <config-path>]
+pizauth server [-c <config-path>] [-dv]
+pizauth show [-c <config-path>] [-v] <account>
+```
+
+Where:
+
+* `pizauth refresh` tries to obtain a new access token for an account. If an
+  access token already exists, a refresh is tried; if an access token doesn't
+  exist, a new request is made.
+* `pizauth reload` causes the server to reload its configuration (this is
+  a safe equivalent of the traditional `SIGHUP` mechanism).
+* `pizauth server` starts a new instance of the server.
+* `pizauth show` displays an access token, if one exists, for `account`. If an
+  access token does not exist, a new request is initiated.
