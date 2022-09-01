@@ -3,78 +3,74 @@
 pizauth is a simple program for obtaining, handing out, and refreshing OAuth2
 tokens. It can be used by programs such as [fdm](https://github.com/nicm/fdm)
 and [msmtp](https://marlam.de/msmtp/) to obtain OAuth2 tokens. pizauth is
-formed of two components: a persistent "server" which requests tokens and
-interacts with the user when necessary; a command-line interface which can used
-by programs such as fdm and msmtp to show the OAuth2 token for a current
-account.
+formed of two components: a persistent "server" which interacts with the
+user to obtain tokens, and refreshes them as necessary; and a command-line
+interface which can be used by programs such as fdm and msmtp to show the
+OAuth2 token for a current account.
 
 ## Quick setup
 
 pizauth's configuration file is `~/.config/pizauth.conf`. You need to specify
 at least one `account`, which tells pizauth how to authenticate against a
-particular OAuth2 setup. Unfortunately it can be rather tedious to work out
-exactly what you need. At a minimum you need to find out from your provider:
+particular OAuth2 setup. At a minimum you need to find out from your provider:
 
   * The authorization URI.
   * The token URI.
   * Your "Client ID" and "Client secret", which identify your software.
-  * The scope(s) which your OAuth2 token will give you access to.
+  * The scope(s) which your OAuth2 token will give you access to. For
+    pizauth to be able to refresh tokens, you may need to add an explicit
+    `offline_access` scope.
   * The redirect URI (you must copy this *exactly*, including trailing
-    slash `/` characters).
+    slash `/` characters). If in doubt, `http://localhost/` is a common
+    choice.
 
 Unfortunately, it can be surprisingly hard to find these values out for your
 provider. One option is to inspect the values in open-source clients such as
 [Thunderbird](https://searchfox.org/comm-central/rev/234e91aa01d199c6b51183aa03328d556342acc8/mailnews/base/src/OAuth2Providers.jsm#126-135)
-for inspiration.
+to understand what you should be looking for.
 
 Some providers allow you to create Client IDs and Client Secrets at will (e.g.
 [Google](https://console.developers.google.com/projectselector/apis/credentials)).
-Some providers sometimes allow you to create Client IDs and Client Secrets but
-allow organisations to turn off this functionality (e.g. [Microsoft
-Azure](https://docs.microsoft.com/en-us/azure/active-directory/develop/quickstart-register-app).
+Some providers sometimes allow you to create Client IDs and Client Secrets
+(e.g. [Microsoft
+Azure](https://docs.microsoft.com/en-us/azure/active-directory/develop/quickstart-register-app)
+but allow organisations to turn off this functionality.
 
 For example, to create an account called `officesmtp` which obtains OAuth2
-tokens which allow you to send email via Office365's SMTP servers, 
+tokens which allow you to read email via IMAP and send email via Office365's
+servers:
 
 ```
 account "officesmtp" {
-    // Mandatory fields
     auth_uri = "https://login.microsoftonline.com/common/oauth2/v2.0/authorize";
     token_uri = "https://login.microsoftonline.com/common/oauth2/v2.0/token";
     client_id = "..."; // Fill in with your Client ID
     client_secret = "..."; // Fill in with your Client secret
-    scopes = ["https://outlook.office365.com/SMTP.Send", "offline_access"];
+    scopes = [
+      "https://outlook.office365.com/IMAP.AccessAsUser.All",
+      "https://outlook.office365.com/SMTP.Send",
+      "offline_access"
+    ];
     redirect_uri = "http://localhost/";
-    // Optional fields
+    // You don't have to specify login_hint, but it does make authentication a
+    // little easier.
     login_hint = "email@example.com";
-    refresh_before_expiry = 1m;
-    refresh_at_least = 90m;
 }
 ```
 
-Note that Azure requires a non-standards `offline_access` scope to be added so
-that pizauth can refresh OAuth tokens.
-
-`login_hint` can make the verification of your OAuth2 token easier.
-`refresh_before_expiry` causes pizauth to attempt to refresh tokens 1 minute
-before they are due to expire, so that pizauth can generally give the illusion
-of permanently available tokens. `refresh_at_least` causes pizauth to try
-refreshing a token at least every 90 minutes so that if a token is no longer
-valid, pizauth can notify the user.
-
-You then need to run the pizauth server:
+You need to run the pizauth server:
 
 ```sh
 $ pizauth server
 ```
 
-and then configure your program to request OAuth2 tokens with:
+and configure your program to request OAuth2 tokens with:
 
 ```
 pizauth show officesmtp
 ```
 
-The first time that `show smtp` is executed, pizauth will show a notification
+The first time that `show officesmtp` is executed, pizauth will show a notification
 to the user including a URL. That URL needs to be opened in a browser, and the
 authentication process completed. When authentication is complete, you will see
 the message "pizauth successfully received authentication code" in your
@@ -85,7 +81,73 @@ Note that:
 
   1. `pizauth show` does not block: if a token is not available it will fail;
      once a token is available it will succeed.
-  2. `pizauth show` can print out OAuth2 tokens which are no longer valid. If
-     you have set (as is recommended) `refresh_at_least` then pizauth will
-     notice the token's lack of validity, and require the user to authenticate
-     to give pizauth a new token.
+  2. `pizauth show` can print out OAuth2 tokens which are no longer valid.
+     By default, pizauth will continually refresh your token, but it may eventually
+     become invalid. There will be a delay between the token becoming invalid
+     and pizauth realising that has happened and notifying you to request a
+     new token.
+
+
+## Frontend
+
+pizauth currently only supports a frontend based on
+[notify-rust](https://crates.io/crates/notify-rust) which shows notifications
+in your desktop. When a token is first requested (or because the previous token
+became invalid) a notification is shown to the user with a URL which needs to
+be used in a web browser. The user will be periodically reminded of any
+incomplete notifications, controlled by the global `renotify = <time>;` setting
+which defaults to `15m` (15 minutes).
+
+`<time>` is an integer followed by one of:
+
+| Suffix | Value   |
+|--------|---------|
+| `s`    | seconds |
+| `m`    | minutes |
+| `h`    | hours   |
+| `d`    | days    |
+
+You can change the renotification value in `pizauth.conf`:
+
+```
+renotify = 120s;
+
+account "officesmtp" {
+  ...
+}
+```
+
+
+## Token refresh
+
+OAuth2 "tokens" are actually two separate things: an "access token" which
+allows you to utilise a resource (e.g. to read/send email); and a "refresh
+token" which allows you to request new access tokens. `pizauth show` prints
+access tokens; pizauth stores refresh tokens internally but never displays
+them. Access tokens typically have a short lifetime (e.g. 1 hour) while refresh
+tokens have a long lifetime (e.g. 1 week or more). By default, pizauth uses
+refresh tokens to preemptively update access tokens, giving users the illusion
+of continuously usable access tokens.
+
+Each `account` has two settings relating to token refresh:
+
+  * `refresh_before_expiry = <time>;` tells pizauth to refresh an access token
+    a unit of time before it is due to expire. The default is `60s` (60
+    seconds).
+  * `refresh_at_least = <time>;` tells pizauth to refresh an access token a
+    unit of time after it was obtained, even if the access token is not due to
+    expire. The default is `90m` (90 minutes).
+
+`refresh_at_least` is a backstop which guarantees that pizauth will notice that
+an access and refresh token are no longer valid in a sensible period of time.
+
+
+You can set these values explicitly as follows:
+
+```
+account "officesmtp" {
+    // As earlier
+    refresh_before_expiry = 1m;
+    refresh_at_least = 90m;
+}
+```
