@@ -46,7 +46,7 @@ fn fatal(msg: &str) -> ! {
 fn usage() -> ! {
     let pn = progname();
     eprintln!(
-        "Usage:\n  {pn:} force [-c <config-path>] [<account> ... <account>]\n  {pn:} reload [-c <config-path>]\n  {pn:} server [-c <config-path>] [-dv]\n  {pn:} show [-c <config-path>] [-v] <account>"
+        "Usage:\n  {pn:} refresh [-c <config-path>] [<account> ... <account>]\n  {pn:} reload [-c <config-path>]\n  {pn:} server [-c <config-path>] [-dv]\n  {pn:} show [-c <config-path>] [-v] <account>"
     );
     process::exit(1)
 }
@@ -107,7 +107,7 @@ fn main() {
 
     let cache_path = cache_path();
     match args[1].as_str() {
-        "force" => {
+        "refresh" => {
             let matches = opts.parse(&args[2..]).unwrap_or_else(|_| usage());
             if matches.opt_present("h") {
                 usage();
@@ -124,7 +124,7 @@ fn main() {
             } else {
                 matches.free
             };
-            if let Err(e) = user_sender::force(conf, &cache_path, accounts) {
+            if let Err(e) = user_sender::refresh(conf, &cache_path, accounts) {
                 error!("{e:}");
                 process::exit(1);
             }

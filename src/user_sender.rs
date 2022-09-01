@@ -8,7 +8,7 @@ use std::{
 
 use crate::{config::Config, server::sock_path};
 
-pub fn force(
+pub fn refresh(
     _conf: Config,
     cache_path: &Path,
     accounts: Vec<String>,
@@ -18,7 +18,7 @@ pub fn force(
         let mut stream = UnixStream::connect(&sock_path)
             .map_err(|_| "pizauth authenticator not running or not responding")?;
         stream
-            .write_all(format!("force {act:}").as_bytes())
+            .write_all(format!("refresh {act:}").as_bytes())
             .map_err(|_| "Socket not writeable")?;
         stream.shutdown(Shutdown::Write)?;
 

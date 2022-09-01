@@ -77,7 +77,7 @@ fn request(
             }
             Ok(())
         }
-        ["force", act] => {
+        ["refresh", act] => {
             let ct_lk = pstate.conf_tokens.lock().unwrap();
             match ct_lk.1.get(act.to_owned()) {
                 Some(TokenState::Empty) | Some(TokenState::Pending { .. }) => {
