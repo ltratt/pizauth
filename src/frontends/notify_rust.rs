@@ -62,7 +62,7 @@ impl Frontend for NotifyRust {
             }
             _ => to_notify
                 .iter()
-                .map(|(act_name, url)| format!("<a href=\"{}\">{}</a>", url.to_string(), act_name))
+                .map(|(act_name, url)| format!("<a href=\"{}\">{}</a>", url, act_name))
                 .collect::<Vec<_>>()
                 .join("<br>"),
         };

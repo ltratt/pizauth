@@ -160,8 +160,8 @@ pub fn refresher(pstate: Arc<AuthenticatorState>) -> Result<(), Box<dyn Error>> 
                     .map(|x| x
                         .checked_duration_since(Instant::now())
                         .map(|x| x.as_secs().to_string())
-                        .unwrap_or("<none>".to_owned()))
-                    .unwrap_or("<none>".to_owned())
+                        .unwrap_or_else(|| "<none>".to_owned()))
+                    .unwrap_or_else(|| "<none>".to_owned())
             );
             match next_wakeup {
                 Some(t) => {

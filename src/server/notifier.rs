@@ -40,8 +40,8 @@ impl Notifier {
                         .map(|x| x
                             .checked_duration_since(Instant::now())
                             .map(|x| x.as_secs().to_string())
-                            .unwrap_or("<none>".to_owned()))
-                        .unwrap_or("<none>".to_owned())
+                            .unwrap_or_else(|| "<none>".to_owned()))
+                        .unwrap_or_else(|| "<none>".to_owned())
                 );
                 match next_wakeup {
                     Some(t) => {
@@ -66,23 +66,21 @@ impl Notifier {
             let now = Instant::now();
             let renotify = ct_lk.0.renotify; // Pulled out to avoid borrow checker problems.
             for (name, state) in ct_lk.1.iter_mut() {
-                match state {
-                    TokenState::Pending {
-                        ref mut last_notification,
-                        state: _,
-                        url,
-                    } => {
-                        if let Some(t) = last_notification {
-                            if let Some(t) = t.checked_add(renotify) {
-                                if t > now {
-                                    continue;
-                                }
+                if let TokenState::Pending {
+                    ref mut last_notification,
+                    state: _,
+                    url,
+                } = state
+                {
+                    if let Some(t) = last_notification {
+                        if let Some(t) = t.checked_add(renotify) {
+                            if t > now {
+                                continue;
                             }
                         }
-                        *last_notification = Some(now);
-                        to_notify.push((name.clone(), url.clone()));
                     }
-                    _ => (),
+                    *last_notification = Some(now);
+                    to_notify.push((name.clone(), url.clone()));
                 }
             }
             drop(ct_lk);

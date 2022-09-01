@@ -163,7 +163,7 @@ fn parse_get(stream: &mut TcpStream) -> Result<Url, Box<dyn Error>> {
         if line.as_str().trim().is_empty() {
             break;
         }
-        match line.chars().nth(0) {
+        match line.chars().next() {
             Some(' ') | Some('\t') => {
                 // Continuation of previous header
                 match req.last_mut() {
