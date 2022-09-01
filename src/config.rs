@@ -77,6 +77,10 @@ impl Config {
             _ => unreachable!(),
         }
 
+        if accounts.is_empty() {
+            return Err("Must specify at least one account".into());
+        }
+
         Ok(Config {
             accounts,
             renotify: renotify.unwrap_or_else(|| Duration::from_secs(RENOTIFY_DEFAULT)),
@@ -404,5 +408,13 @@ mod test {
         );
 
         assert!(time_str_to_duration("9223372036854775808m").is_err());
+    }
+
+    #[test]
+    fn at_least_one_account() {
+        assert_eq!(
+            Config::from_str(""),
+            Err("Must specify at least one account".into())
+        );
     }
 }
