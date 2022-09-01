@@ -97,6 +97,22 @@ fn request(pstate: Arc<AuthenticatorState>, mut stream: TcpStream) -> Result<(),
         .into_string()?;
     let parsed = json::parse(&body)?;
 
+    if parsed["error"].as_str().is_some() {
+        // Obtaining a token failed. We could just try with the same authentication data again, but
+        // we can't know for sure if the other server might have cached something (e.g. the request
+        // state) which will cause it to fail. The safest thing is thus to force an entirely new
+        // authentication request to be generated next time.
+        let mut ct_lk = pstate.conf_tokens.lock().unwrap();
+        if let Some(e) = ct_lk.1.get_mut(&act_name) {
+            // Since we released and regained the lock, the TokenState might have changed in
+            // another thread: if it's changed from what it was above, we don't do anything.
+            if matches!(*e, TokenState::Pending { state: s, .. } if s == state.as_slice()) {
+                *e = TokenState::Empty;
+            }
+        }
+        return Err("Failed to obtain token for {act_name:}".into());
+    }
+
     match (
         parsed["token_type"].as_str(),
         parsed["expires_in"].as_u64(),
