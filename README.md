@@ -162,6 +162,7 @@ pizauth refresh [-c <config-path>] [<account> ... <account>]
 pizauth reload [-c <config-path>]
 pizauth server [-c <config-path>] [-dv]
 pizauth show [-c <config-path>] [-v] <account>
+pizauth shutdown
 ```
 
 Where:
@@ -174,3 +175,4 @@ Where:
 * `pizauth server` starts a new instance of the server.
 * `pizauth show` displays an access token, if one exists, for `account`. If an
   access token does not exist, a new request is initiated.
+* `pizauth shutdown` asks the server to shut itself down.

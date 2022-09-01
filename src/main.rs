@@ -46,7 +46,7 @@ fn fatal(msg: &str) -> ! {
 fn usage() -> ! {
     let pn = progname();
     eprintln!(
-        "Usage:\n  {pn:} refresh [-c <config-path>] [<account> ... <account>]\n  {pn:} reload [-c <config-path>]\n  {pn:} server [-c <config-path>] [-dv]\n  {pn:} show [-c <config-path>] [-v] <account>"
+        "Usage:\n  {pn:} refresh [-c <config-path>] [<account> ... <account>]\n  {pn:} reload [-c <config-path>]\n  {pn:} server [-c <config-path>] [-dv]\n  {pn:} show [-c <config-path>] [-v] <account>\n  {pn:} shutdown"
     );
     process::exit(1)
 }
@@ -204,6 +204,23 @@ fn main() {
             let conf_path = conf_path(&matches);
             let conf = Config::from_path(&conf_path).unwrap_or_else(|m| fatal(&m));
             if let Err(e) = show_token(conf, cache_path.as_path(), account) {
+                error!("{e:}");
+                process::exit(1);
+            }
+        }
+        "shutdown" => {
+            let matches = opts.parse(&args[2..]).unwrap_or_else(|_| usage());
+            if matches.opt_present("h") || !matches.free.is_empty() {
+                usage();
+            }
+            stderrlog::new()
+                .module(module_path!())
+                .verbosity(matches.opt_count("v"))
+                .init()
+                .unwrap();
+            let conf_path = conf_path(&matches);
+            let conf = Config::from_path(&conf_path).unwrap_or_else(|m| fatal(&m));
+            if let Err(e) = user_sender::shutdown(conf, conf_path, &cache_path) {
                 error!("{e:}");
                 process::exit(1);
             }

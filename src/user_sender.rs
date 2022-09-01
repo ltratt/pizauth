@@ -81,3 +81,17 @@ pub fn show_token(_conf: Config, cache_path: &Path, account: &str) -> Result<(),
         _ => Err(format!("Malformed response '{rtn:}'").into()),
     }
 }
+
+pub fn shutdown(
+    _conf: Config,
+    _conf_path: PathBuf,
+    cache_path: &Path,
+) -> Result<(), Box<dyn Error>> {
+    let sock_path = sock_path(cache_path);
+    let mut stream = UnixStream::connect(&sock_path)
+        .map_err(|_| "pizauth authenticator not running or not responding")?;
+    stream
+        .write_all(b"shutdown")
+        .map_err(|_| "Socket not writeable")?;
+    Ok(())
+}

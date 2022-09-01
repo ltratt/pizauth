@@ -17,6 +17,7 @@ use std::{
 };
 
 use log::warn;
+use nix::sys::signal::{raise, Signal};
 use url::Url;
 
 use crate::{
@@ -131,6 +132,10 @@ fn request(
                     stream.write_all(format!("error:No account '{act:}'").as_bytes())?;
                 }
             }
+            Ok(())
+        }
+        ["shutdown"] => {
+            raise(Signal::SIGTERM).ok();
             Ok(())
         }
         _ => Err(format!("Invalid cmd '{cmd:}'").into()),
