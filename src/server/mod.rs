@@ -2,10 +2,10 @@ mod http_server;
 mod notifier;
 mod refresher;
 mod request_token;
+mod state;
 mod user_listener;
 
 use std::{
-    collections::HashMap,
     error::Error,
     fs,
     io::{Read, Write},
@@ -13,20 +13,15 @@ use std::{
     path::{Path, PathBuf},
     sync::{mpsc::Sender, Arc, Mutex},
     thread,
-    time::Instant,
 };
 
 use log::warn;
 use nix::sys::signal::{raise, Signal};
-use url::Url;
 
-use crate::{
-    config::Config,
-    frontends::{preferred_frontend, Frontend},
-    PIZAUTH_CACHE_SOCK_LEAF,
-};
+use crate::{config::Config, frontends::preferred_frontend, PIZAUTH_CACHE_SOCK_LEAF};
 use notifier::Notifier;
-use refresher::{update_refresher, Refresher};
+use refresher::update_refresher;
+use state::{AuthenticatorState, TokenState};
 
 /// Length of the OAuth state in bytes.
 const STATE_LEN: usize = 8;
@@ -35,31 +30,6 @@ pub fn sock_path(cache_path: &Path) -> PathBuf {
     let mut p = cache_path.to_owned();
     p.push(PIZAUTH_CACHE_SOCK_LEAF);
     p
-}
-
-pub struct AuthenticatorState {
-    conf_tokens: Mutex<(Config, HashMap<String, TokenState>)>,
-    http_port: u16,
-    frontend: Arc<Box<dyn Frontend>>,
-    notifier: Arc<Notifier>,
-    refresher: Refresher,
-}
-
-#[derive(Debug)]
-pub enum TokenState {
-    Empty,
-    /// Pending authentication
-    Pending {
-        last_notification: Option<Instant>,
-        state: [u8; STATE_LEN],
-        url: Url,
-    },
-    Active {
-        access_token: String,
-        refreshed_at: Instant,
-        expiry: Instant,
-        refresh_token: Option<String>,
-    },
 }
 
 fn request(
