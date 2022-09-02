@@ -20,6 +20,7 @@ const REFRESH_AT_LEAST_DEFAULT: u64 = 90 * 60;
 /// shown before?
 const RENOTIFY_DEFAULT: u64 = 15 * 60;
 
+#[derive(Debug, PartialEq)]
 pub struct Config {
     pub accounts: HashMap<String, Account>,
     pub renotify: Duration,
@@ -33,7 +34,10 @@ impl Config {
             Ok(s) => s,
             Err(e) => return Err(format!("Can't read {:?}: {}", conf_path, e)),
         };
+        Config::from_str(&input)
+    }
 
+    fn from_str(input: &str) -> Result<Self, String> {
         let lexerdef = config_l::lexerdef();
         let lexer = lexerdef.lexer(&input);
         let (astopt, errs) = config_y::parse(&lexer);
@@ -158,6 +162,7 @@ fn check_assigned<T>(
     }
 }
 
+#[derive(Debug, PartialEq)]
 pub struct Account {
     pub auth_uri: String,
     pub client_id: String,
@@ -411,10 +416,146 @@ mod test {
     }
 
     #[test]
+    fn valid_config() {
+        let c = Config::from_str(
+            r#"
+            renotify = 88m;
+            account "x" {
+                // Mandatory fields
+                auth_uri = "http://a.com";
+                client_id = "b";
+                client_secret = "c";
+                scopes = ["d", "e"];
+                redirect_uri = "http://f.com";
+                token_uri = "http://g.com";
+                // Optional fields
+                login_hint = "h";
+                refresh_before_expiry = 42s;
+                refresh_at_least = 43m;
+            }
+        "#,
+        )
+        .unwrap();
+        assert_eq!(c.renotify, Duration::from_secs(88 * 60));
+
+        let act = &c.accounts["x"];
+        assert_eq!(act.auth_uri, "http://a.com");
+        assert_eq!(act.client_id, "b");
+        assert_eq!(act.client_secret, "c");
+        assert_eq!(&act.scopes, &["d".to_owned(), "e".to_owned()]);
+        assert_eq!(act.redirect_uri, "http://f.com");
+        assert_eq!(act.token_uri, "http://g.com");
+        assert_eq!(act.login_hint, Some("h".to_owned()));
+        assert_eq!(act.refresh_before_expiry, Some(Duration::from_secs(42)));
+        assert_eq!(act.refresh_at_least, Some(Duration::from_secs(43 * 60)));
+    }
+
+    #[test]
     fn at_least_one_account() {
         assert_eq!(
             Config::from_str(""),
             Err("Must specify at least one account".into())
         );
+    }
+
+    #[test]
+    fn invalid_time() {
+        match Config::from_str("renotify = 18446744073709551616s;") {
+            Err(s) if s.contains("Invalid time: number too large") => (),
+            _ => panic!(),
+        }
+    }
+
+    #[test]
+    fn dup_fields() {
+        match Config::from_str("renotify = 1s; renotify = 2s;") {
+            Err(s) if s.contains("Mustn't specify 'renotify' more than once") => (),
+            _ => panic!(),
+        }
+
+        fn account_dup(field: &str, values: &[&str]) {
+            let c = format!(
+                "account \"x\" {{ {} }}",
+                values
+                    .iter()
+                    .map(|v| format!("{field:} = {v:};"))
+                    .collect::<Vec<_>>()
+                    .join(" ")
+            );
+            match Config::from_str(&c) {
+                Err(s) if s.contains(&format!("Mustn't specify '{field:}' more than once")) => (),
+                Err(e) => panic!("{e:}"),
+                _ => panic!(),
+            }
+        }
+
+        account_dup("auth_uri", &[r#""http://a.com/""#, r#""http://b.com/""#]);
+        account_dup("client_id", &[r#""a""#, r#""b""#]);
+        account_dup("client_secret", &[r#""a""#, r#""b""#]);
+        account_dup("login_hint", &[r#""a""#, r#""b""#]);
+        account_dup(
+            "redirect_uri",
+            &[r#""http://a.com/""#, r#""http://b.com/""#],
+        );
+        account_dup("refresh_before_expiry", &["1m", "2m"]);
+        account_dup("refresh_at_least", &["1m", "2m"]);
+        account_dup("scopes", &[r#"["a"]"#, r#"["b"]"#]);
+        account_dup("token_uri", &[r#""http://a.com/""#, r#""http://b.com/""#]);
+    }
+
+    #[test]
+    fn at_least_one_scope() {
+        match Config::from_str(r#"account "x" { scopes = []; }"#) {
+            Err(e) if e.contains("Must specify at least one scope") => (),
+            Err(e) => panic!("{e:}"),
+            _ => panic!(),
+        }
+    }
+
+    #[test]
+    fn invalid_uris() {
+        fn invalid_uri(field: &str) {
+            let c = format!(r#"account "x" {{ {field} = "blah"; }}"#);
+            match Config::from_str(&c) {
+                Err(e) if e.contains("Invalid URI") => (),
+                Err(e) => panic!("{e:}"),
+                _ => panic!(),
+            }
+        }
+
+        invalid_uri("auth_uri");
+        invalid_uri("redirect_uri");
+        invalid_uri("token_uri");
+    }
+
+    #[test]
+    fn mandatory_account_fields() {
+        let fields = &[
+            ("auth_uri", r#""http://a.com/""#),
+            ("client_id", r#""a""#),
+            ("client_secret", r#""b""#),
+            ("scopes", r#"["a"]"#),
+            ("redirect_uri", r#""http://b.com/""#),
+            ("token_uri", r#""http://b.com/""#),
+        ];
+
+        fn combine(fields: &[(&str, &str)]) -> String {
+            fields
+                .iter()
+                .map(|(k, v)| format!("{k:} = {v:};"))
+                .collect::<Vec<_>>()
+                .join("\n")
+        }
+
+        assert!(Config::from_str(&format!(r#"account "a" {{ {} }}"#, combine(fields))).is_ok());
+        for i in 0..fields.len() {
+            let mut f = fields.to_vec();
+            f.remove(i);
+            match Config::from_str(&format!(r#"account "a" {{ {} }}"#, combine(&f))) {
+                Err(e) if e.contains("not specified") => (),
+                Err(e) => panic!("{e:}"),
+                _ => panic!(),
+            }
+        }
     }
 }
