@@ -34,8 +34,41 @@ impl AuthenticatorState {
         }
     }
 
-    pub fn ct_lock(&self) -> MutexGuard<(Config, HashMap<String, TokenState>)> {
-        self.conf_tokens.lock().unwrap()
+    /// Lock the config and tokens and return a guard.
+    ///
+    /// # Panics
+    ///
+    /// If another thread poisoned the underlying lock, this function will panic. There is little
+    /// to be done in such a case, as it is likely that pizauth is in an inconsistent, and
+    /// irretrievable, state.
+    pub fn ct_lock(&self) -> CTGuard {
+        CTGuard {
+            guard: self.conf_tokens.lock().unwrap(),
+        }
+    }
+}
+
+/// A lock guard around the [Config] and tokens. When this guard is dropped, the lock will be
+/// released.
+pub struct CTGuard<'a> {
+    guard: MutexGuard<'a, (Config, HashMap<String, TokenState>)>,
+}
+
+impl<'a> CTGuard<'a> {
+    pub fn config(&self) -> &Config {
+        &self.guard.0
+    }
+
+    pub fn tokens(&self) -> &HashMap<String, TokenState> {
+        &self.guard.1
+    }
+
+    pub fn tokens_mut(&mut self) -> &mut HashMap<String, TokenState> {
+        &mut self.guard.1
+    }
+
+    pub fn update(&mut self, conf_tokens: (Config, HashMap<String, TokenState>)) {
+        *self.guard = conf_tokens;
     }
 }
 

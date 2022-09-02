@@ -9,8 +9,13 @@ pub fn reload_conf(pstate: Arc<AuthenticatorState>, conf_path: &str) -> Result<(
     let new_tokens = new_conf
         .accounts
         .iter()
-        .map(|(k, _)| (k.to_owned(), ct_lk.1.remove(k).unwrap_or(TokenState::Empty)))
+        .map(|(k, _)| {
+            (
+                k.to_owned(),
+                ct_lk.tokens_mut().remove(k).unwrap_or(TokenState::Empty),
+            )
+        })
         .collect::<HashMap<_, _>>();
-    *ct_lk = (new_conf, new_tokens);
+    ct_lk.update((new_conf, new_tokens));
     Ok(())
 }

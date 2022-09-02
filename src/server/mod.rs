@@ -21,7 +21,7 @@ use nix::sys::signal::{raise, Signal};
 use crate::{config::Config, frontends::preferred_frontend, PIZAUTH_CACHE_SOCK_LEAF};
 use notifier::Notifier;
 use refresher::update_refresher;
-use state::{AuthenticatorState, TokenState};
+use state::{AuthenticatorState, CTGuard, TokenState};
 
 /// Length of the OAuth state in bytes.
 const STATE_LEN: usize = 8;
@@ -50,7 +50,7 @@ fn request(
         }
         ["refresh", act] => {
             let ct_lk = pstate.ct_lock();
-            match ct_lk.1.get(act.to_owned()) {
+            match ct_lk.tokens().get(act.to_owned()) {
                 Some(TokenState::Empty) | Some(TokenState::Pending { .. }) => {
                     drop(ct_lk);
                     queue_tx.send(act.to_string())?;
@@ -73,7 +73,7 @@ fn request(
             // If unwrap()ing the lock fails, we're in such deep trouble that trying to carry on is
             // pointless.
             let ct_lk = pstate.ct_lock();
-            match ct_lk.1.get(act.to_owned()) {
+            match ct_lk.tokens().get(act.to_owned()) {
                 Some(TokenState::Empty) => {
                     drop(ct_lk);
                     queue_tx.send(act.to_string())?;

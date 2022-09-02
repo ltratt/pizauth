@@ -43,7 +43,7 @@ fn request(pstate: Arc<AuthenticatorState>, mut stream: TcpStream) -> Result<(),
     let state = urlencoding::decode_binary(state.as_bytes()).into_owned();
     let ct_lk = pstate.ct_lock();
     let act_name =
-        match ct_lk.1.iter().find(
+        match ct_lk.tokens().iter().find(
             |(_, v)| matches!(*v, &TokenState::Pending { state: s, .. } if s == state.as_slice()),
         ) {
             Some((k, _)) => k.to_owned(),
@@ -57,7 +57,7 @@ fn request(pstate: Arc<AuthenticatorState>, mut stream: TcpStream) -> Result<(),
             }
         };
 
-    let act = match ct_lk.0.accounts.get(&act_name) {
+    let act = match ct_lk.config().accounts.get(&act_name) {
         Some(x) => x,
         None => {
             // Account has been deleted on config reload.
@@ -103,7 +103,7 @@ fn request(pstate: Arc<AuthenticatorState>, mut stream: TcpStream) -> Result<(),
         // state) which will cause it to fail. The safest thing is thus to force an entirely new
         // authentication request to be generated next time.
         let mut ct_lk = pstate.ct_lock();
-        if let Some(e) = ct_lk.1.get_mut(&act_name) {
+        if let Some(e) = ct_lk.tokens_mut().get_mut(&act_name) {
             // Since we released and regained the lock, the TokenState might have changed in
             // another thread: if it's changed from what it was above, we don't do anything.
             if matches!(*e, TokenState::Pending { state: s, .. } if s == state.as_slice()) {
@@ -131,7 +131,7 @@ fn request(pstate: Arc<AuthenticatorState>, mut stream: TcpStream) -> Result<(),
                 }
             };
             let mut ct_lk = pstate.ct_lock();
-            if let Some(e) = ct_lk.1.get_mut(&act_name) {
+            if let Some(e) = ct_lk.tokens_mut().get_mut(&act_name) {
                 info!(
                     "New token for {act_name:} (token valid for {} seconds)",
                     expires_in

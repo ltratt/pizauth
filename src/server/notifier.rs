@@ -1,7 +1,6 @@
 use std::{
-    collections::HashMap,
     error::Error,
-    sync::{Arc, Condvar, Mutex, MutexGuard},
+    sync::{Arc, Condvar, Mutex},
     thread,
     time::Instant,
 };
@@ -10,7 +9,7 @@ use std::{
 use log::debug;
 use log::error;
 
-use super::{AuthenticatorState, Config, TokenState};
+use super::{AuthenticatorState, CTGuard, TokenState};
 
 pub struct Notifier {
     pred: Mutex<bool>,
@@ -64,8 +63,8 @@ impl Notifier {
             let mut to_notify = Vec::new();
             let mut ct_lk = pstate.ct_lock();
             let now = Instant::now();
-            let renotify = ct_lk.0.renotify; // Pulled out to avoid borrow checker problems.
-            for (name, state) in ct_lk.1.iter_mut() {
+            let renotify = ct_lk.config().renotify; // Pulled out to avoid borrow checker problems.
+            for (name, state) in ct_lk.tokens_mut().iter_mut() {
                 if let TokenState::Pending {
                     ref mut last_notification,
                     state: _,
@@ -106,7 +105,7 @@ impl Notifier {
     fn next_wakeup(self: Arc<Self>, pstate: &AuthenticatorState) -> Option<Instant> {
         let ct_lk = pstate.ct_lock();
         ct_lk
-            .1
+            .tokens()
             .keys()
             .filter_map(|act_name| notify_at(pstate, &ct_lk, act_name))
             .min()
@@ -119,13 +118,9 @@ impl Notifier {
 /// # Panics
 ///
 /// If `act_name` does not exist.
-fn notify_at(
-    _pstate: &AuthenticatorState,
-    ct_lk: &MutexGuard<(Config, HashMap<String, TokenState>)>,
-    act_name: &str,
-) -> Option<Instant> {
-    debug_assert!(ct_lk.1.contains_key(act_name));
-    match ct_lk.1[act_name] {
+fn notify_at(_pstate: &AuthenticatorState, ct_lk: &CTGuard, act_name: &str) -> Option<Instant> {
+    debug_assert!(ct_lk.tokens().contains_key(act_name));
+    match ct_lk.tokens()[act_name] {
         TokenState::Pending {
             last_notification, ..
         } => {
@@ -134,7 +129,7 @@ fn notify_at(
                 Some(t) => {
                     // There is no concept of Instant::MAX, so if `refreshed_at + d` exceeds
                     // Instant's bounds, there's nothing we can fall back on.
-                    t.checked_add(ct_lk.0.renotify)
+                    t.checked_add(ct_lk.config().renotify)
                 }
             }
         }
