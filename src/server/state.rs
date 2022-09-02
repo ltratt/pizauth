@@ -1,6 +1,6 @@
 use std::{
     collections::HashMap,
-    sync::{Arc, Mutex},
+    sync::{Arc, Mutex, MutexGuard},
     time::Instant,
 };
 
@@ -10,11 +10,33 @@ use super::{notifier::Notifier, refresher::Refresher, STATE_LEN};
 use crate::{config::Config, frontends::Frontend};
 
 pub struct AuthenticatorState {
-    pub conf_tokens: Mutex<(Config, HashMap<String, TokenState>)>,
+    conf_tokens: Mutex<(Config, HashMap<String, TokenState>)>,
     pub http_port: u16,
     pub frontend: Arc<Box<dyn Frontend>>,
     pub notifier: Arc<Notifier>,
     pub refresher: Refresher,
+}
+
+impl AuthenticatorState {
+    pub fn new(
+        conf_tokens: (Config, HashMap<String, TokenState>),
+        http_port: u16,
+        frontend: Arc<Box<dyn Frontend>>,
+        notifier: Arc<Notifier>,
+        refresher: Refresher,
+    ) -> Self {
+        AuthenticatorState {
+            conf_tokens: Mutex::new(conf_tokens),
+            http_port,
+            frontend,
+            notifier,
+            refresher,
+        }
+    }
+
+    pub fn ct_lock(&self) -> MutexGuard<(Config, HashMap<String, TokenState>)> {
+        self.conf_tokens.lock().unwrap()
+    }
 }
 
 #[derive(Debug)]

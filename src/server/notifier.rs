@@ -62,7 +62,7 @@ impl Notifier {
             drop(notify_lk);
 
             let mut to_notify = Vec::new();
-            let mut ct_lk = pstate.conf_tokens.lock().unwrap();
+            let mut ct_lk = pstate.ct_lock();
             let now = Instant::now();
             let renotify = ct_lk.0.renotify; // Pulled out to avoid borrow checker problems.
             for (name, state) in ct_lk.1.iter_mut() {
@@ -104,7 +104,7 @@ impl Notifier {
     }
 
     fn next_wakeup(self: Arc<Self>, pstate: &AuthenticatorState) -> Option<Instant> {
-        let ct_lk = pstate.conf_tokens.lock().unwrap();
+        let ct_lk = pstate.ct_lock();
         ct_lk
             .1
             .keys()

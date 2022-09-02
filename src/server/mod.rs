@@ -11,7 +11,7 @@ use std::{
     io::{Read, Write},
     os::unix::net::{UnixListener, UnixStream},
     path::{Path, PathBuf},
-    sync::{mpsc::Sender, Arc, Mutex},
+    sync::{mpsc::Sender, Arc},
     thread,
 };
 
@@ -49,7 +49,7 @@ fn request(
             Ok(())
         }
         ["refresh", act] => {
-            let ct_lk = pstate.conf_tokens.lock().unwrap();
+            let ct_lk = pstate.ct_lock();
             match ct_lk.1.get(act.to_owned()) {
                 Some(TokenState::Empty) | Some(TokenState::Pending { .. }) => {
                     drop(ct_lk);
@@ -72,7 +72,7 @@ fn request(
         ["showtoken", act] => {
             // If unwrap()ing the lock fails, we're in such deep trouble that trying to carry on is
             // pointless.
-            let ct_lk = pstate.conf_tokens.lock().unwrap();
+            let ct_lk = pstate.ct_lock();
             match ct_lk.1.get(act.to_owned()) {
                 Some(TokenState::Empty) => {
                     drop(ct_lk);
@@ -132,13 +132,13 @@ pub fn server(conf: Config, cache_path: &Path) -> Result<(), Box<dyn Error>> {
         .iter()
         .map(|(k, _)| (k.to_owned(), TokenState::Empty))
         .collect();
-    let pstate = Arc::new(AuthenticatorState {
-        conf_tokens: Mutex::new((conf, tokens)),
+    let pstate = Arc::new(AuthenticatorState::new(
+        (conf, tokens),
         http_port,
-        frontend: Arc::clone(&frontend),
-        notifier: Arc::clone(&notifier),
+        Arc::clone(&frontend),
+        Arc::clone(&notifier),
         refresher,
-    });
+    ));
 
     let user_req_tx = request_token::request_token_processor(Arc::clone(&pstate));
     http_server::http_server(Arc::clone(&pstate), http_state)?;

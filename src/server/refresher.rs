@@ -21,7 +21,7 @@ pub struct Refresher {
 /// Force a refresh of the token for `act_name`, blocking until the token is refreshed or an error
 /// occurred.
 pub fn refresh(pstate: Arc<AuthenticatorState>, act_name: String) -> Result<(), Box<dyn Error>> {
-    let ct_lk = pstate.conf_tokens.lock().unwrap();
+    let ct_lk = pstate.ct_lock();
     let act = match ct_lk.0.accounts.get(&act_name) {
         Some(x) => x,
         None => {
@@ -60,7 +60,7 @@ pub fn refresh(pstate: Arc<AuthenticatorState>, act_name: String) -> Result<(), 
         // Refreshing failed. Unfortunately there is no standard way of knowing why it failed, so
         // we take the most pessimistic assumption which is that the refresh token is no longer
         // valid at all.
-        let mut ct_lk = pstate.conf_tokens.lock().unwrap();
+        let mut ct_lk = pstate.ct_lock();
         if let Some(e) = ct_lk.1.get_mut(&act_name) {
             // Since we released and regained the lock, the TokenState might have changed in
             // another thread: if it's changed from what it was above, we don't do anything.
@@ -88,7 +88,7 @@ pub fn refresh(pstate: Arc<AuthenticatorState>, act_name: String) -> Result<(), 
             let expiry = refreshed_at
                 .checked_add(Duration::from_secs(expires_in))
                 .ok_or("Can't represent expiry")?;
-            let mut ct_lk = pstate.conf_tokens.lock().unwrap();
+            let mut ct_lk = pstate.ct_lock();
             if let Some(e) = ct_lk.1.get_mut(&act_name) {
                 // We don't know what TokenState `e` will be in at this point: it could even be
                 // that the user has requested to refresh it entirely in the period we dropped the
@@ -149,7 +149,7 @@ fn refresh_at(
 }
 
 fn next_wakeup(pstate: &AuthenticatorState) -> Option<Instant> {
-    let ct_lk = pstate.conf_tokens.lock().unwrap();
+    let ct_lk = pstate.ct_lock();
     ct_lk
         .1
         .keys()
@@ -210,7 +210,7 @@ pub fn refresher(pstate: Arc<AuthenticatorState>) -> Result<(), Box<dyn Error>> 
         drop(refresh_lk);
 
         let mut to_refresh = HashSet::<String>::new();
-        let ct_lk = pstate.conf_tokens.lock().unwrap();
+        let ct_lk = pstate.ct_lock();
         let now = Instant::now();
         for act_name in ct_lk.1.keys() {
             if refresh_at(&pstate, &ct_lk, act_name) <= Some(now) {

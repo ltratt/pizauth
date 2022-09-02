@@ -20,7 +20,7 @@ fn process(
     while let Ok(act_name) = queue_rx.recv() {
         // If unwrap()ing the lock fails, we're in such deep trouble that trying to carry on is
         // pointless.
-        let mut ct_lk = pstate.conf_tokens.lock().unwrap();
+        let mut ct_lk = pstate.ct_lock();
         let mut new_token_state = None;
         match ct_lk.1.get(act_name.as_str()) {
             Some(_) => {
