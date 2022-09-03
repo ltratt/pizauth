@@ -132,8 +132,7 @@ of continuously usable access tokens.
 Each `account` has two settings relating to token refresh:
 
   * `refresh_before_expiry = <time>;` tells pizauth to refresh an access token
-    a unit of time before it is due to expire. The default is `60s` (60
-    seconds).
+    a unit of time before it is due to expire. The default is `1m` (1 minute).
   * `refresh_at_least = <time>;` tells pizauth to refresh an access token a
     unit of time after it was obtained, even if the access token is not due to
     expire. The default is `90m` (90 minutes).
@@ -146,8 +145,8 @@ You can set these values explicitly as follows:
 
 ```
 account "officesmtp" {
-    // As earlier
-    refresh_before_expiry = 1m;
+    // Other settings as above
+    refresh_before_expiry = 60s;
     refresh_at_least = 90m;
 }
 ```
