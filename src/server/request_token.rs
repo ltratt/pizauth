@@ -22,7 +22,7 @@ fn process(
         // pointless.
         let mut ct_lk = pstate.ct_lock();
         let mut new_token_state = None;
-        match ct_lk.tokens().get(act_name.as_str()) {
+        match ct_lk.tokenstate(act_name.as_str()) {
             Some(_) => {
                 // lk.tokens and lk.accounts always contain the same keys so this unwrap() is safe.
                 let act = ct_lk.config().accounts.get(act_name.as_str()).unwrap();
@@ -65,7 +65,7 @@ fn process(
             }
         }
         if let Some(x) = new_token_state {
-            *ct_lk.tokens_mut().get_mut(act_name.as_str()).unwrap() = x;
+            *ct_lk.tokenstate_mut(act_name.as_str()).unwrap() = x;
             drop(ct_lk);
             pstate.notifier.notify_new(Arc::clone(&pstate));
         }

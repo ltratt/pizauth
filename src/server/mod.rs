@@ -50,7 +50,7 @@ fn request(
         }
         ["refresh", act] => {
             let ct_lk = pstate.ct_lock();
-            match ct_lk.tokens().get(act.to_owned()) {
+            match ct_lk.tokenstate(act) {
                 Some(TokenState::Empty) | Some(TokenState::Pending { .. }) => {
                     drop(ct_lk);
                     queue_tx.send(act.to_string())?;
@@ -73,7 +73,7 @@ fn request(
             // If unwrap()ing the lock fails, we're in such deep trouble that trying to carry on is
             // pointless.
             let ct_lk = pstate.ct_lock();
-            match ct_lk.tokens().get(act.to_owned()) {
+            match ct_lk.tokenstate(act) {
                 Some(TokenState::Empty) => {
                     drop(ct_lk);
                     queue_tx.send(act.to_string())?;

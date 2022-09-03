@@ -59,12 +59,24 @@ impl<'a> CTGuard<'a> {
         &self.guard.0
     }
 
-    pub fn tokens(&self) -> &HashMap<String, TokenState> {
-        &self.guard.1
+    pub fn account_names(&self) -> impl Iterator<Item = &str> {
+        self.guard.0.accounts.keys().map(|x| x.as_str())
     }
 
-    pub fn tokens_mut(&mut self) -> &mut HashMap<String, TokenState> {
-        &mut self.guard.1
+    pub fn account_matching_token_state(&self, state: &[u8]) -> Option<&str> {
+        self.guard
+            .1
+            .iter()
+            .find(|(_, v)| matches!(*v, &TokenState::Pending { state: s, .. } if s == state))
+            .map(|(k, _)| k.as_str())
+    }
+
+    pub fn tokenstate(&self, act_name: &str) -> Option<&TokenState> {
+        self.guard.1.get(act_name)
+    }
+
+    pub fn tokenstate_mut(&mut self, act_name: &str) -> Option<&mut TokenState> {
+        self.guard.1.get_mut(act_name)
     }
 
     pub fn update(&mut self, conf_tokens: (Config, HashMap<String, TokenState>)) {
@@ -72,7 +84,7 @@ impl<'a> CTGuard<'a> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum TokenState {
     Empty,
     /// Pending authentication

@@ -29,7 +29,9 @@ pub fn refresh(pstate: Arc<AuthenticatorState>, act_name: String) -> Result<(), 
             return Ok(());
         }
     };
-    let refresh_token = match ct_lk.tokens().get(&act_name).unwrap() {
+    // The unwrap is safe because we know from above that there's definitely an account with this
+    // name.
+    let refresh_token = match ct_lk.tokenstate(&act_name).unwrap() {
         TokenState::Active {
             refresh_token: Some(refresh_token),
             ..
@@ -61,7 +63,7 @@ pub fn refresh(pstate: Arc<AuthenticatorState>, act_name: String) -> Result<(), 
         // we take the most pessimistic assumption which is that the refresh token is no longer
         // valid at all.
         let mut ct_lk = pstate.ct_lock();
-        if let Some(e) = ct_lk.tokens_mut().get_mut(&act_name) {
+        if let Some(e) = ct_lk.tokenstate_mut(&act_name) {
             // Since we released and regained the lock, the TokenState might have changed in
             // another thread: if it's changed from what it was above, we don't do anything.
             match e {
@@ -89,7 +91,7 @@ pub fn refresh(pstate: Arc<AuthenticatorState>, act_name: String) -> Result<(), 
                 .checked_add(Duration::from_secs(expires_in))
                 .ok_or("Can't represent expiry")?;
             let mut ct_lk = pstate.ct_lock();
-            if let Some(e) = ct_lk.tokens_mut().get_mut(&act_name) {
+            if let Some(e) = ct_lk.tokenstate_mut(&act_name) {
                 // We don't know what TokenState `e` will be in at this point: it could even be
                 // that the user has requested to refresh it entirely in the period we dropped the
                 // lock. But a) that's very unlikely b) an active token is generally a good thing.
@@ -113,18 +115,13 @@ pub fn refresh(pstate: Arc<AuthenticatorState>, act_name: String) -> Result<(), 
 }
 
 /// If `act_name` has an active token, return the time when that token should be refreshed.
-///
-/// # Panics
-///
-/// If `act_name` does not exist.
 fn refresh_at(_pstate: &AuthenticatorState, ct_lk: &CTGuard, act_name: &str) -> Option<Instant> {
-    debug_assert!(ct_lk.tokens().contains_key(act_name));
-    match ct_lk.tokens()[act_name] {
-        TokenState::Active {
+    match ct_lk.tokenstate(act_name) {
+        Some(TokenState::Active {
             mut expiry,
             refreshed_at,
             ..
-        } => {
+        }) => {
             let act = &ct_lk.config().accounts[act_name];
             if let Some(d) = act.refresh_before_expiry {
                 expiry = expiry
@@ -147,8 +144,7 @@ fn refresh_at(_pstate: &AuthenticatorState, ct_lk: &CTGuard, act_name: &str) -> 
 fn next_wakeup(pstate: &AuthenticatorState) -> Option<Instant> {
     let ct_lk = pstate.ct_lock();
     ct_lk
-        .tokens()
-        .keys()
+        .account_names()
         .filter_map(|act_name| refresh_at(pstate, &ct_lk, act_name))
         .min()
 }
@@ -208,7 +204,7 @@ pub fn refresher(pstate: Arc<AuthenticatorState>) -> Result<(), Box<dyn Error>> 
         let mut to_refresh = HashSet::<String>::new();
         let ct_lk = pstate.ct_lock();
         let now = Instant::now();
-        for act_name in ct_lk.tokens().keys() {
+        for act_name in ct_lk.account_names() {
             if refresh_at(&pstate, &ct_lk, act_name) <= Some(now) {
                 to_refresh.insert(act_name.to_owned());
             }

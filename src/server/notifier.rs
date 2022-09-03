@@ -64,12 +64,16 @@ impl Notifier {
             let mut ct_lk = pstate.ct_lock();
             let now = Instant::now();
             let renotify = ct_lk.config().renotify; // Pulled out to avoid borrow checker problems.
-            for (name, state) in ct_lk.tokens_mut().iter_mut() {
-                if let TokenState::Pending {
+            for act_name in ct_lk
+                .account_names()
+                .map(|x| x.to_owned())
+                .collect::<Vec<_>>()
+            {
+                if let Some(&mut TokenState::Pending {
                     ref mut last_notification,
                     state: _,
-                    url,
-                } = state
+                    ref url,
+                }) = ct_lk.tokenstate_mut(&act_name)
                 {
                     if let Some(t) = last_notification {
                         if let Some(t) = t.checked_add(renotify) {
@@ -79,7 +83,7 @@ impl Notifier {
                         }
                     }
                     *last_notification = Some(now);
-                    to_notify.push((name.clone(), url.clone()));
+                    to_notify.push((act_name.to_owned(), url.clone()));
                 }
             }
             drop(ct_lk);
@@ -105,8 +109,7 @@ impl Notifier {
     fn next_wakeup(self: Arc<Self>, pstate: &AuthenticatorState) -> Option<Instant> {
         let ct_lk = pstate.ct_lock();
         ct_lk
-            .tokens()
-            .keys()
+            .account_names()
             .filter_map(|act_name| notify_at(pstate, &ct_lk, act_name))
             .min()
     }
@@ -114,16 +117,11 @@ impl Notifier {
 
 /// If `act_name` has a pending token, return the next time when that user should be notified that
 /// it is pending.
-///
-/// # Panics
-///
-/// If `act_name` does not exist.
 fn notify_at(_pstate: &AuthenticatorState, ct_lk: &CTGuard, act_name: &str) -> Option<Instant> {
-    debug_assert!(ct_lk.tokens().contains_key(act_name));
-    match ct_lk.tokens()[act_name] {
-        TokenState::Pending {
+    match ct_lk.tokenstate(act_name) {
+        Some(TokenState::Pending {
             last_notification, ..
-        } => {
+        }) => {
             match last_notification {
                 None => Some(Instant::now()),
                 Some(t) => {

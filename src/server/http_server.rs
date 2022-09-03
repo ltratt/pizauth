@@ -42,20 +42,17 @@ fn request(pstate: Arc<AuthenticatorState>, mut stream: TcpStream) -> Result<(),
     // Validate the state.
     let state = urlencoding::decode_binary(state.as_bytes()).into_owned();
     let ct_lk = pstate.ct_lock();
-    let act_name =
-        match ct_lk.tokens().iter().find(
-            |(_, v)| matches!(*v, &TokenState::Pending { state: s, .. } if s == state.as_slice()),
-        ) {
-            Some((k, _)) => k.to_owned(),
-            None => {
-                drop(ct_lk);
-                http_200(
-                    stream,
-                    "No pending token matches request state: request a fresh token",
-                );
-                return Ok(());
-            }
-        };
+    let act_name = match ct_lk.account_matching_token_state(&state) {
+        Some(act_name) => act_name.to_owned(),
+        None => {
+            drop(ct_lk);
+            http_200(
+                stream,
+                "No pending token matches request state: request a fresh token",
+            );
+            return Ok(());
+        }
+    };
 
     let act = match ct_lk.config().accounts.get(&act_name) {
         Some(x) => x,
@@ -103,7 +100,7 @@ fn request(pstate: Arc<AuthenticatorState>, mut stream: TcpStream) -> Result<(),
         // state) which will cause it to fail. The safest thing is thus to force an entirely new
         // authentication request to be generated next time.
         let mut ct_lk = pstate.ct_lock();
-        if let Some(e) = ct_lk.tokens_mut().get_mut(&act_name) {
+        if let Some(e) = ct_lk.tokenstate_mut(&act_name) {
             // Since we released and regained the lock, the TokenState might have changed in
             // another thread: if it's changed from what it was above, we don't do anything.
             if matches!(*e, TokenState::Pending { state: s, .. } if s == state.as_slice()) {
@@ -131,7 +128,7 @@ fn request(pstate: Arc<AuthenticatorState>, mut stream: TcpStream) -> Result<(),
                 }
             };
             let mut ct_lk = pstate.ct_lock();
-            if let Some(e) = ct_lk.tokens_mut().get_mut(&act_name) {
+            if let Some(e) = ct_lk.tokenstate_mut(&act_name) {
                 info!(
                     "New token for {act_name:} (token valid for {} seconds)",
                     expires_in

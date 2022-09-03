@@ -12,7 +12,7 @@ pub fn reload_conf(pstate: Arc<AuthenticatorState>, conf_path: &str) -> Result<(
         .map(|(k, _)| {
             (
                 k.to_owned(),
-                ct_lk.tokens_mut().remove(k).unwrap_or(TokenState::Empty),
+                ct_lk.tokenstate(k).cloned().unwrap_or(TokenState::Empty),
             )
         })
         .collect::<HashMap<_, _>>();
