@@ -39,7 +39,7 @@ impl Config {
 
     fn from_str(input: &str) -> Result<Self, String> {
         let lexerdef = config_l::lexerdef();
-        let lexer = lexerdef.lexer(&input);
+        let lexer = lexerdef.lexer(input);
         let (astopt, errs) = config_y::parse(&lexer);
         if !errs.is_empty() {
             let msgs = errs
