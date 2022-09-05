@@ -1,4 +1,6 @@
-use std::{collections::HashMap, error::Error, fs::read_to_string, path::Path, time::Duration};
+use std::{
+    collections::HashMap, error::Error, fs::read_to_string, path::Path, sync::Arc, time::Duration,
+};
 
 use lrlex::{lrlex_mod, DefaultLexeme, LRNonStreamingLexer};
 use lrpar::{lrpar_mod, NonStreamingLexer, Span};
@@ -22,7 +24,7 @@ const RENOTIFY_DEFAULT: u64 = 15 * 60;
 
 #[derive(Debug, PartialEq)]
 pub struct Config {
-    pub accounts: HashMap<String, Account>,
+    pub accounts: HashMap<String, Arc<Account>>,
     pub renotify: Duration,
 }
 
@@ -56,9 +58,10 @@ impl Config {
                 for opt in opts {
                     match opt {
                         config_ast::TopLevel::Account(overall_span, name, fields) => {
+                            let act_name = unescape_str(lexer.span_str(name));
                             accounts.insert(
-                                unescape_str(lexer.span_str(name)),
-                                Account::from_fields(&lexer, overall_span, fields)?,
+                                act_name.clone(),
+                                Arc::new(Account::from_fields(act_name, &lexer, overall_span, fields)?),
                             );
                         }
                         config_ast::TopLevel::Renotify(span) => {
@@ -164,6 +167,7 @@ fn check_assigned<T>(
 
 #[derive(Debug, PartialEq)]
 pub struct Account {
+    pub name: String,
     pub auth_uri: String,
     pub client_id: String,
     pub client_secret: String,
@@ -177,6 +181,7 @@ pub struct Account {
 
 impl Account {
     fn from_fields(
+        name: String,
         lexer: &LRNonStreamingLexer<DefaultLexeme<StorageT>, StorageT>,
         overall_span: Span,
         fields: Vec<config_ast::AccountField>,
@@ -286,6 +291,7 @@ impl Account {
         let token_uri = check_assigned(lexer, "token_uri", overall_span, token_uri)?;
 
         Ok(Account {
+            name,
             auth_uri,
             client_id,
             client_secret,
