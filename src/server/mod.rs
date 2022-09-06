@@ -11,7 +11,7 @@ use std::{
     io::{Read, Write},
     os::unix::net::{UnixListener, UnixStream},
     path::{Path, PathBuf},
-    sync::{mpsc::Sender, Arc},
+    sync::Arc,
     thread,
 };
 
@@ -21,6 +21,7 @@ use nix::sys::signal::{raise, Signal};
 use crate::{config::Config, frontends::preferred_frontend, PIZAUTH_CACHE_SOCK_LEAF};
 use notifier::Notifier;
 use refresher::update_refresher;
+use request_token::request_token;
 use state::{AuthenticatorState, CTGuard, CTGuardAccountId, TokenState};
 
 /// Length of the OAuth state in bytes.
@@ -32,11 +33,7 @@ pub fn sock_path(cache_path: &Path) -> PathBuf {
     p
 }
 
-fn request(
-    pstate: Arc<AuthenticatorState>,
-    mut stream: UnixStream,
-    queue_tx: Sender<String>,
-) -> Result<(), Box<dyn Error>> {
+fn request(pstate: Arc<AuthenticatorState>, mut stream: UnixStream) -> Result<(), Box<dyn Error>> {
     let mut cmd = String::new();
     stream.read_to_string(&mut cmd)?;
 
@@ -60,9 +57,8 @@ fn request(
             };
             match ct_lk.tokenstate(&act_id) {
                 TokenState::Empty | TokenState::Pending { .. } => {
-                    drop(ct_lk);
-                    queue_tx.send(act_name.to_string())?;
-                    stream.write_all(b"ok:")?;
+                    request_token(Arc::clone(&pstate), ct_lk, act_id)?;
+                    stream.write_all(b"pending:")?;
                 }
                 TokenState::Active { .. } => {
                     refresher::refresh(Arc::clone(&pstate), ct_lk, act_id)?;
@@ -86,8 +82,7 @@ fn request(
             };
             match ct_lk.tokenstate(&act_id) {
                 TokenState::Empty => {
-                    drop(ct_lk);
-                    queue_tx.send(act_name.to_string())?;
+                    request_token(Arc::clone(&pstate), ct_lk, act_id)?;
                     stream.write_all(b"pending:")?;
                 }
                 TokenState::Pending {
@@ -147,7 +142,6 @@ pub fn server(conf: Config, cache_path: &Path) -> Result<(), Box<dyn Error>> {
         refresher,
     ));
 
-    let user_req_tx = request_token::request_token_processor(Arc::clone(&pstate));
     http_server::http_server(Arc::clone(&pstate), http_state)?;
     refresher::refresher(Arc::clone(&pstate))?;
     notifier.notifier(Arc::clone(&pstate))?;
@@ -156,8 +150,7 @@ pub fn server(conf: Config, cache_path: &Path) -> Result<(), Box<dyn Error>> {
     thread::spawn(move || {
         for stream in listener.incoming().flatten() {
             let pstate = Arc::clone(&pstate);
-            let user_req_tx = Sender::clone(&user_req_tx);
-            if let Err(e) = request(pstate, stream, user_req_tx) {
+            if let Err(e) = request(pstate, stream) {
                 warn!("{e:}");
             }
         }

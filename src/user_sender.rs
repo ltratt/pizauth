@@ -27,6 +27,7 @@ pub fn refresh(
         match rtn.splitn(2, ':').collect::<Vec<_>>()[..] {
             ["ok", ""] => (),
             ["error", cause] => return Err(cause.into()),
+            ["pending", ""] => return Err("Token unavailable until authentication complete".into()),
             _ => return Err(format!("Malformed response '{rtn:}'").into()),
         }
     }
