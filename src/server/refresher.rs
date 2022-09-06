@@ -1,6 +1,5 @@
 use std::{
     cmp,
-    collections::HashSet,
     error::Error,
     sync::{Arc, Condvar, Mutex},
     thread,
@@ -11,31 +10,32 @@ use std::{
 use log::debug;
 use log::{error, info, warn};
 
-use super::{AuthenticatorState, CTGuard, TokenState};
+use super::{AuthenticatorState, CTGuard, CTGuardAccountId, TokenState};
 
 pub struct Refresher {
     pred: Mutex<bool>,
     condvar: Condvar,
 }
 
-/// Force a refresh of the token for `act_name`, blocking until the token is refreshed or an error
+/// Force a refresh of the token for `act_id`, blocking until the token is refreshed or an error
 /// occurred.
-pub fn refresh(pstate: Arc<AuthenticatorState>, act_name: String) -> Result<(), Box<dyn Error>> {
-    let ct_lk = pstate.ct_lock();
-    let act_id = match ct_lk.validate_act_name(&act_name) {
-        Some(x) => x,
-        None => {
-            // Account has been deleted on config reload.
-            return Ok(());
-        }
-    };
+pub fn refresh(
+    pstate: Arc<AuthenticatorState>,
+    ct_lk: CTGuard,
+    act_id: CTGuardAccountId,
+) -> Result<(), Box<dyn Error>> {
     let refresh_token = match ct_lk.tokenstate(&act_id) {
         TokenState::Active {
             refresh_token: Some(refresh_token),
             ..
         } => refresh_token.to_owned(),
         _ => {
-            warn!("Can't refresh {act_name:}: no refresh token");
+            let msg = format!(
+                "Can't refresh {}: no refresh token",
+                ct_lk.account(&act_id).name
+            );
+            drop(ct_lk);
+            warn!("{}", msg);
             return Ok(());
         }
     };
@@ -62,7 +62,7 @@ pub fn refresh(pstate: Arc<AuthenticatorState>, act_name: String) -> Result<(), 
         // we take the most pessimistic assumption which is that the refresh token is no longer
         // valid at all.
         let mut ct_lk = pstate.ct_lock();
-        if let Some(act_id) = ct_lk.validate_act_name(&act_name) {
+        if let Some(act_id) = ct_lk.validate_act_id(act_id) {
             let e = ct_lk.tokenstate_mut(&act_id);
             // Since we released and regained the lock, the TokenState might have changed in
             // another thread: if it's changed from what it was above, we don't do anything.
@@ -71,8 +71,10 @@ pub fn refresh(pstate: Arc<AuthenticatorState>, act_name: String) -> Result<(), 
                     refresh_token: Some(x),
                     ..
                 } if x == &refresh_token => {
-                    info!("Refreshing {act_name:} failed");
                     *e = TokenState::Empty;
+                    let msg = format!("Refreshing {} failed", ct_lk.account(&act_id).name);
+                    drop(ct_lk);
+                    info!("{}", msg);
                 }
                 _ => (),
             }
@@ -91,23 +93,24 @@ pub fn refresh(pstate: Arc<AuthenticatorState>, act_name: String) -> Result<(), 
                 .checked_add(Duration::from_secs(expires_in))
                 .ok_or("Can't represent expiry")?;
             let mut ct_lk = pstate.ct_lock();
-            if let Some(act_id) = ct_lk.validate_act_name(&act_name) {
-                let e = ct_lk.tokenstate_mut(&act_id);
+            if let Some(act_id) = ct_lk.validate_act_id(act_id) {
                 // We don't know what TokenState `e` will be in at this point: it could even be
                 // that the user has requested to refresh it entirely in the period we dropped the
                 // lock. But a) that's very unlikely b) an active token is generally a good thing.
-                info!(
-                    "Refreshed {act_name:} (token valid for {} seconds)",
-                    expires_in
-                );
-                *e = TokenState::Active {
+                *ct_lk.tokenstate_mut(&act_id) = TokenState::Active {
                     access_token: access_token.to_owned(),
                     expiry,
                     refreshed_at,
                     refresh_token: Some(refresh_token),
                 };
+                let msg = format!(
+                    "Refreshed {} (token valid for {} seconds)",
+                    ct_lk.account(&act_id).name,
+                    expires_in
+                );
+                drop(ct_lk);
+                info!("{}", msg);
             }
-            drop(ct_lk);
         }
         _ => return Err("Received JSON in unexpected format".into()),
     }
@@ -115,19 +118,19 @@ pub fn refresh(pstate: Arc<AuthenticatorState>, act_name: String) -> Result<(), 
     Ok(())
 }
 
-/// If `act_name` has an active token, return the time when that token should be refreshed.
-fn refresh_at(_pstate: &AuthenticatorState, ct_lk: &CTGuard, act_name: &str) -> Option<Instant> {
-    let act_id = match ct_lk.validate_act_name(act_name) {
-        Some(x) => x,
-        None => return None,
-    };
-    match ct_lk.tokenstate(&act_id) {
+/// If `act_id` has an active token, return the time when that token should be refreshed.
+fn refresh_at(
+    _pstate: &AuthenticatorState,
+    ct_lk: &CTGuard,
+    act_id: &CTGuardAccountId,
+) -> Option<Instant> {
+    match ct_lk.tokenstate(act_id) {
         TokenState::Active {
             mut expiry,
             refreshed_at,
             ..
         } => {
-            let act = &ct_lk.config().accounts[act_name];
+            let act = &ct_lk.account(act_id);
             if let Some(d) = act.refresh_before_expiry {
                 expiry = expiry
                     .checked_sub(d)
@@ -149,8 +152,8 @@ fn refresh_at(_pstate: &AuthenticatorState, ct_lk: &CTGuard, act_name: &str) -> 
 fn next_wakeup(pstate: &AuthenticatorState) -> Option<Instant> {
     let ct_lk = pstate.ct_lock();
     ct_lk
-        .account_names()
-        .filter_map(|act_name| refresh_at(pstate, &ct_lk, act_name))
+        .act_ids()
+        .filter_map(|act_id| refresh_at(pstate, &ct_lk, &act_id))
         .min()
 }
 
@@ -206,20 +209,20 @@ pub fn refresher(pstate: Arc<AuthenticatorState>) -> Result<(), Box<dyn Error>> 
         *refresh_lk = false;
         drop(refresh_lk);
 
-        let mut to_refresh = HashSet::<String>::new();
-        let ct_lk = pstate.ct_lock();
+        let mut ct_lk = pstate.ct_lock();
         let now = Instant::now();
-        for act_name in ct_lk.account_names() {
-            if refresh_at(&pstate, &ct_lk, act_name) <= Some(now) {
-                to_refresh.insert(act_name.to_owned());
-            }
-        }
-        drop(ct_lk);
+        let to_refresh = ct_lk
+            .act_ids()
+            .filter(|act_id| refresh_at(&pstate, &ct_lk, act_id) <= Some(now))
+            .collect::<Vec<_>>();
 
-        for act_name in to_refresh {
-            if let Err(e) = refresh(Arc::clone(&pstate), act_name.clone()) {
-                error!("Token refresh failed: {e:}");
+        for act_id in to_refresh.into_iter() {
+            if let Some(act_id) = ct_lk.validate_act_id(act_id) {
+                if let Err(e) = refresh(Arc::clone(&pstate), ct_lk, act_id) {
+                    error!("Token refresh failed: {e:}");
+                }
             }
+            ct_lk = pstate.ct_lock();
         }
     });
 

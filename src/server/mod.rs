@@ -21,7 +21,7 @@ use nix::sys::signal::{raise, Signal};
 use crate::{config::Config, frontends::preferred_frontend, PIZAUTH_CACHE_SOCK_LEAF};
 use notifier::Notifier;
 use refresher::update_refresher;
-use state::{AuthenticatorState, CTGuard, TokenState};
+use state::{AuthenticatorState, CTGuard, CTGuardAccountId, TokenState};
 
 /// Length of the OAuth state in bytes.
 const STATE_LEN: usize = 8;
@@ -65,8 +65,7 @@ fn request(
                     stream.write_all(b"ok:")?;
                 }
                 TokenState::Active { .. } => {
-                    drop(ct_lk);
-                    refresher::refresh(Arc::clone(&pstate), act_name.to_string())?;
+                    refresher::refresh(Arc::clone(&pstate), ct_lk, act_id)?;
                     update_refresher(pstate);
                     stream.write_all(b"ok:")?;
                 }
