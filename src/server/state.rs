@@ -105,12 +105,10 @@ impl<'a> CTGuard<'a> {
         })
     }
 
-    pub fn account_matching_token_state(&self, state: &[u8]) -> Option<&str> {
-        self.guard
-            .1
-            .iter()
-            .find(|(_, v)| matches!(*v, &TokenState::Pending { state: s, .. } if s == state))
-            .map(|(k, _)| k.as_str())
+    pub fn act_id_matching_token_state(&self, state: &[u8]) -> Option<CTGuardAccountId> {
+        self.act_ids()
+            .find(|act_id|
+                matches!(self.tokenstate(act_id), &TokenState::Pending { state: s, .. } if s == state))
     }
 
     pub fn account(&self, act_id: &CTGuardAccountId) -> &Account {

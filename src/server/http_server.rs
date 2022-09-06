@@ -42,8 +42,8 @@ fn request(pstate: Arc<AuthenticatorState>, mut stream: TcpStream) -> Result<(),
     // Validate the state.
     let state = urlencoding::decode_binary(state.as_bytes()).into_owned();
     let ct_lk = pstate.ct_lock();
-    let act_name = match ct_lk.account_matching_token_state(&state) {
-        Some(act_name) => act_name.to_owned(),
+    let act_id = match ct_lk.act_id_matching_token_state(&state) {
+        Some(x) => x,
         None => {
             drop(ct_lk);
             http_200(
@@ -54,15 +54,7 @@ fn request(pstate: Arc<AuthenticatorState>, mut stream: TcpStream) -> Result<(),
         }
     };
 
-    let act = match ct_lk.config().accounts.get(&act_name) {
-        Some(x) => x,
-        None => {
-            // Account has been deleted on config reload.
-            drop(ct_lk);
-            http_200(stream, "No such account");
-            return Ok(());
-        }
-    };
+    let act = ct_lk.account(&act_id);
 
     // Now that we know which account has been matched we can (finally!) check if the full URI
     // requested matched the redirect URI we expected for that account.
@@ -94,19 +86,22 @@ fn request(pstate: Arc<AuthenticatorState>, mut stream: TcpStream) -> Result<(),
         .into_string()?;
     let parsed = json::parse(&body)?;
 
+    let mut ct_lk = pstate.ct_lock();
+    let act_id = match ct_lk.validate_act_id(act_id) {
+        Some(x) => x,
+        None => return Ok(()),
+    };
+
     if parsed["error"].as_str().is_some() {
         // Obtaining a token failed. We could just try with the same authentication data again, but
         // we can't know for sure if the other server might have cached something (e.g. the request
         // state) which will cause it to fail. The safest thing is thus to force an entirely new
         // authentication request to be generated next time.
-        let mut ct_lk = pstate.ct_lock();
-        if let Some(act_id) = ct_lk.validate_act_name(&act_name) {
-            let e = ct_lk.tokenstate_mut(&act_id);
-            // Since we released and regained the lock, the TokenState might have changed in
-            // another thread: if it's changed from what it was above, we don't do anything.
-            if matches!(*e, TokenState::Pending { state: s, .. } if s == state.as_slice()) {
-                *e = TokenState::Empty;
-            }
+        let e = ct_lk.tokenstate_mut(&act_id);
+        // Since we released and regained the lock, the TokenState might have changed in
+        // another thread: if it's changed from what it was above, we don't do anything.
+        if matches!(*e, TokenState::Pending { state: s, .. } if s == state.as_slice()) {
+            *e = TokenState::Empty;
         }
         return Err("Failed to obtain token for {act_name:}".into());
     }
@@ -124,29 +119,30 @@ fn request(pstate: Arc<AuthenticatorState>, mut stream: TcpStream) -> Result<(),
             let expiry = match refreshed_at.checked_add(Duration::from_secs(expires_in)) {
                 Some(x) => x,
                 None => {
+                    drop(ct_lk);
                     http_400(stream);
                     return Err("Can't represent expiry".into());
                 }
             };
-            let mut ct_lk = pstate.ct_lock();
-            if let Some(act_id) = ct_lk.validate_act_name(&act_name) {
-                let e = ct_lk.tokenstate_mut(&act_id);
-                *e = TokenState::Active {
-                    access_token: access_token.to_owned(),
-                    expiry,
-                    refreshed_at,
-                    refresh_token: refresh_token.map(|x| x.to_owned()),
-                };
-                drop(ct_lk);
-                info!(
-                    "New token for {act_name:} (token valid for {} seconds)",
-                    expires_in
-                );
-                http_200(stream, "pizauth successfully received authentication code");
-                update_refresher(pstate);
-            }
+            let e = ct_lk.tokenstate_mut(&act_id);
+            *e = TokenState::Active {
+                access_token: access_token.to_owned(),
+                expiry,
+                refreshed_at,
+                refresh_token: refresh_token.map(|x| x.to_owned()),
+            };
+            let msg = format!(
+                "New token for {} (token valid for {} seconds)",
+                ct_lk.account(&act_id).name,
+                expires_in
+            );
+            drop(ct_lk);
+            info!("{}", msg);
+            http_200(stream, "pizauth successfully received authentication code");
+            update_refresher(pstate);
         }
         _ => {
+            drop(ct_lk);
             http_400(stream);
             return Err("Invalid request".into());
         }
