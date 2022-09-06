@@ -9,7 +9,7 @@ use std::{
 use log::debug;
 use log::error;
 
-use super::{AuthenticatorState, CTGuard, TokenState};
+use super::{AuthenticatorState, CTGuard, CTGuardAccountId, TokenState};
 
 pub struct Notifier {
     pred: Mutex<bool>,
@@ -112,20 +112,20 @@ impl Notifier {
     fn next_wakeup(self: Arc<Self>, pstate: &AuthenticatorState) -> Option<Instant> {
         let ct_lk = pstate.ct_lock();
         ct_lk
-            .account_names()
-            .filter_map(|act_name| notify_at(pstate, &ct_lk, act_name))
+            .act_ids()
+            .filter_map(|act_id| notify_at(pstate, &ct_lk, &act_id))
             .min()
     }
 }
 
 /// If `act_name` has a pending token, return the next time when that user should be notified that
 /// it is pending.
-fn notify_at(_pstate: &AuthenticatorState, ct_lk: &CTGuard, act_name: &str) -> Option<Instant> {
-    let act_id = match ct_lk.validate_act_name(act_name) {
-        Some(x) => x,
-        None => return None,
-    };
-    match ct_lk.tokenstate(&act_id) {
+fn notify_at(
+    _pstate: &AuthenticatorState,
+    ct_lk: &CTGuard,
+    act_id: &CTGuardAccountId,
+) -> Option<Instant> {
+    match ct_lk.tokenstate(act_id) {
         TokenState::Pending {
             last_notification, ..
         } => {

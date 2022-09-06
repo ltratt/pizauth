@@ -97,10 +97,6 @@ impl<'a> CTGuard<'a> {
         }
     }
 
-    pub fn account_names(&self) -> impl Iterator<Item = &str> {
-        self.guard.0.accounts.keys().map(|x| x.as_str())
-    }
-
     /// An iterator that will produce one [CTGuardAccountId] for each currently active account.
     pub fn act_ids(&self) -> impl Iterator<Item = CTGuardAccountId> + '_ {
         self.guard.0.accounts.values().map(|act| CTGuardAccountId {
