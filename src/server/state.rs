@@ -82,10 +82,13 @@ impl<'a> CTGuard<'a> {
     }
 
     /// If `act_id` would still be a valid account under the current [CTGuard], create a new
-    /// [CTGuardAccountId] which can be used in its stead. The `act_id` is no longer valid, return
-    /// `None`.
+    /// [CTGuardAccountId] which can be used in its stead. If the input `act_id` is no longer
+    /// valid, return `None`.
     pub fn validate_act_id(&self, act_id: CTGuardAccountId) -> Option<CTGuardAccountId> {
         match self.guard.0.accounts.get(&act_id.account.name) {
+            // We use `Arc::ptr_eq` because it's strictly stronger than `==`: it's possible for an
+            // account X to be changed from having contents C to C' and back to C, and we don't
+            // want to assume those two `C`s are equivalent.
             Some(act) if Arc::ptr_eq(&act_id.account, act) => Some(CTGuardAccountId {
                 account: act_id.account,
                 guard_rc: Rc::downgrade(&self.act_rc),
