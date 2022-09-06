@@ -22,16 +22,14 @@ pub struct Refresher {
 /// occurred.
 pub fn refresh(pstate: Arc<AuthenticatorState>, act_name: String) -> Result<(), Box<dyn Error>> {
     let ct_lk = pstate.ct_lock();
-    let act = match ct_lk.config().accounts.get(&act_name) {
+    let act_id = match ct_lk.validate_act_name(&act_name) {
         Some(x) => x,
         None => {
             // Account has been deleted on config reload.
             return Ok(());
         }
     };
-    // The unwrap is safe because we know from above that there's definitely an account with this
-    // name.
-    let refresh_token = match ct_lk.tokenstate(&act_name).unwrap() {
+    let refresh_token = match ct_lk.tokenstate(&act_id) {
         TokenState::Active {
             refresh_token: Some(refresh_token),
             ..
@@ -42,6 +40,7 @@ pub fn refresh(pstate: Arc<AuthenticatorState>, act_name: String) -> Result<(), 
         }
     };
 
+    let act = ct_lk.account(&act_id);
     let token_uri = act.token_uri.clone();
     let client_id = act.client_id.clone();
     let client_secret = act.client_secret.clone();
@@ -63,7 +62,8 @@ pub fn refresh(pstate: Arc<AuthenticatorState>, act_name: String) -> Result<(), 
         // we take the most pessimistic assumption which is that the refresh token is no longer
         // valid at all.
         let mut ct_lk = pstate.ct_lock();
-        if let Some(e) = ct_lk.tokenstate_mut(&act_name) {
+        if let Some(act_id) = ct_lk.validate_act_name(&act_name) {
+            let e = ct_lk.tokenstate_mut(&act_id);
             // Since we released and regained the lock, the TokenState might have changed in
             // another thread: if it's changed from what it was above, we don't do anything.
             match e {
@@ -91,7 +91,8 @@ pub fn refresh(pstate: Arc<AuthenticatorState>, act_name: String) -> Result<(), 
                 .checked_add(Duration::from_secs(expires_in))
                 .ok_or("Can't represent expiry")?;
             let mut ct_lk = pstate.ct_lock();
-            if let Some(e) = ct_lk.tokenstate_mut(&act_name) {
+            if let Some(act_id) = ct_lk.validate_act_name(&act_name) {
+                let e = ct_lk.tokenstate_mut(&act_id);
                 // We don't know what TokenState `e` will be in at this point: it could even be
                 // that the user has requested to refresh it entirely in the period we dropped the
                 // lock. But a) that's very unlikely b) an active token is generally a good thing.
@@ -116,12 +117,16 @@ pub fn refresh(pstate: Arc<AuthenticatorState>, act_name: String) -> Result<(), 
 
 /// If `act_name` has an active token, return the time when that token should be refreshed.
 fn refresh_at(_pstate: &AuthenticatorState, ct_lk: &CTGuard, act_name: &str) -> Option<Instant> {
-    match ct_lk.tokenstate(act_name) {
-        Some(TokenState::Active {
+    let act_id = match ct_lk.validate_act_name(act_name) {
+        Some(x) => x,
+        None => return None,
+    };
+    match ct_lk.tokenstate(&act_id) {
+        TokenState::Active {
             mut expiry,
             refreshed_at,
             ..
-        }) => {
+        } => {
             let act = &ct_lk.config().accounts[act_name];
             if let Some(d) = act.refresh_before_expiry {
                 expiry = expiry

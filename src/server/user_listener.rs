@@ -10,10 +10,11 @@ pub fn reload_conf(pstate: Arc<AuthenticatorState>, conf_path: &str) -> Result<(
         .accounts
         .iter()
         .map(|(k, _)| {
-            (
-                k.to_owned(),
-                ct_lk.tokenstate(k).cloned().unwrap_or(TokenState::Empty),
-            )
+            let tokstate = match ct_lk.validate_act_name(k) {
+                Some(act_id) => ct_lk.tokenstate(&act_id).clone(),
+                None => TokenState::Empty,
+            };
+            (k.to_owned(), tokstate)
         })
         .collect::<HashMap<_, _>>();
     ct_lk.update((new_conf, new_tokens));

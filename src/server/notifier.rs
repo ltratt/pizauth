@@ -64,26 +64,29 @@ impl Notifier {
             let mut ct_lk = pstate.ct_lock();
             let now = Instant::now();
             let renotify = ct_lk.config().renotify; // Pulled out to avoid borrow checker problems.
-            for act_name in ct_lk
-                .account_names()
-                .map(|x| x.to_owned())
-                .collect::<Vec<_>>()
-            {
-                if let Some(&mut TokenState::Pending {
-                    ref mut last_notification,
-                    state: _,
-                    ref url,
-                }) = ct_lk.tokenstate_mut(&act_name)
-                {
-                    if let Some(t) = last_notification {
-                        if let Some(t) = t.checked_add(renotify) {
-                            if t > now {
-                                continue;
+            for act_id in ct_lk.act_ids().collect::<Vec<_>>() {
+                let url = match ct_lk.tokenstate_mut(&act_id) {
+                    &mut TokenState::Pending {
+                        ref mut last_notification,
+                        state: _,
+                        ref url,
+                    } => {
+                        if let Some(t) = last_notification {
+                            if let Some(t) = t.checked_add(renotify) {
+                                if t > now {
+                                    continue;
+                                }
                             }
                         }
+                        *last_notification = Some(now);
+                        // We have to return a (clone) of `url` here so that we can appease the
+                        // borrow checker when we later lookup the account name.
+                        Some(url.clone())
                     }
-                    *last_notification = Some(now);
-                    to_notify.push((act_name.to_owned(), url.clone()));
+                    _ => continue,
+                };
+                if let Some(url) = url {
+                    to_notify.push((ct_lk.account(&act_id).name.to_owned(), url.clone()));
                 }
             }
             drop(ct_lk);
@@ -118,10 +121,14 @@ impl Notifier {
 /// If `act_name` has a pending token, return the next time when that user should be notified that
 /// it is pending.
 fn notify_at(_pstate: &AuthenticatorState, ct_lk: &CTGuard, act_name: &str) -> Option<Instant> {
-    match ct_lk.tokenstate(act_name) {
-        Some(TokenState::Pending {
+    let act_id = match ct_lk.validate_act_name(act_name) {
+        Some(x) => x,
+        None => return None,
+    };
+    match ct_lk.tokenstate(&act_id) {
+        TokenState::Pending {
             last_notification, ..
-        }) => {
+        } => {
             match last_notification {
                 None => Some(Instant::now()),
                 Some(t) => {

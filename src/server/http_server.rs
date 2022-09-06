@@ -100,7 +100,8 @@ fn request(pstate: Arc<AuthenticatorState>, mut stream: TcpStream) -> Result<(),
         // state) which will cause it to fail. The safest thing is thus to force an entirely new
         // authentication request to be generated next time.
         let mut ct_lk = pstate.ct_lock();
-        if let Some(e) = ct_lk.tokenstate_mut(&act_name) {
+        if let Some(act_id) = ct_lk.validate_act_name(&act_name) {
+            let e = ct_lk.tokenstate_mut(&act_id);
             // Since we released and regained the lock, the TokenState might have changed in
             // another thread: if it's changed from what it was above, we don't do anything.
             if matches!(*e, TokenState::Pending { state: s, .. } if s == state.as_slice()) {
@@ -128,11 +129,8 @@ fn request(pstate: Arc<AuthenticatorState>, mut stream: TcpStream) -> Result<(),
                 }
             };
             let mut ct_lk = pstate.ct_lock();
-            if let Some(e) = ct_lk.tokenstate_mut(&act_name) {
-                info!(
-                    "New token for {act_name:} (token valid for {} seconds)",
-                    expires_in
-                );
+            if let Some(act_id) = ct_lk.validate_act_name(&act_name) {
+                let e = ct_lk.tokenstate_mut(&act_id);
                 *e = TokenState::Active {
                     access_token: access_token.to_owned(),
                     expiry,
@@ -140,6 +138,10 @@ fn request(pstate: Arc<AuthenticatorState>, mut stream: TcpStream) -> Result<(),
                     refresh_token: refresh_token.map(|x| x.to_owned()),
                 };
                 drop(ct_lk);
+                info!(
+                    "New token for {act_name:} (token valid for {} seconds)",
+                    expires_in
+                );
                 http_200(stream, "pizauth successfully received authentication code");
                 update_refresher(pstate);
             }

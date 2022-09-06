@@ -61,7 +61,12 @@ impl Config {
                             let act_name = unescape_str(lexer.span_str(name));
                             accounts.insert(
                                 act_name.clone(),
-                                Arc::new(Account::from_fields(act_name, &lexer, overall_span, fields)?),
+                                Arc::new(Account::from_fields(
+                                    act_name,
+                                    &lexer,
+                                    overall_span,
+                                    fields,
+                                )?),
                             );
                         }
                         config_ast::TopLevel::Renotify(span) => {

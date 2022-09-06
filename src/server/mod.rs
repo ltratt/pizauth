@@ -48,58 +48,66 @@ fn request(
             }
             Ok(())
         }
-        ["refresh", act] => {
+        ["refresh", act_name] => {
             let ct_lk = pstate.ct_lock();
-            match ct_lk.tokenstate(act) {
-                Some(TokenState::Empty) | Some(TokenState::Pending { .. }) => {
-                    drop(ct_lk);
-                    queue_tx.send(act.to_string())?;
-                    stream.write_all(b"ok:")?;
-                }
-                Some(TokenState::Active { .. }) => {
-                    drop(ct_lk);
-                    refresher::refresh(Arc::clone(&pstate), act.to_string())?;
-                    update_refresher(pstate);
-                    stream.write_all(b"ok:")?;
-                }
+            let act_id = match ct_lk.validate_act_name(act_name) {
+                Some(x) => x,
                 None => {
                     drop(ct_lk);
-                    stream.write_all(format!("error:No account '{act:}'").as_bytes())?;
+                    stream.write_all(format!("error:No account '{act_name:}'").as_bytes())?;
+                    return Ok(());
+                }
+            };
+            match ct_lk.tokenstate(&act_id) {
+                TokenState::Empty | TokenState::Pending { .. } => {
+                    drop(ct_lk);
+                    queue_tx.send(act_name.to_string())?;
+                    stream.write_all(b"ok:")?;
+                }
+                TokenState::Active { .. } => {
+                    drop(ct_lk);
+                    refresher::refresh(Arc::clone(&pstate), act_name.to_string())?;
+                    update_refresher(pstate);
+                    stream.write_all(b"ok:")?;
                 }
             }
             Ok(())
         }
-        ["showtoken", act] => {
+        ["showtoken", act_name] => {
             // If unwrap()ing the lock fails, we're in such deep trouble that trying to carry on is
             // pointless.
             let ct_lk = pstate.ct_lock();
-            match ct_lk.tokenstate(act) {
-                Some(TokenState::Empty) => {
+            let act_id = match ct_lk.validate_act_name(act_name) {
+                Some(x) => x,
+                None => {
                     drop(ct_lk);
-                    queue_tx.send(act.to_string())?;
+                    stream.write_all(format!("error:No account '{act_name:}'").as_bytes())?;
+                    return Ok(());
+                }
+            };
+            match ct_lk.tokenstate(&act_id) {
+                TokenState::Empty => {
+                    drop(ct_lk);
+                    queue_tx.send(act_name.to_string())?;
                     stream.write_all(b"pending:")?;
                 }
-                Some(TokenState::Pending {
+                TokenState::Pending {
                     last_notification: _,
                     state: _,
                     url: _,
-                }) => {
+                } => {
                     drop(ct_lk);
                     stream.write_all(b"pending:")?;
                 }
-                Some(TokenState::Active {
+                TokenState::Active {
                     access_token,
                     expiry: _,
                     refreshed_at: _,
                     refresh_token: _,
-                }) => {
+                } => {
                     let response = format!("access_token:{access_token:}");
                     drop(ct_lk);
                     stream.write_all(response.as_bytes())?;
-                }
-                None => {
-                    drop(ct_lk);
-                    stream.write_all(format!("error:No account '{act:}'").as_bytes())?;
                 }
             }
             Ok(())
