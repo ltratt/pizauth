@@ -104,7 +104,7 @@ pub fn refresh(
                     refresh_token: Some(refresh_token),
                 };
                 let msg = format!(
-                    "Refreshed {} (token valid for {} seconds)",
+                    "Refreshed for {} (valid for {} seconds)",
                     ct_lk.account(&act_id).name,
                     expires_in
                 );

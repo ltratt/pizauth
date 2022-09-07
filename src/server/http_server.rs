@@ -132,7 +132,7 @@ fn request(pstate: Arc<AuthenticatorState>, mut stream: TcpStream) -> Result<(),
                 refresh_token: refresh_token.map(|x| x.to_owned()),
             };
             let msg = format!(
-                "New token for {} (token valid for {} seconds)",
+                "New token for {} (valid for {} seconds)",
                 ct_lk.account(&act_id).name,
                 expires_in
             );
