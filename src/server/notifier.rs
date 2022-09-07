@@ -118,7 +118,7 @@ impl Notifier {
     }
 }
 
-/// If `act_name` has a pending token, return the next time when that user should be notified that
+/// If `act_id` has a pending token, return the next time when that user should be notified that
 /// it is pending.
 fn notify_at(
     _pstate: &AuthenticatorState,
