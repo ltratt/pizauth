@@ -1,3 +1,18 @@
+//! This module contains pizauth's core central state. [AuthenticatorState] is the global state,
+//! but mostly what one is interested in are [Account]s and [TokenState]s. These are (literally)
+//! locked together: every [Account] has a [TokenState] and vice versa. However, a challenge is
+//! that we allow users to reload their config at any point: we have to be very careful about
+//! associating an [Account] with a [TokenState].
+//!
+//! To that end, we don't allow any part of pizauth outside this module to directly access
+//! [Account]s or [TokenState]s: you must access it via a [CTGuard] handed to you by
+//! [AuthenticatorState::ct_lock]. From a [CTGuard] you then obtain a semi-opaque
+//! [CTGuardAccountId] instance which is in a sense a "version" of an [Account]. The API requires
+//! you to revalidate such instances whenever you drop and reacquire a [CTGuard]: if the [Account]
+//! "version" has changed, the [CTGuardAccountId] is no longer valid. This API is mildly irritating
+//! to use, but guarantees that one can't do something based on an outdated idea of what the
+//! configuration actually is.
+
 use std::{
     collections::HashMap,
     rc::{Rc, Weak},
@@ -13,8 +28,12 @@ use crate::{
     frontends::Frontend,
 };
 
+/// pizauth's global state.
 pub struct AuthenticatorState {
+    /// The "global lock" protecting the config and current [TokenState]s. Can only be accessed via
+    /// [AuthenticatorState::ct_lock].
     conf_tokens: Mutex<(Config, HashMap<String, TokenState>)>,
+    /// port of the HTTP server required by OAuth.
     pub http_port: u16,
     pub frontend: Arc<Box<dyn Frontend>>,
     pub notifier: Arc<Notifier>,
@@ -50,15 +69,19 @@ impl AuthenticatorState {
     }
 }
 
-/// A lock guard around the [Config] and tokens. When this guard is dropped, the lock will be
-/// released.
+/// A lock guard around the [Config] and tokens. When this guard is dropped:
+///
+///   1. the config lock will be released.
+///   2. any [CTGuardAccountId] instances created from this [CTGuard] will no longer by valid
+///      i.e. they will not be able to access [Account]s or [TokenState]s until they are
+///      revalidated.
 pub struct CTGuard<'a> {
     guard: MutexGuard<'a, (Config, HashMap<String, TokenState>)>,
     act_rc: Rc<()>,
 }
 
 impl<'a> CTGuard<'a> {
-    pub fn new(guard: MutexGuard<'a, (Config, HashMap<String, TokenState>)>) -> CTGuard {
+    fn new(guard: MutexGuard<'a, (Config, HashMap<String, TokenState>)>) -> CTGuard {
         CTGuard {
             guard,
             act_rc: Rc::new(()),
@@ -105,12 +128,14 @@ impl<'a> CTGuard<'a> {
         })
     }
 
+    /// Return the [CTGuardAccountId] with state `state`.
     pub fn act_id_matching_token_state(&self, state: &[u8]) -> Option<CTGuardAccountId> {
         self.act_ids()
             .find(|act_id|
                 matches!(self.tokenstate(act_id), &TokenState::Pending { state: s, .. } if s == state))
     }
 
+    /// Return the [Account] for account `act_id`.
     pub fn account(&self, act_id: &CTGuardAccountId) -> &Account {
         if Weak::strong_count(&act_id.guard_rc) != 1 {
             panic!("CTGuardAccountId has outlived its parent CTGuard.");
@@ -150,9 +175,10 @@ impl<'a> CTGuard<'a> {
 }
 
 /// An opaque account identifier, only fully valid while the [CTGuard] it was created from is not
-/// dropped. After the [CTGuard] is dropped, one cannot use a `CTGuardAccountId` to query token
-/// states (etc.), but can use it to compare whether an old and a new `CTGuardAccountId` reference
-/// the same underlying [Account].
+/// dropped. While the [CTGuardAccountId] is valid, it can be used to lookup [Account]s and
+/// [TokenState]s without further validity checks. After the [CTGuard] it was created from is
+/// dropped, one cannot use a `CTGuardAccountId` to query token states (etc.), but can use it to
+/// compare whether an old and a new `CTGuardAccountId` reference the same underlying [Account].
 pub struct CTGuardAccountId {
     account: Arc<Account>,
     guard_rc: Weak<()>,
@@ -160,6 +186,7 @@ pub struct CTGuardAccountId {
 
 #[derive(Clone, Debug)]
 pub enum TokenState {
+    /// Authentication is neither pending nor active.
     Empty,
     /// Pending authentication
     Pending {
@@ -167,6 +194,7 @@ pub enum TokenState {
         state: [u8; STATE_LEN],
         url: Url,
     },
+    /// There is an active token (and, possibly, also an active refresh token).
     Active {
         access_token: String,
         refreshed_at: Instant,
