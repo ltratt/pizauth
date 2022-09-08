@@ -16,9 +16,11 @@ use super::{refresher::update_refresher, AuthenticatorState, TokenState};
 fn request(pstate: Arc<AuthenticatorState>, mut stream: TcpStream) -> Result<(), Box<dyn Error>> {
     let uri = match parse_get(&mut stream) {
         Ok(x) => x,
-        Err(e) => {
+        Err(_) => {
+            // If someone couldn't even be bothered giving us a valid URI, it's unlikely this was a
+            // genuine request that's worth reporting as an error.
             http_400(stream);
-            return Err(e);
+            return Ok(());
         }
     };
 
