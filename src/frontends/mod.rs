@@ -20,7 +20,7 @@ pub trait Frontend: Send + Sync {
     ///      thread itself.
     ///   2. This function can block for as long as it wants, but for as long as it blocks, the
     ///      frontend will not be informed of further notifications.
-    fn notify(&self, to_notify: Vec<(String, Url)>) -> Result<(), Box<dyn Error>>;
+    fn notify_authorisations(&self, to_notify: Vec<(String, Url)>) -> Result<(), Box<dyn Error>>;
 }
 
 pub fn preferred_frontend() -> Result<Box<dyn Frontend>, Box<dyn Error>> {

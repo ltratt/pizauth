@@ -95,7 +95,7 @@ impl Notifier {
                 continue;
             }
 
-            if let Err(e) = pstate.frontend.notify(to_notify) {
+            if let Err(e) = pstate.frontend.notify_authorisations(to_notify) {
                 error!("Notifier: {e:}");
             }
         });

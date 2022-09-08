@@ -43,7 +43,7 @@ impl Frontend for NotifyRust {
         }
     }
 
-    fn notify(&self, to_notify: Vec<(String, Url)>) -> Result<(), Box<dyn Error>> {
+    fn notify_authorisations(&self, to_notify: Vec<(String, Url)>) -> Result<(), Box<dyn Error>> {
         let body = match get_server_information() {
             Ok(x) if x.name == "Xfce Notify Daemon" => {
                 // XFCE's Notify Daemon doesn't seem able to parse '&' characters so we
