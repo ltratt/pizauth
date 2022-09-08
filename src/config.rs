@@ -20,12 +20,12 @@ const REFRESH_BEFORE_EXPIRY_DEFAULT: u64 = 60;
 const REFRESH_AT_LEAST_DEFAULT: u64 = 90 * 60;
 /// How many seconds do we raise a notification if it only contains authorisations that have been
 /// shown before?
-const RENOTIFY_DEFAULT: u64 = 15 * 60;
+const NOTIFY_INTERVAL_DEFAULT: u64 = 15 * 60;
 
 #[derive(Debug, PartialEq)]
 pub struct Config {
     pub accounts: HashMap<String, Arc<Account>>,
-    pub renotify: Duration,
+    pub notify_interval: Duration,
 }
 
 impl Config {
@@ -52,7 +52,7 @@ impl Config {
         }
 
         let mut accounts = HashMap::new();
-        let mut renotify = None;
+        let mut notify_interval = None;
         match astopt {
             Some(Ok(opts)) => {
                 for opt in opts {
@@ -69,11 +69,14 @@ impl Config {
                                 )?),
                             );
                         }
-                        config_ast::TopLevel::Renotify(span) => {
+                        config_ast::TopLevel::NotifyInterval(span) => {
                             match time_str_to_duration(check_not_assigned_time(
-                                &lexer, "renotify", span, renotify,
+                                &lexer,
+                                "notify_interval",
+                                span,
+                                notify_interval,
                             )?) {
-                                Ok(t) => renotify = Some(t),
+                                Ok(t) => notify_interval = Some(t),
                                 Err(e) => {
                                     return Err(error_at_span(
                                         &lexer,
@@ -95,7 +98,8 @@ impl Config {
 
         Ok(Config {
             accounts,
-            renotify: renotify.unwrap_or_else(|| Duration::from_secs(RENOTIFY_DEFAULT)),
+            notify_interval: notify_interval
+                .unwrap_or_else(|| Duration::from_secs(NOTIFY_INTERVAL_DEFAULT)),
         })
     }
 }
@@ -430,7 +434,7 @@ mod test {
     fn valid_config() {
         let c = Config::from_str(
             r#"
-            renotify = 88m;
+            notify_interval = 88m;
             account "x" {
                 // Mandatory fields
                 auth_uri = "http://a.com";
@@ -447,7 +451,7 @@ mod test {
         "#,
         )
         .unwrap();
-        assert_eq!(c.renotify, Duration::from_secs(88 * 60));
+        assert_eq!(c.notify_interval, Duration::from_secs(88 * 60));
 
         let act = &c.accounts["x"];
         assert_eq!(act.auth_uri, "http://a.com");
@@ -471,7 +475,7 @@ mod test {
 
     #[test]
     fn invalid_time() {
-        match Config::from_str("renotify = 18446744073709551616s;") {
+        match Config::from_str("notify_interval = 18446744073709551616s;") {
             Err(s) if s.contains("Invalid time: number too large") => (),
             _ => panic!(),
         }
@@ -479,8 +483,8 @@ mod test {
 
     #[test]
     fn dup_fields() {
-        match Config::from_str("renotify = 1s; renotify = 2s;") {
-            Err(s) if s.contains("Mustn't specify 'renotify' more than once") => (),
+        match Config::from_str("notify_interval = 1s; notify_interval = 2s;") {
+            Err(s) if s.contains("Mustn't specify 'notify_interval' more than once") => (),
             _ => panic!(),
         }
 

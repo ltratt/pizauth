@@ -95,8 +95,8 @@ pizauth currently only supports a frontend based on
 in your desktop. When a token is first requested (or because the previous token
 became invalid) a notification is shown to the user with a URL which needs to
 be used in a web browser. The user will be periodically reminded of any
-incomplete notifications, controlled by the global `renotify = <time>;` setting
-which defaults to `15m` (15 minutes).
+incomplete notifications, controlled by the global `notify_interval = <time>;`
+setting which defaults to `15m` (15 minutes).
 
 `<time>` is an integer followed by one of:
 

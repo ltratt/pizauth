@@ -63,7 +63,7 @@ impl Notifier {
             let mut to_notify = Vec::new();
             let mut ct_lk = pstate.ct_lock();
             let now = Instant::now();
-            let renotify = ct_lk.config().renotify; // Pulled out to avoid borrow checker problems.
+            let notify_interval = ct_lk.config().notify_interval; // Pulled out to avoid borrow checker problems.
             for act_id in ct_lk.act_ids().collect::<Vec<_>>() {
                 let url = match ct_lk.tokenstate_mut(&act_id) {
                     &mut TokenState::Pending {
@@ -72,7 +72,7 @@ impl Notifier {
                         ref url,
                     } => {
                         if let Some(t) = last_notification {
-                            if let Some(t) = t.checked_add(renotify) {
+                            if let Some(t) = t.checked_add(notify_interval) {
                                 if t > now {
                                     continue;
                                 }
@@ -134,7 +134,7 @@ fn notify_at(
                 Some(t) => {
                     // There is no concept of Instant::MAX, so if `refreshed_at + d` exceeds
                     // Instant's bounds, there's nothing we can fall back on.
-                    t.checked_add(ct_lk.config().renotify)
+                    t.checked_add(ct_lk.config().notify_interval)
                 }
             }
         }
