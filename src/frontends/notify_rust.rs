@@ -43,6 +43,10 @@ impl Frontend for NotifyRust {
         }
     }
 
+    fn notify_error(&self, msg: &str) -> Result<(), Box<dyn Error>> {
+        self.do_notify("Error", msg)
+    }
+
     fn notify_authorisations(&self, to_notify: Vec<(String, Url)>) -> Result<(), Box<dyn Error>> {
         let body = match get_server_information() {
             Ok(x) if x.name == "Xfce Notify Daemon" => {
@@ -67,10 +71,16 @@ impl Frontend for NotifyRust {
                 .join("<br>"),
         };
 
-        // Show the notification.
+        self.do_notify("Authorization URLs", &body)
+    }
+}
+
+impl NotifyRust {
+    /// Show the notification and block until it disappears from the screen.
+    fn do_notify(&self, title: &str, body: &str) -> Result<(), Box<dyn Error>> {
         match Notification::new()
-            .summary("pizauth authorisation URLs")
-            .body(&body)
+            .summary(&format!("pizauth: {title:}"))
+            .body(body)
             .appname("pizauth")
             .timeout(Timeout::Milliseconds(NOTIFICATION_TIMEOUT))
             .show()

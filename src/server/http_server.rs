@@ -65,9 +65,11 @@ fn request(pstate: Arc<AuthenticatorState>, mut stream: TcpStream) -> Result<(),
         || expected_uri.host_str() != uri.host_str()
         || expected_uri.port() != uri.port()
     {
+        // If the redirect URI doesn't match then we've received a request we can't process e.g.
+        // because of a newer OAuth version.
         drop(ct_lk);
         http_404(stream);
-        return Err("Incorrect redirect URI".into());
+        return Ok(());
     }
 
     let token_uri = act.token_uri.clone();
@@ -94,7 +96,7 @@ fn request(pstate: Arc<AuthenticatorState>, mut stream: TcpStream) -> Result<(),
         None => return Ok(()),
     };
 
-    if parsed["error"].as_str().is_some() {
+    if let Some(err_msg) = parsed["error"].as_str() {
         // Obtaining a token failed. We could just try with the same authentication data again, but
         // we can't know for sure if the other server might have cached something (e.g. the request
         // state) which will cause it to fail. The safest thing is thus to force an entirely new
@@ -105,7 +107,11 @@ fn request(pstate: Arc<AuthenticatorState>, mut stream: TcpStream) -> Result<(),
         if matches!(*e, TokenState::Pending { state: s, .. } if s == state.as_slice()) {
             *e = TokenState::Empty;
         }
-        return Err("Failed to obtain token for {act_name:}".into());
+        let msg = format!("{}: {}", ct_lk.account(&act_id).name, err_msg);
+        drop(ct_lk);
+        http_400(stream);
+        pstate.frontend.notify_error(&msg)?;
+        return Ok(());
     }
 
     match (
@@ -146,7 +152,9 @@ fn request(pstate: Arc<AuthenticatorState>, mut stream: TcpStream) -> Result<(),
         _ => {
             drop(ct_lk);
             http_400(stream);
-            return Err("Invalid request".into());
+            pstate
+                .frontend
+                .notify_error("Invalid authentication request")?;
         }
     }
     Ok(())
