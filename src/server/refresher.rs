@@ -8,7 +8,7 @@ use std::{
 
 #[cfg(debug_assertions)]
 use log::debug;
-use log::{error, info, warn};
+use log::{error, info};
 
 use super::{AuthenticatorState, CTGuard, CTGuardAccountId, TokenState};
 
@@ -17,8 +17,8 @@ pub struct Refresher {
     condvar: Condvar,
 }
 
-/// Force a refresh of the token for `act_id`, blocking until the token is refreshed or an error
-/// occurred.
+/// If there is an active token for `act_id`, refresh it, blocking until the token is refreshed or
+/// an error occurred. If there is not an active token, returns `Ok` immediately.
 pub fn refresh(
     pstate: Arc<AuthenticatorState>,
     ct_lk: CTGuard,
@@ -30,12 +30,6 @@ pub fn refresh(
             ..
         } => refresh_token.to_owned(),
         _ => {
-            let msg = format!(
-                "Can't refresh {}: no refresh token",
-                ct_lk.account(&act_id).name
-            );
-            drop(ct_lk);
-            warn!("{}", msg);
             return Ok(());
         }
     };
