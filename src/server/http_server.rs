@@ -20,6 +20,12 @@ const RETRY_DELAY: u64 = 6;
 
 /// Handle an incoming (hopefully OAuth2) HTTP request.
 fn request(pstate: Arc<AuthenticatorState>, mut stream: TcpStream) -> Result<(), Box<dyn Error>> {
+    // This function is split into two halves. In the first half, we process the incoming HTTP
+    // request: if there's a problem, it (mostly) means the request is mal-formed or stale, and
+    // there's no effect on the tokenstate. In the second half we make a request to an OAuth
+    // server: if there's a problem, we have to reset the tokenstate and force the user to make an
+    // entirely fresh request.
+
     let uri = match parse_get(&mut stream) {
         Ok(x) => x,
         Err(_) => {
