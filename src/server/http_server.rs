@@ -7,10 +7,16 @@ use std::{
     time::{Duration, Instant},
 };
 
-use log::{info, warn};
+use log::warn;
 use url::Url;
 
 use super::{refresher::update_refresher, AuthenticatorState, TokenState};
+
+/// How often should we try making a request to an OAuth server for possibly-temporary transport
+/// issues?
+const RETRY_POST: u8 = 10;
+/// How long to delay between each retry?
+const RETRY_DELAY: u64 = 6;
 
 /// Handle an incoming (hopefully OAuth2) HTTP request.
 fn request(pstate: Arc<AuthenticatorState>, mut stream: TcpStream) -> Result<(), Box<dyn Error>> {
@@ -65,7 +71,7 @@ fn request(pstate: Arc<AuthenticatorState>, mut stream: TcpStream) -> Result<(),
     if let Some((_, reason)) = uri.query_pairs().find(|(k, _)| k == "error") {
         *ct_lk.tokenstate_mut(&act_id) = TokenState::Empty;
         let msg = format!(
-            "Authentication of {} failed: {}",
+            "Authentication for {} failed: {}",
             ct_lk.account(&act_id).name,
             reason
         );
@@ -79,7 +85,8 @@ fn request(pstate: Arc<AuthenticatorState>, mut stream: TcpStream) -> Result<(),
     let code = match uri.query_pairs().find(|(k, _)| k == "code") {
         Some((_, code)) => code.to_string(),
         None => {
-            // A request without a 'code' is broken.
+            // A request without a 'code' is broken. This seems very unlikely to happen and if it
+            // does, would retrying our request from scratch improve anything?
             drop(ct_lk);
             http_400(stream);
             return Ok(());
@@ -98,11 +105,61 @@ fn request(pstate: Arc<AuthenticatorState>, mut stream: TcpStream) -> Result<(),
         ("grant_type", "authorization_code"),
     ];
 
+    // At this point we know we've got a sensible looking query, so we complete the HTTP request,
+    // because we don't know how long we'll spend going through the rest of the OAuth process, and
+    // we can notify the user another way than through their web browser.
     drop(ct_lk);
-    let body = ureq::post(token_uri.as_str())
-        .send_form(&pairs)?
-        .into_string()?;
-    let parsed = json::parse(&body)?;
+    http_200(
+        stream,
+        "pizauth processing authentication: you can safely close this page.",
+    );
+
+    // Try moderately hard to deal with temporary network errors and the like.
+    let mut body = None;
+    for _ in 0..RETRY_POST {
+        match ureq::post(token_uri.as_str()).send_form(&pairs) {
+            Ok(response) => {
+                body = Some(response.into_string()?);
+                break;
+            }
+            Err(ureq::Error::Status(code, response)) => {
+                let reason = match response.into_string() {
+                    Ok(r) => format!("{code:}: {r:}"),
+                    Err(_) => format!("{code:}"),
+                };
+                let mut ct_lk = pstate.ct_lock();
+                if let Some(act_id) = ct_lk.validate_act_id(act_id) {
+                    *ct_lk.tokenstate_mut(&act_id) = TokenState::Empty;
+                    let msg = format!(
+                        "Authentication for {} failed. {reason:}",
+                        ct_lk.account(&act_id).name
+                    );
+                    drop(ct_lk);
+                    pstate.frontend.notify_error(&msg)?;
+                }
+                return Ok(());
+            }
+            Err(_) => (), // Temporary network error or the like
+        }
+        thread::sleep(Duration::from_secs(RETRY_DELAY));
+    }
+    let parsed = match body {
+        Some(x) => json::parse(&x)?,
+        None => {
+            let mut ct_lk = pstate.ct_lock();
+            if let Some(act_id) = ct_lk.validate_act_id(act_id) {
+                *ct_lk.tokenstate_mut(&act_id) = TokenState::Empty;
+                let act = ct_lk.account(&act_id);
+                let msg = format!(
+                    "Authentication for {} failed: couldn't connect to {}",
+                    act.name, act.token_uri
+                );
+                drop(ct_lk);
+                pstate.frontend.notify_error(&msg)?;
+            }
+            return Ok(());
+        }
+    };
 
     let mut ct_lk = pstate.ct_lock();
     let act_id = match ct_lk.validate_act_id(act_id) {
@@ -121,9 +178,12 @@ fn request(pstate: Arc<AuthenticatorState>, mut stream: TcpStream) -> Result<(),
         if matches!(*e, TokenState::Pending { state: s, .. } if s == state.as_slice()) {
             *e = TokenState::Empty;
         }
-        let msg = format!("{}: {}", ct_lk.account(&act_id).name, err_msg);
+        let msg = format!(
+            "Authentication for {} failed: {}",
+            ct_lk.account(&act_id).name,
+            err_msg
+        );
         drop(ct_lk);
-        http_400(stream);
         pstate.frontend.notify_error(&msg)?;
         return Ok(());
     }
@@ -140,11 +200,7 @@ fn request(pstate: Arc<AuthenticatorState>, mut stream: TcpStream) -> Result<(),
             let refreshed_at = Instant::now();
             let expiry = match refreshed_at.checked_add(Duration::from_secs(expires_in)) {
                 Some(x) => x,
-                None => {
-                    drop(ct_lk);
-                    http_400(stream);
-                    return Err("Can't represent expiry".into());
-                }
+                None => return Err("Can't represent expiry".into()),
             };
             let e = ct_lk.tokenstate_mut(&act_id);
             *e = TokenState::Active {
@@ -153,22 +209,19 @@ fn request(pstate: Arc<AuthenticatorState>, mut stream: TcpStream) -> Result<(),
                 refreshed_at,
                 refresh_token: refresh_token.map(|x| x.to_owned()),
             };
-            let msg = format!(
-                "New token for {} (valid for {} seconds)",
-                ct_lk.account(&act_id).name,
-                expires_in
-            );
+            let msg = format!("Received token for {}", ct_lk.account(&act_id).name);
             drop(ct_lk);
-            info!("{}", msg);
-            http_200(stream, "pizauth successfully received authentication code");
+            pstate.frontend.notify_success(&msg)?;
             update_refresher(pstate);
         }
         _ => {
+            *ct_lk.tokenstate_mut(&act_id) = TokenState::Empty;
+            let msg = format!(
+                "Authentication for {} failed: invalid response received.",
+                ct_lk.account(&act_id).name
+            );
             drop(ct_lk);
-            http_400(stream);
-            pstate
-                .frontend
-                .notify_error("Invalid authentication request")?;
+            pstate.frontend.notify_error(&msg)?;
         }
     }
     Ok(())

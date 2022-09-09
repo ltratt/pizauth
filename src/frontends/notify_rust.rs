@@ -47,6 +47,10 @@ impl Frontend for NotifyRust {
         self.do_notify("Error", msg)
     }
 
+    fn notify_success(&self, msg: &str) -> Result<(), Box<dyn Error>> {
+        self.do_notify("Success", msg)
+    }
+
     fn notify_authorisations(&self, to_notify: Vec<(String, Url)>) -> Result<(), Box<dyn Error>> {
         let body = match get_server_information() {
             Ok(x) if x.name == "Xfce Notify Daemon" => {
