@@ -114,14 +114,22 @@ fn request(pstate: Arc<AuthenticatorState>, mut stream: TcpStream) -> Result<(),
         "pizauth processing authentication: you can safely close this page.",
     );
 
-    // Try moderately hard to deal with temporary network errors and the like.
+    // Try moderately hard to deal with temporary network errors and the like, but assume that any
+    // request that partially makes a connection but does not then fully succeed is an error (since
+    // we can't reuse authentication codes), and we'll have to start again entirely.
     let mut body = None;
     for _ in 0..RETRY_POST {
         match ureq::post(token_uri.as_str()).send_form(&pairs) {
-            Ok(response) => {
-                body = Some(response.into_string()?);
-                break;
-            }
+            Ok(response) => match response.into_string() {
+                Ok(s) => {
+                    body = Some(s);
+                    break;
+                }
+                Err(e) => {
+                    fail(pstate, act_id, state, &e.to_string())?;
+                    return Ok(());
+                }
+            },
             Err(ureq::Error::Status(code, response)) => {
                 let reason = match response.into_string() {
                     Ok(r) => format!("{code:}: {r:}"),
