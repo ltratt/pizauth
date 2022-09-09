@@ -10,7 +10,7 @@ use std::{
 use log::warn;
 use url::Url;
 
-use super::{refresher::update_refresher, AuthenticatorState, TokenState};
+use super::{refresher::update_refresher, AuthenticatorState, CTGuardAccountId, TokenState};
 
 /// How often should we try making a request to an OAuth server for possibly-temporary transport
 /// issues?
@@ -127,16 +127,7 @@ fn request(pstate: Arc<AuthenticatorState>, mut stream: TcpStream) -> Result<(),
                     Ok(r) => format!("{code:}: {r:}"),
                     Err(_) => format!("{code:}"),
                 };
-                let mut ct_lk = pstate.ct_lock();
-                if let Some(act_id) = ct_lk.validate_act_id(act_id) {
-                    *ct_lk.tokenstate_mut(&act_id) = TokenState::Empty;
-                    let msg = format!(
-                        "Authentication for {} failed. {reason:}",
-                        ct_lk.account(&act_id).name
-                    );
-                    drop(ct_lk);
-                    pstate.frontend.notify_error(&msg)?;
-                }
+                fail(pstate, act_id, state, &reason)?;
                 return Ok(());
             }
             Err(_) => (), // Temporary network error or the like
@@ -146,17 +137,12 @@ fn request(pstate: Arc<AuthenticatorState>, mut stream: TcpStream) -> Result<(),
     let parsed = match body {
         Some(x) => json::parse(&x)?,
         None => {
-            let mut ct_lk = pstate.ct_lock();
-            if let Some(act_id) = ct_lk.validate_act_id(act_id) {
-                *ct_lk.tokenstate_mut(&act_id) = TokenState::Empty;
-                let act = ct_lk.account(&act_id);
-                let msg = format!(
-                    "Authentication for {} failed: couldn't connect to {}",
-                    act.name, act.token_uri
-                );
-                drop(ct_lk);
-                pstate.frontend.notify_error(&msg)?;
-            }
+            fail(
+                pstate,
+                act_id,
+                state,
+                &format!("couldn't connect to {token_uri:}"),
+            )?;
             return Ok(());
         }
     };
@@ -168,23 +154,8 @@ fn request(pstate: Arc<AuthenticatorState>, mut stream: TcpStream) -> Result<(),
     };
 
     if let Some(err_msg) = parsed["error"].as_str() {
-        // Obtaining a token failed. We could just try with the same authentication data again, but
-        // we can't know for sure if the other server might have cached something (e.g. the request
-        // state) which will cause it to fail. The safest thing is thus to force an entirely new
-        // authentication request to be generated next time.
-        let e = ct_lk.tokenstate_mut(&act_id);
-        // Since we released and regained the lock, the TokenState might have changed in
-        // another thread: if it's changed from what it was above, we don't do anything.
-        if matches!(*e, TokenState::Pending { state: s, .. } if s == state.as_slice()) {
-            *e = TokenState::Empty;
-        }
-        let msg = format!(
-            "Authentication for {} failed: {}",
-            ct_lk.account(&act_id).name,
-            err_msg
-        );
         drop(ct_lk);
-        pstate.frontend.notify_error(&msg)?;
+        fail(pstate, act_id, state, err_msg)?;
         return Ok(());
     }
 
@@ -215,16 +186,39 @@ fn request(pstate: Arc<AuthenticatorState>, mut stream: TcpStream) -> Result<(),
             update_refresher(pstate);
         }
         _ => {
-            *ct_lk.tokenstate_mut(&act_id) = TokenState::Empty;
+            drop(ct_lk);
+            fail(pstate, act_id, state, "invalid response received")?;
+        }
+    }
+    Ok(())
+}
+
+/// If a request to an OAuth server has failed then notify the user of that failure and mark the
+/// tokenstate as [TokenState::Empty] unless the config has changed or the user has initiated a new
+/// request while we've been trying (unsuccessfully) with the OAuth server.
+fn fail(
+    pstate: Arc<AuthenticatorState>,
+    act_id: CTGuardAccountId,
+    state: Vec<u8>,
+    msg: &str,
+) -> Result<(), Box<dyn Error>> {
+    let mut ct_lk = pstate.ct_lock();
+    if let Some(act_id) = ct_lk.validate_act_id(act_id) {
+        let e = ct_lk.tokenstate_mut(&act_id);
+        // Since we released and regained the lock, the TokenState might have changed in
+        // another thread: if it's not still `Pending` then the user has initiated another request
+        // and there's no point reporting the failure of a previous request.
+        if matches!(*e, TokenState::Pending { state: s, .. } if s == state.as_slice()) {
+            *e = TokenState::Empty;
             let msg = format!(
-                "Authentication for {} failed: invalid response received.",
+                "Authentication for {} failed: {msg:}",
                 ct_lk.account(&act_id).name
             );
             drop(ct_lk);
             pstate.frontend.notify_error(&msg)?;
         }
     }
-    Ok(())
+    return Ok(());
 }
 
 /// A very literal, and rather unforgiving, implementation of RFC2616 (HTTP/1.1), returning the URL
