@@ -24,26 +24,17 @@ fn request(pstate: Arc<AuthenticatorState>, mut stream: TcpStream) -> Result<(),
         }
     };
 
-    // Ideally we'd first validate the URL we've been given to check it's in the format we
-    // expected, but we don't yet know which account this query might relate to, so we can't quite
-    // do that.
-
-    // A valid query must have `code` and `state` parts to the query.
-    let (code, state) = match (
-        uri.query_pairs().find(|(k, _)| k == "code"),
-        uri.query_pairs().find(|(k, _)| k == "state"),
-    ) {
-        (Some((_, code)), Some((_, state))) => (code.into_owned(), state),
-        _ => {
-            // As well as malformed OAuth queries this will 404 for favicon.ico
+    // All valid requests (even those reporting an error!) should report back a valid "state" to
+    // us, so fish that out of the URI and check that it matches a request we made.
+    let state = match uri.query_pairs().find(|(k, _)| k == "state") {
+        Some((_, state)) => urlencoding::decode_binary(state.as_bytes()).into_owned(),
+        None => {
+            // As well as malformed OAuth queries this will also 404 for favicon.ico.
             http_404(stream);
             return Ok(());
         }
     };
-
-    // Validate the state.
-    let state = urlencoding::decode_binary(state.as_bytes()).into_owned();
-    let ct_lk = pstate.ct_lock();
+    let mut ct_lk = pstate.ct_lock();
     let act_id = match ct_lk.act_id_matching_token_state(&state) {
         Some(x) => x,
         None => {
@@ -56,21 +47,44 @@ fn request(pstate: Arc<AuthenticatorState>, mut stream: TcpStream) -> Result<(),
         }
     };
 
+    // Now that we know which account has been matched we can check if the full URI requested
+    // matched the redirect URI we expected for that account.
     let act = ct_lk.account(&act_id);
-
-    // Now that we know which account has been matched we can (finally!) check if the full URI
-    // requested matched the redirect URI we expected for that account.
     let expected_uri = act.redirect_uri(pstate.http_port)?;
     if expected_uri.scheme() != uri.scheme()
         || expected_uri.host_str() != uri.host_str()
         || expected_uri.port() != uri.port()
     {
-        // If the redirect URI doesn't match then we've received a request we can't process e.g.
-        // because of a newer OAuth version.
+        // If the redirect URI doesn't match then all we can do is 404.
         drop(ct_lk);
         http_404(stream);
         return Ok(());
     }
+
+    // Did authentication fail?
+    if let Some((_, reason)) = uri.query_pairs().find(|(k, _)| k == "error") {
+        *ct_lk.tokenstate_mut(&act_id) = TokenState::Empty;
+        let msg = format!(
+            "Authentication of {} failed: {}",
+            ct_lk.account(&act_id).name,
+            reason
+        );
+        drop(ct_lk);
+        http_400(stream);
+        pstate.frontend.notify_error(&msg)?;
+        return Ok(());
+    }
+
+    // Fish out the code query.
+    let code = match uri.query_pairs().find(|(k, _)| k == "code") {
+        Some((_, code)) => code.to_string(),
+        None => {
+            // A request without a 'code' is broken.
+            drop(ct_lk);
+            http_400(stream);
+            return Ok(());
+        }
+    };
 
     let token_uri = act.token_uri.clone();
     let client_id = act.client_id.clone();
