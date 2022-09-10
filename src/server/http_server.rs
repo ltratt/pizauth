@@ -232,7 +232,7 @@ fn fail(
             pstate.frontend.notify_error(&msg)?;
         }
     }
-    return Ok(());
+    Ok(())
 }
 
 /// A very literal, and rather unforgiving, implementation of RFC2616 (HTTP/1.1), returning the URL
