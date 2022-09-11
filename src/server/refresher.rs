@@ -8,9 +8,21 @@ use std::{
 
 #[cfg(debug_assertions)]
 use log::debug;
-use log::{error, info};
+use log::error;
 
 use super::{AuthenticatorState, CTGuard, CTGuardAccountId, TokenState};
+
+/// The outcome of an attempted refresh.
+pub enum RefreshKind {
+    /// Refreshing terminated because the config or tokenstate changed.
+    AccountOrTokenStateChanged,
+    /// Refreshing failed in a way that is likely to repeat if retried.
+    PermanentError(String),
+    /// The token was refreshed.
+    Refreshed,
+    /// Refreshing failed but in a way that is not likely to repeat if retried.
+    TransitoryError(String),
+}
 
 pub struct Refresher {
     pred: Mutex<bool>,
@@ -23,15 +35,13 @@ pub fn refresh(
     pstate: Arc<AuthenticatorState>,
     ct_lk: CTGuard,
     act_id: CTGuardAccountId,
-) -> Result<(), Box<dyn Error>> {
+) -> Result<RefreshKind, Box<dyn Error>> {
     let refresh_token = match ct_lk.tokenstate(&act_id) {
         TokenState::Active {
             refresh_token: Some(refresh_token),
             ..
         } => refresh_token.to_owned(),
-        _ => {
-            return Ok(());
-        }
+        _ => todo!(),
     };
 
     let act = ct_lk.account(&act_id);
@@ -44,36 +54,58 @@ pub fn refresh(
         ("refresh_token", refresh_token.as_str()),
         ("grant_type", "refresh_token"),
     ];
-    // Make sure that we don't hold the lock while performing a network request.
-    drop(ct_lk);
-    let body = ureq::post(token_uri.as_str())
-        .send_form(&pairs)?
-        .into_string()?;
-    let parsed = json::parse(&body)?;
 
+    drop(ct_lk);
+    let body = match ureq::post(token_uri.as_str()).send_form(&pairs) {
+        Ok(response) => match response.into_string() {
+            Ok(s) => s,
+            Err(e) => {
+                return Ok(RefreshKind::TransitoryError(e.to_string()));
+            }
+        },
+        Err(ureq::Error::Status(code, response)) => {
+            let reason = match response.into_string() {
+                Ok(r) => format!("{code:}: {r:}"),
+                Err(_) => format!("{code:}"),
+            };
+            let mut ct_lk = pstate.ct_lock();
+            match ct_lk.validate_act_id(act_id) {
+                Some(act_id) => {
+                    *ct_lk.tokenstate_mut(&act_id) = TokenState::Empty;
+                    return Ok(RefreshKind::PermanentError(reason));
+                }
+                None => return Ok(RefreshKind::AccountOrTokenStateChanged),
+            }
+        }
+        Err(e) => return Ok(RefreshKind::TransitoryError(e.to_string())),
+    };
+
+    let parsed = json::parse(&body)?;
     if parsed["error"].as_str().is_some() {
         // Refreshing failed. Unfortunately there is no standard way of knowing why it failed, so
         // we take the most pessimistic assumption which is that the refresh token is no longer
         // valid at all.
         let mut ct_lk = pstate.ct_lock();
-        if let Some(act_id) = ct_lk.validate_act_id(act_id) {
-            let e = ct_lk.tokenstate_mut(&act_id);
-            // Since we released and regained the lock, the TokenState might have changed in
-            // another thread: if it's changed from what it was above, we don't do anything.
-            match e {
-                TokenState::Active {
-                    refresh_token: Some(x),
-                    ..
-                } if x == &refresh_token => {
-                    *e = TokenState::Empty;
-                    let msg = format!("Refreshing {} failed", ct_lk.account(&act_id).name);
-                    drop(ct_lk);
-                    info!("{}", msg);
+        match ct_lk.validate_act_id(act_id) {
+            Some(act_id) => {
+                let e = ct_lk.tokenstate_mut(&act_id);
+                // Since we released and regained the lock, the TokenState might have changed in
+                // another thread: if it's changed from what it was above, we don't do anything.
+                match e {
+                    TokenState::Active {
+                        refresh_token: Some(x),
+                        ..
+                    } if x == &refresh_token => {
+                        *e = TokenState::Empty;
+                        let msg = format!("Refreshing {} failed", ct_lk.account(&act_id).name);
+                        drop(ct_lk);
+                        return Ok(RefreshKind::PermanentError(msg));
+                    }
+                    _ => return Ok(RefreshKind::AccountOrTokenStateChanged),
                 }
-                _ => (),
             }
+            None => return Ok(RefreshKind::AccountOrTokenStateChanged),
         }
-        return Ok(());
     }
 
     match (
@@ -87,29 +119,36 @@ pub fn refresh(
                 .checked_add(Duration::from_secs(expires_in))
                 .ok_or("Can't represent expiry")?;
             let mut ct_lk = pstate.ct_lock();
-            if let Some(act_id) = ct_lk.validate_act_id(act_id) {
-                // We don't know what TokenState `e` will be in at this point: it could even be
-                // that the user has requested to refresh it entirely in the period we dropped the
-                // lock. But a) that's very unlikely b) an active token is generally a good thing.
-                *ct_lk.tokenstate_mut(&act_id) = TokenState::Active {
-                    access_token: access_token.to_owned(),
-                    expiry,
-                    refreshed_at,
-                    refresh_token: Some(refresh_token),
-                };
-                let msg = format!(
-                    "Refreshed for {} (valid for {} seconds)",
-                    ct_lk.account(&act_id).name,
-                    expires_in
-                );
-                drop(ct_lk);
-                info!("{}", msg);
+            match ct_lk.validate_act_id(act_id) {
+                Some(act_id) => {
+                    // We don't know what TokenState `e` will be in at this point: it could even be
+                    // that the user has requested to refresh it entirely in the period we dropped the
+                    // lock. But a) that's very unlikely b) an active token is generally a good thing.
+                    *ct_lk.tokenstate_mut(&act_id) = TokenState::Active {
+                        access_token: access_token.to_owned(),
+                        expiry,
+                        refreshed_at,
+                        refresh_token: Some(refresh_token),
+                    };
+                    drop(ct_lk);
+                    Ok(RefreshKind::Refreshed)
+                }
+                None => Ok(RefreshKind::AccountOrTokenStateChanged),
             }
         }
-        _ => return Err("Received JSON in unexpected format".into()),
+        _ => {
+            let mut ct_lk = pstate.ct_lock();
+            match ct_lk.validate_act_id(act_id) {
+                Some(act_id) => {
+                    *ct_lk.tokenstate_mut(&act_id) = TokenState::Empty;
+                    Ok(RefreshKind::PermanentError(
+                        "Received JSON in unexpected format".to_string(),
+                    ))
+                }
+                None => Ok(RefreshKind::AccountOrTokenStateChanged),
+            }
+        }
     }
-
-    Ok(())
 }
 
 /// If `act_id` has an active token, return the time when that token should be refreshed.
@@ -212,8 +251,16 @@ pub fn refresher(pstate: Arc<AuthenticatorState>) -> Result<(), Box<dyn Error>> 
 
         for act_id in to_refresh.into_iter() {
             if let Some(act_id) = ct_lk.validate_act_id(act_id) {
-                if let Err(e) = refresh(Arc::clone(&pstate), ct_lk, act_id) {
-                    error!("Token refresh failed: {e:}");
+                match refresh(Arc::clone(&pstate), ct_lk, act_id) {
+                    Ok(rk) => match rk {
+                        RefreshKind::AccountOrTokenStateChanged
+                        | RefreshKind::Refreshed
+                        | RefreshKind::TransitoryError(_) => (),
+                        RefreshKind::PermanentError(msg) => {
+                            error!("Token refresh failed: {msg:}")
+                        }
+                    },
+                    Err(e) => error!("Token refresh failed: {e:}"),
                 }
             }
             ct_lk = pstate.ct_lock();

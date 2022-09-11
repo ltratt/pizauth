@@ -20,7 +20,7 @@ use nix::sys::signal::{raise, Signal};
 
 use crate::{config::Config, frontends::preferred_frontend, PIZAUTH_CACHE_SOCK_LEAF};
 use notifier::Notifier;
-use refresher::update_refresher;
+use refresher::{update_refresher, RefreshKind};
 use request_token::request_token;
 use state::{AuthenticatorState, CTGuard, CTGuardAccountId, TokenState};
 
@@ -61,9 +61,17 @@ fn request(pstate: Arc<AuthenticatorState>, mut stream: UnixStream) -> Result<()
                     stream.write_all(b"pending:")?;
                 }
                 TokenState::Active { .. } => {
-                    refresher::refresh(Arc::clone(&pstate), ct_lk, act_id)?;
+                    match refresher::refresh(Arc::clone(&pstate), ct_lk, act_id)? {
+                        RefreshKind::AccountOrTokenStateChanged => stream.write_all(b"error:")?,
+                        RefreshKind::PermanentError(msg) => {
+                            stream.write_all(format!("error:{msg:}").as_bytes())?
+                        }
+                        RefreshKind::Refreshed => stream.write_all(b"ok:")?,
+                        RefreshKind::TransitoryError(msg) => {
+                            stream.write_all(format!("error:{msg:}").as_bytes())?
+                        }
+                    }
                     update_refresher(pstate);
-                    stream.write_all(b"ok:")?;
                 }
             }
             Ok(())
