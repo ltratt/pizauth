@@ -42,14 +42,19 @@ pub struct AuthenticatorState {
 
 impl AuthenticatorState {
     pub fn new(
-        conf_tokens: (Config, HashMap<String, TokenState>),
+        conf: Config,
         http_port: u16,
         frontend: Arc<Box<dyn Frontend>>,
         notifier: Arc<Notifier>,
         refresher: Refresher,
     ) -> Self {
+        let tokens = conf
+            .accounts
+            .iter()
+            .map(|(k, _)| (k.to_owned(), TokenState::Empty))
+            .collect();
         AuthenticatorState {
-            conf_tokens: Mutex::new(conf_tokens),
+            conf_tokens: Mutex::new((conf, tokens)),
             http_port,
             frontend,
             notifier,

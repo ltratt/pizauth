@@ -137,13 +137,8 @@ pub fn server(conf: Config, cache_path: &Path) -> Result<(), Box<dyn Error>> {
     let notifier = Arc::new(Notifier::new()?);
     let refresher = refresher::refresher_setup()?;
 
-    let tokens = conf
-        .accounts
-        .iter()
-        .map(|(k, _)| (k.to_owned(), TokenState::Empty))
-        .collect();
     let pstate = Arc::new(AuthenticatorState::new(
-        (conf, tokens),
+        conf,
         http_port,
         Arc::clone(&frontend),
         Arc::clone(&notifier),
