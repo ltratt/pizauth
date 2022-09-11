@@ -72,6 +72,36 @@ impl AuthenticatorState {
     pub fn ct_lock(&self) -> CTGuard {
         CTGuard::new(self.conf_tokens.lock().unwrap())
     }
+
+    /// Update the global [Config] to `new_conf`. This cannot fail, but note that there is no
+    /// guarantee that by the time this function calls the configuration is still the same as
+    /// `new_conf` since another thread(s) may also have called this function.
+    pub fn update_conf(&self, new_conf: Config) {
+        let mut ct_lk = self.ct_lock();
+        let new_tokens = new_conf
+            .accounts
+            .iter()
+            .map(|(act_name, act)| {
+                let tokstate = match ct_lk.validate_act_name(act_name) {
+                    // If the account already exists and if the account hasn't changed any of its
+                    // details, we can keep the tokenstate unchanged.
+                    Some(act_id) if ct_lk.account(&act_id) == act.as_ref() => {
+                        ct_lk.tokenstate(&act_id).clone()
+                    }
+                    // If the account already exists, some details of the account have changed, and
+                    // the tokenstate isn't `Empty`, then we warn the user that we're going to reset
+                    // things. [If the tokenstate is `Empty`, the warning is superfluous.]
+                    Some(act_id) if !matches!(ct_lk.tokenstate(&act_id), TokenState::Empty) => {
+                        TokenState::Empty
+                    }
+                    _ => TokenState::Empty,
+                };
+                (act_name.to_owned(), tokstate)
+            })
+            .collect::<HashMap<_, _>>();
+        *ct_lk.guard = (new_conf, new_tokens);
+        drop(ct_lk);
+    }
 }
 
 /// A lock guard around the [Config] and tokens. When this guard is dropped:
@@ -172,10 +202,6 @@ impl<'a> CTGuard<'a> {
             panic!("CTGuardAccountId has outlived its parent CTGuard.");
         }
         self.guard.1.get_mut(&act_id.account.name).unwrap()
-    }
-
-    pub fn update(&mut self, conf_tokens: (Config, HashMap<String, TokenState>)) {
-        *self.guard = conf_tokens;
     }
 }
 

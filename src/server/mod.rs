@@ -3,7 +3,6 @@ mod notifier;
 mod refresher;
 mod request_token;
 mod state;
-mod user_listener;
 
 use std::{
     error::Error,
@@ -39,8 +38,11 @@ fn request(pstate: Arc<AuthenticatorState>, mut stream: UnixStream) -> Result<()
 
     match &cmd.split(' ').collect::<Vec<_>>()[..] {
         ["reload", conf_path] => {
-            match user_listener::reload_conf(pstate, conf_path) {
-                Ok(()) => stream.write_all(b"ok:")?,
+            match Config::from_path(Path::new(conf_path)) {
+                Ok(new_conf) => {
+                    pstate.update_conf(new_conf);
+                    stream.write_all(b"ok:")?
+                }
                 Err(e) => stream.write_all(format!("error:{e:}").as_bytes())?,
             }
             Ok(())
