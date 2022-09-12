@@ -33,8 +33,8 @@ pub struct Refresher {
 /// an error occurred. If there is not an active token, returns `Ok` immediately.
 pub fn refresh(
     pstate: Arc<AuthenticatorState>,
-    ct_lk: CTGuard,
-    act_id: CTGuardAccountId,
+    mut ct_lk: CTGuard,
+    mut act_id: CTGuardAccountId,
 ) -> Result<RefreshKind, Box<dyn Error>> {
     let refresh_token = match ct_lk.tokenstate(&act_id) {
         TokenState::Active {
@@ -43,6 +43,16 @@ pub fn refresh(
         } => refresh_token.to_owned(),
         _ => return Err("tokenstate is not TokenState::Active".into()),
     };
+
+    let mut new_ts = ct_lk.tokenstate(&act_id).clone();
+    if let TokenState::Active {
+        ref mut last_refresh_attempt,
+        ..
+    } = new_ts
+    {
+        *last_refresh_attempt = Some(Instant::now());
+        act_id = ct_lk.tokenstate_replace(act_id, new_ts);
+    }
 
     let act = ct_lk.account(&act_id);
     let token_uri = act.token_uri.clone();
@@ -249,17 +259,7 @@ pub fn refresher(pstate: Arc<AuthenticatorState>) -> Result<(), Box<dyn Error>> 
             .collect::<Vec<_>>();
 
         for act_id in to_refresh.into_iter() {
-            if let Some(mut act_id) = ct_lk.validate_act_id(act_id) {
-                let mut new_ts = ct_lk.tokenstate(&act_id).clone();
-                debug_assert!(matches!(new_ts, TokenState::Active { .. }));
-                if let TokenState::Active {
-                    ref mut last_refresh_attempt,
-                    ..
-                } = new_ts
-                {
-                    *last_refresh_attempt = Some(Instant::now());
-                    act_id = ct_lk.tokenstate_replace(act_id, new_ts);
-                }
+            if let Some(act_id) = ct_lk.validate_act_id(act_id) {
                 match refresh(Arc::clone(&pstate), ct_lk, act_id) {
                     Ok(rk) => match rk {
                         RefreshKind::AccountOrTokenStateChanged
