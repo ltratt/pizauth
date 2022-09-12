@@ -41,7 +41,7 @@ pub fn refresh(
             refresh_token: Some(refresh_token),
             ..
         } => refresh_token.to_owned(),
-        _ => todo!(),
+        _ => return Err("tokenstate is not TokenState::Active".into()),
     };
 
     let act = ct_lk.account(&act_id);
@@ -116,7 +116,7 @@ pub fn refresh(
                             access_token: access_token.to_owned(),
                             expiry,
                             refreshed_at,
-                            last_refresh_attempt: Some(Instant::now()),
+                            last_refresh_attempt: None,
                             refresh_token: Some(refresh_token),
                         },
                     );
@@ -152,6 +152,7 @@ fn refresh_at(
         TokenState::Active {
             mut expiry,
             refreshed_at,
+            last_refresh_attempt,
             ..
         } => {
             let act = &ct_lk.account(act_id);
@@ -165,6 +166,13 @@ fn refresh_at(
                 // Instant's bounds, there's nothing we can fall back on.
                 if let Some(t) = refreshed_at.checked_add(d) {
                     expiry = cmp::min(expiry, t);
+                }
+            }
+            if let Some(lra) = last_refresh_attempt {
+                if let Some(t) = lra.checked_add(ct_lk.config().refresh_retry_interval) {
+                    if t > expiry {
+                        return Some(t.to_owned());
+                    }
                 }
             }
             Some(expiry.to_owned())
@@ -241,7 +249,17 @@ pub fn refresher(pstate: Arc<AuthenticatorState>) -> Result<(), Box<dyn Error>> 
             .collect::<Vec<_>>();
 
         for act_id in to_refresh.into_iter() {
-            if let Some(act_id) = ct_lk.validate_act_id(act_id) {
+            if let Some(mut act_id) = ct_lk.validate_act_id(act_id) {
+                let mut new_ts = ct_lk.tokenstate(&act_id).clone();
+                debug_assert!(matches!(new_ts, TokenState::Active { .. }));
+                if let TokenState::Active {
+                    ref mut last_refresh_attempt,
+                    ..
+                } = new_ts
+                {
+                    *last_refresh_attempt = Some(Instant::now());
+                    act_id = ct_lk.tokenstate_replace(act_id, new_ts);
+                }
                 match refresh(Arc::clone(&pstate), ct_lk, act_id) {
                     Ok(rk) => match rk {
                         RefreshKind::AccountOrTokenStateChanged

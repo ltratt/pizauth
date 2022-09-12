@@ -248,7 +248,7 @@ impl<'a> CTGuard<'a> {
     }
 
     /// Update the tokenstate for `act_id` to `new_tokenstate` returning a new [CTGuardAccountId]
-    /// valid for the new tokenstate.
+    /// valid for the new tokenstate, updating the tokenstate version.
     ///
     /// # Panics
     ///
@@ -270,7 +270,7 @@ impl<'a> CTGuard<'a> {
     }
 
     /// If the current tokenstate is [TokenState::Pending], update the last notification time to
-    /// `notification.
+    /// `notification`.
     ///
     /// # Panics
     ///
@@ -307,6 +307,7 @@ impl<'a> CTGuard<'a> {
 pub struct CTGuardAccountId {
     account: Arc<Account>,
     // The tokenstate version may change frequently, and if it wraps, we lose correctness, so we
+    // use a ludicrously large type. On my current desktop machine a quick measurement suggests
     // that if this was incremented at the maximum possible continuous rate, it would take about
     // 4,522,155,402,651,803,058,176 years before this wrapped. In contrast if we were to,
     // recklessly, use a u64 it could wrap in a blink-and-you-miss-it 245 years.
@@ -334,6 +335,8 @@ pub enum TokenState {
     Active {
         access_token: String,
         refreshed_at: Instant,
+        /// The instant in time when the last ongoing, or unsuccessful, refresh attempt was made.
+        last_refresh_attempt: Option<Instant>,
         expiry: Instant,
         refresh_token: Option<String>,
     },

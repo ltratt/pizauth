@@ -12,6 +12,7 @@ TopLevels -> Result<Vec<TopLevel>, ()>:
 TopLevel -> Result<TopLevel, ()>:
     "ACCOUNT" "STRING" "{" AccountFields "}" { Ok(TopLevel::Account(overall_span($1, $5), map_err($2)?, $4?)) }
   | "NOTIFY_INTERVAL" "=" "TIME" ";" { Ok(TopLevel::NotifyInterval(map_err($3)?)) }
+  | "REFRESH_RETRY_INTERVAL" "=" "TIME" ";" { Ok(TopLevel::RefreshRetryInterval(map_err($3)?)) }
   ;
 
 AccountFields -> Result<Vec<AccountField>, ()>:

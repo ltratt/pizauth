@@ -14,18 +14,21 @@ lrpar_mod!("config.y");
 type StorageT = u8;
 
 /// How many seconds before an access token's expiry do we try refreshing it?
-const REFRESH_BEFORE_EXPIRY_DEFAULT: u64 = 60;
+const REFRESH_BEFORE_EXPIRY_DEFAULT: u64 = 90;
 /// How many seconds before we forcibly try refreshing an access token, even if it's not yet
 /// expired?
 const REFRESH_AT_LEAST_DEFAULT: u64 = 90 * 60;
 /// How many seconds do we raise a notification if it only contains authorisations that have been
 /// shown before?
 const NOTIFY_INTERVAL_DEFAULT: u64 = 15 * 60;
+/// How many seconds after a refresh failed in a non-permanent way before we retry refreshing?
+const REFRESH_RETRY_INTERVAL_DEFAULT: u64 = 40;
 
 #[derive(Debug, PartialEq)]
 pub struct Config {
     pub accounts: HashMap<String, Arc<Account>>,
     pub notify_interval: Duration,
+    pub refresh_retry_interval: Duration,
 }
 
 impl Config {
@@ -53,6 +56,7 @@ impl Config {
 
         let mut accounts = HashMap::new();
         let mut notify_interval = None;
+        let mut refresh_retry_interval = None;
         match astopt {
             Some(Ok(opts)) => {
                 for opt in opts {
@@ -86,6 +90,23 @@ impl Config {
                                 }
                             }
                         }
+                        config_ast::TopLevel::RefreshRetryInterval(span) => {
+                            match time_str_to_duration(check_not_assigned_time(
+                                &lexer,
+                                "refresh_retry_interval",
+                                span,
+                                refresh_retry_interval,
+                            )?) {
+                                Ok(t) => refresh_retry_interval = Some(t),
+                                Err(e) => {
+                                    return Err(error_at_span(
+                                        &lexer,
+                                        span,
+                                        &format!("Invalid time: {e:}"),
+                                    ))
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -100,6 +121,8 @@ impl Config {
             accounts,
             notify_interval: notify_interval
                 .unwrap_or_else(|| Duration::from_secs(NOTIFY_INTERVAL_DEFAULT)),
+            refresh_retry_interval: refresh_retry_interval
+                .unwrap_or_else(|| Duration::from_secs(REFRESH_RETRY_INTERVAL_DEFAULT)),
         })
     }
 }
@@ -435,6 +458,7 @@ mod test {
         let c = Config::from_str(
             r#"
             notify_interval = 88m;
+            refresh_retry_interval = 33s;
             account "x" {
                 // Mandatory fields
                 auth_uri = "http://a.com";
@@ -452,6 +476,7 @@ mod test {
         )
         .unwrap();
         assert_eq!(c.notify_interval, Duration::from_secs(88 * 60));
+        assert_eq!(c.refresh_retry_interval, Duration::from_secs(33));
 
         let act = &c.accounts["x"];
         assert_eq!(act.auth_uri, "http://a.com");

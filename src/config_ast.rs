@@ -3,6 +3,7 @@ use lrpar::Span;
 pub enum TopLevel {
     Account(Span, Span, Vec<AccountField>),
     NotifyInterval(Span),
+    RefreshRetryInterval(Span),
 }
 
 pub enum AccountField {

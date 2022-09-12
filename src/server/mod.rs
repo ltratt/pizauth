@@ -106,6 +106,7 @@ fn request(pstate: Arc<AuthenticatorState>, mut stream: UnixStream) -> Result<()
                     access_token,
                     expiry: _,
                     refreshed_at: _,
+                    last_refresh_attempt: _,
                     refresh_token: _,
                 } => {
                     let response = format!("access_token:{access_token:}");

@@ -132,7 +132,8 @@ of continuously usable access tokens.
 Each `account` has two settings relating to token refresh:
 
   * `refresh_before_expiry = <time>;` tells pizauth to refresh an access token
-    a unit of time before it is due to expire. The default is `1m` (1 minute).
+    a unit of time before it is due to expire. The default is `90s` (90
+    seconds).
   * `refresh_at_least = <time>;` tells pizauth to refresh an access token a
     unit of time after it was obtained, even if the access token is not due to
     expire. The default is `90m` (90 minutes).
@@ -140,13 +141,19 @@ Each `account` has two settings relating to token refresh:
 `refresh_at_least` is a backstop which guarantees that pizauth will notice that
 an access and refresh token are no longer valid in a sensible period of time.
 
+Refreshing can fail for temporary reasons (e.g. lack of network connectivity).
+When a refresh fails for temporary reasons, pizauth will regularly retry
+refreshing, controlled by the global `refresh_retry_interval` setting which
+defaults to 40 seconds.
 
 You can set these values explicitly as follows:
 
 ```
+refresh_retry_interval = 40s;
+
 account "officesmtp" {
     // Other settings as above
-    refresh_before_expiry = 60s;
+    refresh_before_expiry = 90s;
     refresh_at_least = 90m;
 }
 ```

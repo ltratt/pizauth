@@ -188,6 +188,7 @@ fn request(pstate: Arc<AuthenticatorState>, mut stream: TcpStream) -> Result<(),
                     access_token: access_token.to_owned(),
                     expiry,
                     refreshed_at,
+                    last_refresh_attempt: None,
                     refresh_token: refresh_token.map(|x| x.to_owned()),
                 },
             );
