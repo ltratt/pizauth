@@ -12,6 +12,7 @@ use std::{
     path::{Path, PathBuf},
     sync::Arc,
     thread,
+    time::Instant,
 };
 
 use log::warn;
@@ -104,12 +105,16 @@ fn request(pstate: Arc<AuthenticatorState>, mut stream: UnixStream) -> Result<()
                 }
                 TokenState::Active {
                     access_token,
-                    expiry: _,
+                    expiry,
                     refreshed_at: _,
                     last_refresh_attempt: _,
                     refresh_token: _,
                 } => {
-                    let response = format!("access_token:{access_token:}");
+                    let response = if expiry > &Instant::now() {
+                        format!("access_token:{access_token:}")
+                    } else {
+                        format!("error:Token has expired and refreshing has not yet succeeded")
+                    };
                     drop(ct_lk);
                     stream.write_all(response.as_bytes())?;
                 }
