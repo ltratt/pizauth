@@ -75,7 +75,7 @@ fn request(pstate: Arc<AuthenticatorState>, mut stream: TcpStream) -> Result<(),
 
     // Did authentication fail?
     if let Some((_, reason)) = uri.query_pairs().find(|(k, _)| k == "error") {
-        *ct_lk.tokenstate_mut(&act_id) = TokenState::Empty;
+        let act_id = ct_lk.tokenstate_replace(act_id, TokenState::Empty);
         let msg = format!(
             "Authentication for {} failed: {}",
             ct_lk.account(&act_id).name,
@@ -132,7 +132,7 @@ fn request(pstate: Arc<AuthenticatorState>, mut stream: TcpStream) -> Result<(),
                     break;
                 }
                 Err(e) => {
-                    fail(pstate, act_id, state, &e.to_string())?;
+                    fail(pstate, act_id, &e.to_string())?;
                     return Ok(());
                 }
             },
@@ -141,7 +141,7 @@ fn request(pstate: Arc<AuthenticatorState>, mut stream: TcpStream) -> Result<(),
                     Ok(r) => format!("{code:}: {r:}"),
                     Err(_) => format!("{code:}"),
                 };
-                fail(pstate, act_id, state, &reason)?;
+                fail(pstate, act_id, &reason)?;
                 return Ok(());
             }
             Err(_) => (), // Temporary network error or the like
@@ -151,12 +151,7 @@ fn request(pstate: Arc<AuthenticatorState>, mut stream: TcpStream) -> Result<(),
     let parsed = match body {
         Some(x) => json::parse(&x)?,
         None => {
-            fail(
-                pstate,
-                act_id,
-                state,
-                &format!("couldn't connect to {token_uri:}"),
-            )?;
+            fail(pstate, act_id, &format!("couldn't connect to {token_uri:}"))?;
             return Ok(());
         }
     };
@@ -169,7 +164,7 @@ fn request(pstate: Arc<AuthenticatorState>, mut stream: TcpStream) -> Result<(),
 
     if let Some(err_msg) = parsed["error"].as_str() {
         drop(ct_lk);
-        fail(pstate, act_id, state, err_msg)?;
+        fail(pstate, act_id, err_msg)?;
         return Ok(());
     }
 
@@ -187,13 +182,15 @@ fn request(pstate: Arc<AuthenticatorState>, mut stream: TcpStream) -> Result<(),
                 Some(x) => x,
                 None => return Err("Can't represent expiry".into()),
             };
-            let e = ct_lk.tokenstate_mut(&act_id);
-            *e = TokenState::Active {
-                access_token: access_token.to_owned(),
-                expiry,
-                refreshed_at,
-                refresh_token: refresh_token.map(|x| x.to_owned()),
-            };
+            let act_id = ct_lk.tokenstate_replace(
+                act_id,
+                TokenState::Active {
+                    access_token: access_token.to_owned(),
+                    expiry,
+                    refreshed_at,
+                    refresh_token: refresh_token.map(|x| x.to_owned()),
+                },
+            );
             let msg = format!("Received token for {}", ct_lk.account(&act_id).name);
             drop(ct_lk);
             pstate.frontend.notify_success(&msg)?;
@@ -201,7 +198,7 @@ fn request(pstate: Arc<AuthenticatorState>, mut stream: TcpStream) -> Result<(),
         }
         _ => {
             drop(ct_lk);
-            fail(pstate, act_id, state, "invalid response received")?;
+            fail(pstate, act_id, "invalid response received")?;
         }
     }
     Ok(())
@@ -213,24 +210,17 @@ fn request(pstate: Arc<AuthenticatorState>, mut stream: TcpStream) -> Result<(),
 fn fail(
     pstate: Arc<AuthenticatorState>,
     act_id: CTGuardAccountId,
-    state: Vec<u8>,
     msg: &str,
 ) -> Result<(), Box<dyn Error>> {
     let mut ct_lk = pstate.ct_lock();
     if let Some(act_id) = ct_lk.validate_act_id(act_id) {
-        let e = ct_lk.tokenstate_mut(&act_id);
-        // Since we released and regained the lock, the TokenState might have changed in
-        // another thread: if it's not still `Pending` then the user has initiated another request
-        // and there's no point reporting the failure of a previous request.
-        if matches!(*e, TokenState::Pending { state: s, .. } if s == state.as_slice()) {
-            *e = TokenState::Empty;
-            let msg = format!(
-                "Authentication for {} failed: {msg:}",
-                ct_lk.account(&act_id).name
-            );
-            drop(ct_lk);
-            pstate.frontend.notify_error(&msg)?;
-        }
+        let act_id = ct_lk.tokenstate_replace(act_id, TokenState::Empty);
+        let msg = format!(
+            "Authentication for {} failed: {msg:}",
+            ct_lk.account(&act_id).name
+        );
+        drop(ct_lk);
+        pstate.frontend.notify_error(&msg)?;
     }
     Ok(())
 }

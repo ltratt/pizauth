@@ -36,11 +36,14 @@ pub fn request_token(
         params.push(("login_hint", x));
     }
     let url = Url::parse_with_params(ct_lk.account(&act_id).auth_uri.as_str(), &params)?;
-    *ct_lk.tokenstate_mut(&act_id) = TokenState::Pending {
-        last_notification: None,
-        url,
-        state,
-    };
+    ct_lk.tokenstate_replace(
+        act_id,
+        TokenState::Pending {
+            last_notification: None,
+            url,
+            state,
+        },
+    );
     drop(ct_lk);
     pstate.notifier.notify_new(Arc::clone(&pstate));
     Ok(())

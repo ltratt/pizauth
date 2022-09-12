@@ -71,7 +71,7 @@ pub fn refresh(
             let mut ct_lk = pstate.ct_lock();
             match ct_lk.validate_act_id(act_id) {
                 Some(act_id) => {
-                    *ct_lk.tokenstate_mut(&act_id) = TokenState::Empty;
+                    ct_lk.tokenstate_replace(act_id, TokenState::Empty);
                     return Ok(RefreshKind::PermanentError(reason));
                 }
                 None => return Ok(RefreshKind::AccountOrTokenStateChanged),
@@ -88,21 +88,10 @@ pub fn refresh(
         let mut ct_lk = pstate.ct_lock();
         match ct_lk.validate_act_id(act_id) {
             Some(act_id) => {
-                let e = ct_lk.tokenstate_mut(&act_id);
-                // Since we released and regained the lock, the TokenState might have changed in
-                // another thread: if it's changed from what it was above, we don't do anything.
-                match e {
-                    TokenState::Active {
-                        refresh_token: Some(x),
-                        ..
-                    } if x == &refresh_token => {
-                        *e = TokenState::Empty;
-                        let msg = format!("Refreshing {} failed", ct_lk.account(&act_id).name);
-                        drop(ct_lk);
-                        return Ok(RefreshKind::PermanentError(msg));
-                    }
-                    _ => return Ok(RefreshKind::AccountOrTokenStateChanged),
-                }
+                let act_id = ct_lk.tokenstate_replace(act_id, TokenState::Empty);
+                let msg = format!("Refreshing {} failed", ct_lk.account(&act_id).name);
+                drop(ct_lk);
+                return Ok(RefreshKind::PermanentError(msg));
             }
             None => return Ok(RefreshKind::AccountOrTokenStateChanged),
         }
@@ -121,15 +110,16 @@ pub fn refresh(
             let mut ct_lk = pstate.ct_lock();
             match ct_lk.validate_act_id(act_id) {
                 Some(act_id) => {
-                    // We don't know what TokenState `e` will be in at this point: it could even be
-                    // that the user has requested to refresh it entirely in the period we dropped the
-                    // lock. But a) that's very unlikely b) an active token is generally a good thing.
-                    *ct_lk.tokenstate_mut(&act_id) = TokenState::Active {
-                        access_token: access_token.to_owned(),
-                        expiry,
-                        refreshed_at,
-                        refresh_token: Some(refresh_token),
-                    };
+                    ct_lk.tokenstate_replace(
+                        act_id,
+                        TokenState::Active {
+                            access_token: access_token.to_owned(),
+                            expiry,
+                            refreshed_at,
+                            last_refresh_attempt: Some(Instant::now()),
+                            refresh_token: Some(refresh_token),
+                        },
+                    );
                     drop(ct_lk);
                     Ok(RefreshKind::Refreshed)
                 }
@@ -140,7 +130,7 @@ pub fn refresh(
             let mut ct_lk = pstate.ct_lock();
             match ct_lk.validate_act_id(act_id) {
                 Some(act_id) => {
-                    *ct_lk.tokenstate_mut(&act_id) = TokenState::Empty;
+                    ct_lk.tokenstate_replace(act_id, TokenState::Empty);
                     Ok(RefreshKind::PermanentError(
                         "Received JSON in unexpected format".to_string(),
                     ))
