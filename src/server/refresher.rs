@@ -252,14 +252,16 @@ pub fn refresher(pstate: Arc<AuthenticatorState>) -> Result<(), Box<dyn Error>> 
         *refresh_lk = false;
         drop(refresh_lk);
 
-        let mut ct_lk = pstate.ct_lock();
+        let ct_lk = pstate.ct_lock();
         let now = Instant::now();
         let to_refresh = ct_lk
             .act_ids()
             .filter(|act_id| refresh_at(&pstate, &ct_lk, act_id) <= Some(now))
             .collect::<Vec<_>>();
+        drop(ct_lk);
 
         for act_id in to_refresh.into_iter() {
+            let ct_lk = pstate.ct_lock();
             if let Some(act_id) = ct_lk.validate_act_id(act_id) {
                 if let TokenState::Active { .. } = ct_lk.tokenstate(&act_id) {
                     match refresh(Arc::clone(&pstate), ct_lk, act_id) {
@@ -275,7 +277,6 @@ pub fn refresher(pstate: Arc<AuthenticatorState>) -> Result<(), Box<dyn Error>> 
                     }
                 }
             }
-            ct_lk = pstate.ct_lock();
         }
     });
 
