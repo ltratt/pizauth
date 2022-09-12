@@ -29,8 +29,9 @@ pub struct Refresher {
     condvar: Condvar,
 }
 
-/// If there is an active token for `act_id`, refresh it, blocking until the token is refreshed or
-/// an error occurred. If there is not an active token, returns `Ok` immediately.
+/// For a [TokenState::Active] token for `act_id`, refresh it, blocking until the token is
+/// refreshed or an error occurred. This function must be called with a [TokenState::Active]
+/// tokenstate.
 pub fn refresh(
     pstate: Arc<AuthenticatorState>,
     mut ct_lk: CTGuard,
@@ -260,16 +261,18 @@ pub fn refresher(pstate: Arc<AuthenticatorState>) -> Result<(), Box<dyn Error>> 
 
         for act_id in to_refresh.into_iter() {
             if let Some(act_id) = ct_lk.validate_act_id(act_id) {
-                match refresh(Arc::clone(&pstate), ct_lk, act_id) {
-                    Ok(rk) => match rk {
-                        RefreshKind::AccountOrTokenStateChanged
-                        | RefreshKind::Refreshed
-                        | RefreshKind::TransitoryError(_) => (),
-                        RefreshKind::PermanentError(msg) => {
-                            error!("Token refresh failed: {msg:}")
-                        }
-                    },
-                    Err(e) => error!("Token refresh failed: {e:}"),
+                if let TokenState::Active { .. } = ct_lk.tokenstate(&act_id) {
+                    match refresh(Arc::clone(&pstate), ct_lk, act_id) {
+                        Ok(rk) => match rk {
+                            RefreshKind::AccountOrTokenStateChanged
+                            | RefreshKind::Refreshed
+                            | RefreshKind::TransitoryError(_) => (),
+                            RefreshKind::PermanentError(msg) => {
+                                error!("Token refresh failed: {msg:}")
+                            }
+                        },
+                        Err(e) => error!("Token refresh failed: {e:}"),
+                    }
                 }
             }
             ct_lk = pstate.ct_lock();
