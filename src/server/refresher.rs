@@ -121,6 +121,7 @@ pub fn refresh(
                         },
                     );
                     drop(ct_lk);
+                    update_refresher(pstate);
                     Ok(RefreshKind::Refreshed)
                 }
                 None => Ok(RefreshKind::AccountOrTokenStateChanged),

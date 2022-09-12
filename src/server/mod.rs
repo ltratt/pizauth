@@ -19,7 +19,7 @@ use nix::sys::signal::{raise, Signal};
 
 use crate::{config::Config, frontends::preferred_frontend, PIZAUTH_CACHE_SOCK_LEAF};
 use notifier::Notifier;
-use refresher::{update_refresher, RefreshKind};
+use refresher::RefreshKind;
 use request_token::request_token;
 use state::{AuthenticatorState, CTGuard, CTGuardAccountId, TokenState};
 
@@ -73,7 +73,6 @@ fn request(pstate: Arc<AuthenticatorState>, mut stream: UnixStream) -> Result<()
                             stream.write_all(format!("error:{msg:}").as_bytes())?
                         }
                     }
-                    update_refresher(pstate);
                 }
             }
             Ok(())
