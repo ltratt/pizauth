@@ -13,10 +13,8 @@
 //! to use, but guarantees that one can't do something based on an outdated idea of what the
 //! configuration actually is.
 
-#[cfg(debug_assertions)]
-use std::collections::HashSet;
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     rc::{Rc, Weak},
     sync::{Arc, Mutex, MutexGuard},
     time::Instant,
