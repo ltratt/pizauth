@@ -34,7 +34,7 @@ use crate::{
 pub struct AuthenticatorState {
     /// The "global lock" protecting the config and current [TokenState]s. Can only be accessed via
     /// [AuthenticatorState::ct_lock].
-    conf_tokens: Mutex<LockedState>,
+    locked_state: Mutex<LockedState>,
     /// port of the HTTP server required by OAuth.
     pub http_port: u16,
     pub frontend: Arc<Box<dyn Frontend>>,
@@ -64,7 +64,7 @@ impl AuthenticatorState {
             })
             .collect();
         AuthenticatorState {
-            conf_tokens: Mutex::new(LockedState::new(conf, tokenstates)),
+            locked_state: Mutex::new(LockedState::new(conf, tokenstates)),
             http_port,
             frontend,
             notifier,
@@ -80,14 +80,14 @@ impl AuthenticatorState {
     /// to be done in such a case, as it is likely that pizauth is in an inconsistent, and
     /// irretrievable, state.
     pub fn ct_lock(&self) -> CTGuard {
-        CTGuard::new(self.conf_tokens.lock().unwrap())
+        CTGuard::new(self.locked_state.lock().unwrap())
     }
 
     /// Update the global [Config] to `new_conf`. This cannot fail, but note that there is no
     /// guarantee that by the time this function calls the configuration is still the same as
     /// `new_conf` since another thread(s) may also have called this function.
     pub fn update_conf(&self, new_conf: Config) {
-        let mut lk = self.conf_tokens.lock().unwrap();
+        let mut lk = self.locked_state.lock().unwrap();
         // Remove all `TokenState`s that no longer correspond to an account (i.e. GC
         // `TokenState`s).
         for k in lk.tokenstates.keys().cloned().collect::<Vec<_>>() {
