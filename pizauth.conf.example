@@ -1,0 +1,17 @@
+account "officesmtp" {
+    auth_uri = "https://login.microsoftonline.com/common/oauth2/v2.0/authorize";
+    token_uri = "https://login.microsoftonline.com/common/oauth2/v2.0/token";
+    client_id = "..."; // Fill in with your Client ID
+    client_secret = "..."; // Fill in with your Client secret
+    scopes = [
+      "https://outlook.office365.com/IMAP.AccessAsUser.All",
+      "https://outlook.office365.com/SMTP.Send",
+      "offline_access"
+    ];
+    // Note that Office365 requires the non-standard 'offline_access'
+    // scope to be specified for token refreshing to work.
+    redirect_uri = "http://localhost/";
+    // You don't have to specify login_hint, but it does make
+    // authentication a little easier.
+    login_hint = "email@example.com";
+}

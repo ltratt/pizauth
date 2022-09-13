@@ -3,7 +3,15 @@ use lrlex::{CTLexerBuilder, DefaultLexeme};
 use rerun_except::rerun_except;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    rerun_except(&["LICENSE-APACHE", "LICENSE-MIT", "README.md"])?;
+    rerun_except(&[
+        "CHANGES.md",
+        "LICENSE-APACHE",
+        "LICENSE-MIT",
+        "pizauth.1",
+        "pizauth.conf.5",
+        "pizauth.conf.example",
+        "README.md",
+    ])?;
 
     CTLexerBuilder::<DefaultLexeme<u8>, u8>::new_with_lexemet()
         .lrpar_config(|ctp| {
