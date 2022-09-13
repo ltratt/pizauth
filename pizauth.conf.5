@@ -1,0 +1,112 @@
+.Dd $Mdocdate: September 13 2022 $
+.Dt PIZAUTH.CONF 5
+.Os
+.Sh NAME
+.Nm pizauth.conf
+.Nd pizauth configuration file
+.Sh DESCRIPTION
+.Nm
+is the configuration file for
+.Xr pizauth 1 .
+.Pp
+The top-level options are:
+.Bl -tag -width Ds
+.It Sy notify_interval = Em time ;
+specifies the gap between reminders to the user of authentication requests.
+Defaults to 15 minutes if not specified.
+.It Sy refresh_retry_interval = Em time ;
+specifies the gap before a failed refresh request will be retried.
+Defaults to 40 seconds if not specified.
+.It Sy account Qo ID Qc { Em account-options }
+specifies an OAuth account named
+.Em ID .
+.El
+.Pp
+An
+.Sq account
+block supports the following options:
+.Bl -tag -width Ds
+.It Sy auth_uri = Qo Em URI Qc ;
+where
+.Em URI
+is a URI specifying the OAuth2 server's authentication URI.
+Mandatory.
+.It Sy client_id = Qo Em ID Qc ;
+specifies the OAuth2 client ID (i.e. the identifier of the client software).
+Mandatory.
+.It Sy client_secret = Qo Em Secret Qc ;
+specifies the OAuth2 client secret (similar to the
+.Em client_id ) .
+Mandatory.
+.It Sy login_hint = Qo Em Hint Qc ;
+is used by the authentication server to help the user understand which account
+they are authenticating.
+Typically a username or email address.
+Optional.
+.It Sy redirect_uri = Qo Em URI Qc ;
+where
+.Em URI
+is a URI specifying the OAuth2 server's redirection URI.
+Not all OAuth2 servers specify this.
+If in doubt,
+.Qq http://localhost/
+is often the correct value.
+Mandatory.
+.It Sy refresh_before_expiry = Em time ;
+specifies how far in advance an access token should be refreshed before it
+expires.
+Defaults to 90 seconds if not specified.
+.It Sy refresh_at_least = Em time ;
+specifies the maximum period of time before an access token will be forcibly
+refreshed.
+Defaults to 90 minutes if not specified.
+.It Sy scopes = [ Qo Em Scope 1 Qc , ..., Qo Em Scope n Qc ] ;
+specifies one or more OAuth2 scopes (i.e.
+.Qq permissions )
+that access tokens will give you permission to utilise.
+Mandatory.
+.It Sy token_uri = Qo Em URI Qc ;
+is a URI specifying the OAuth2 server's token URI.
+Mandatory.
+.El
+.Pp
+Times can be specified as
+.Em int [smhd]
+where the suffixes mean (in order): seconds, minutes, hours, days.
+For example,
+.Em 90s
+means 90 seconds and
+.Em 5m
+means 5 minutes.
+.Sh EXAMPLES
+An example
+.Nm
+file for accessing IMAP and SMTP services in Office365 is as follows:
+.Bd -literal -offset 4n
+account "officesmtp" {
+    auth_uri = "https://login.microsoftonline.com/common/oauth2/v2.0/authorize";
+    token_uri = "https://login.microsoftonline.com/common/oauth2/v2.0/token";
+    client_id = "..."; // Fill in with your Client ID
+    client_secret = "..."; // Fill in with your Client secret
+    scopes = [
+      "https://outlook.office365.com/IMAP.AccessAsUser.All",
+      "https://outlook.office365.com/SMTP.Send",
+      "offline_access"
+    ];
+    // Note that Office365 requires the non-standard 'offline_access'
+    // scope to be specified for token refreshing to work.
+    redirect_uri = "http://localhost/";
+    // You don't have to specify login_hint, but it does make
+    // authentication a little easier.
+    login_hint = "email@example.com";
+}
+.Ed
+.Sh SEE ALSO
+.Xr pizauth 1
+.Pp
+.Lk https://tratt.net/laurie/src/pizauth/
+.Sh AUTHORS
+.An -nosplit
+.Xr pizauth 1
+was written by
+.An Laurence Tratt Lk https://tratt.net/laurie/

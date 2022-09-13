@@ -1,0 +1,67 @@
+.Dd $Mdocdate: September 13 2022 $
+.Dt PIZAUTH 1
+.Os
+.Sh NAME
+.Nm pizauth
+.Nd OAuth2 authentication daemon
+.Sh SYNOPSIS
+.Nm pizauth
+.Ar Sy refresh | Sy reload | Sy server | Sy show | Sy shutdown
+.Op Fl c Ar config-file
+.Op Ar options ...
+.Sh DESCRIPTION
+.Nm
+obtains, hands out, and refreshes OAuth2 tokens.
+It is formed of two
+components: a persistent "server" which interacts with the user to obtain
+tokens, and refreshes them as necessary; and a command-line interface which can
+be used by other programs to show the OAuth2 token for a current account.
+.Pp
+There is a single global command-line option:
+.Bl -tag -width Ds
+.It Fl c Ar config-file
+is a path to a
+.Pa pizauth.conf
+configuration file.
+If not specified,
+.Nm
+assumes the configuration file is located at
+.Pa $HOME/.config/pizauth.conf .
+.El
+.Pp
+The top-level commands are:
+.Bl -tag -width Ds
+.It Sy refresh Ar account ...
+Iterate through the list of accounts.
+For each, attempt to refresh its existing access token; if there is not a valid
+access token, initiate a new token request.
+.It Sy reload
+Reload the server's configuration.
+.It Sy server Op Fl d
+Start the server.
+Will daemonise itself unless
+.Fl d
+is specified.
+.It Sy show Ar account
+Prints the current access token for
+.Em account
+to stdout.
+If there is not a valid access token, prints an error to stderr, and either:
+starts a refresh request of the existing access token; initiates a new token
+request.
+Note that this command does not block: commands must expect that they might
+encounter an error when showing an access token.
+.It Sy shutdown
+Shut the server down.
+Note that shutdown occurs asynchronously: the server may still be alive for a
+period of time after this command returns.
+.El
+.Sh SEE ALSO
+.Xr pizauth.conf 5
+.Pp
+.Lk https://tratt.net/laurie/src/pizauth/
+.Sh AUTHORS
+.An -nosplit
+.Nm
+was written by
+.An Laurence Tratt Aq https://tratt.net/laurie/
