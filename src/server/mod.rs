@@ -113,7 +113,7 @@ fn request(pstate: Arc<AuthenticatorState>, mut stream: UnixStream) -> Result<()
                     let response = if expiry > &Instant::now() {
                         format!("access_token:{access_token:}")
                     } else {
-                        format!("error:Token has expired and refreshing has not yet succeeded")
+                        "error:Token has expired and refreshing has not yet succeeded".into()
                     };
                     drop(ct_lk);
                     stream.write_all(response.as_bytes())?;
