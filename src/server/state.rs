@@ -50,21 +50,8 @@ impl AuthenticatorState {
         notifier: Arc<Notifier>,
         refresher: Refresher,
     ) -> Self {
-        let tokenstates = conf
-            .accounts
-            .iter()
-            .map(|(k, _)| {
-                (
-                    k.to_owned(),
-                    TokenStateVersion {
-                        version: 0,
-                        tokenstate: TokenState::Empty,
-                    },
-                )
-            })
-            .collect();
         AuthenticatorState {
-            locked_state: Mutex::new(LockedState::new(conf, tokenstates)),
+            locked_state: Mutex::new(LockedState::new(conf)),
             http_port,
             frontend,
             notifier,
@@ -88,54 +75,7 @@ impl AuthenticatorState {
     /// `new_conf` since another thread(s) may also have called this function.
     pub fn update_conf(&self, new_conf: Config) {
         let mut lk = self.locked_state.lock().unwrap();
-        // Remove all `TokenState`s that no longer correspond to an account (i.e. GC
-        // `TokenState`s).
-        for k in lk.tokenstates.keys().cloned().collect::<Vec<_>>() {
-            if !new_conf.accounts.contains_key(&k) {
-                lk.tokenstates.remove(&k);
-            }
-        }
-        // Set the `TokenState` of any changed, or new, accounts to `Empty`.
-        for (act_name, new_act) in new_conf.accounts.iter() {
-            match lk.config.accounts.get(act_name) {
-                Some(old_act) => {
-                    // If the account has changed in any way, reset the TokenStateVersion.
-                    if new_act != old_act {
-                        // It might seem like we could keep the version unchanged, or even reset it
-                        // to zero, but there could be a very long-running thread that started acting
-                        // on an Empty tokenstate, did something (very slowly), and now wants to
-                        // update its status, even though multiple other updates have happened in
-                        // the interim. Incrementing the version implicitly invalidates whatever
-                        // (slow...) calculation it has performed.
-                        //
-                        // See invariant "I1" in [LockedState] for the `unwrap` safety guarantee.
-                        let version = lk.tokenstates.get(&new_act.name).unwrap().version + 1;
-                        lk.tokenstates.insert(
-                            act_name.to_owned(),
-                            TokenStateVersion {
-                                version,
-                                tokenstate: TokenState::Empty,
-                            },
-                        );
-                    }
-                }
-                None => {
-                    lk.tokenstates.insert(
-                        act_name.to_owned(),
-                        TokenStateVersion {
-                            version: 0,
-                            tokenstate: TokenState::Empty,
-                        },
-                    );
-                }
-            }
-        }
-        lk.config = new_conf;
-
-        debug_assert_eq!(
-            HashSet::<&String>::from_iter(lk.config.accounts.keys()),
-            HashSet::from_iter(lk.tokenstates.keys()),
-        );
+        lk.update_conf(new_conf);
     }
 }
 
@@ -145,15 +85,87 @@ impl AuthenticatorState {
 /// in one of these sets it is guaranteed to be found in the other.
 struct LockedState {
     config: Config,
-    tokenstates: HashMap<String, TokenStateVersion>,
+    account_map: HashMap<String, usize>,
+    tokenstates: Vec<TokenStateVersion>,
 }
 
 impl LockedState {
-    fn new(config: Config, tokenstates: HashMap<String, TokenStateVersion>) -> Self {
+    fn new(config: Config) -> Self {
+        let mut account_map = HashMap::with_capacity(config.accounts.len());
+        let mut tokenstates = Vec::with_capacity(config.accounts.len());
+
+        for act_name in config.accounts.keys() {
+            account_map.insert(act_name.to_owned(), tokenstates.len());
+            tokenstates.push(TokenStateVersion {
+                version: 0,
+                tokenstate: TokenState::Empty,
+            });
+        }
+
         LockedState {
             config,
+            account_map,
             tokenstates,
         }
+    }
+
+    /// Return a tokenstate for `act_name.
+    ///
+    /// # Panics
+    ///
+    /// If `act_name` is not active. See Invariant I1 above.
+    fn tokenstate_version(&self, act_name: &str) -> &TokenStateVersion {
+        &self.tokenstates[self.account_map[act_name]]
+    }
+
+    /// Return a mutable tokenstate for `act_name.
+    ///
+    /// # Panics
+    ///
+    /// If `act_name` is not active. See Invariant I1 above.
+    fn tokenstate_version_mut(&mut self, act_name: &str) -> &mut TokenStateVersion {
+        &mut self.tokenstates[self.account_map[act_name]]
+    }
+
+    fn update_conf(&mut self, config: Config) {
+        let mut account_map = HashMap::with_capacity(config.accounts.len());
+        let mut tokenstates = Vec::with_capacity(config.accounts.len());
+
+        for act_name in config.accounts.keys() {
+            account_map.insert(act_name.to_owned(), tokenstates.len());
+            tokenstates.push(TokenStateVersion {
+                version: 0,
+                tokenstate: TokenState::Empty,
+            });
+        }
+
+        for act_name in account_map.keys() {
+            if let Some(old_act) = self.config.accounts.get(act_name) {
+                let new_act = &config.accounts[act_name];
+                let mut ts = self.tokenstates[self.account_map[act_name]].clone();
+                if new_act != old_act {
+                    // The two accounts are not the same so we can't reuse the existing tokenstate,
+                    // instead keeping it as Empty. However, we need to increment the version
+                    // number, because there could be a very long-running thread that started
+                    // acting on an Empty tokenstate, did something (very slowly), and now wants to
+                    // update its status, even though multiple other updates have happened in the
+                    // interim. Incrementing the version implicitly invalidates whatever (slow...)
+                    // calculation it has performed.
+                    ts.tokenstate = TokenState::Empty;
+                    ts.version += 1;
+                }
+                tokenstates[account_map[act_name]] = ts;
+            }
+        }
+
+        self.account_map = account_map;
+        self.tokenstates = tokenstates;
+        self.config = config;
+
+        debug_assert_eq!(
+            HashSet::<&String>::from_iter(self.config.accounts.keys()),
+            HashSet::from_iter(self.account_map.keys()),
+        );
     }
 }
 
@@ -185,7 +197,7 @@ impl<'a> CTGuard<'a> {
         match self.guard.config.accounts.get(act_name) {
             Some(act) => {
                 // See invariant "I1" in [LockedState] for the `unwrap` safety guarantee.
-                let tokenstate_version = self.guard.tokenstates.get(act_name).unwrap().version;
+                let tokenstate_version = self.guard.tokenstate_version(act_name).version;
                 Some(CTGuardAccountId {
                     account: Arc::clone(act),
                     tokenstate_version,
@@ -206,12 +218,8 @@ impl<'a> CTGuard<'a> {
             // want to assume those two `C`s are equivalent.
             Some(act) if Arc::ptr_eq(&act_id.account, act) => {
                 // See invariant "I1" in [LockedState] for the `unwrap` safety guarantee.
-                let tokenstate_version = self
-                    .guard
-                    .tokenstates
-                    .get(&act_id.account.name)
-                    .unwrap()
-                    .version;
+                let tokenstate_version =
+                    self.guard.tokenstate_version(&act_id.account.name).version;
                 if act_id.tokenstate_version == tokenstate_version {
                     Some(CTGuardAccountId {
                         account: act_id.account,
@@ -229,7 +237,7 @@ impl<'a> CTGuard<'a> {
     /// An iterator that will produce one [CTGuardAccountId] for each currently active account.
     pub fn act_ids(&self) -> impl Iterator<Item = CTGuardAccountId> + '_ {
         self.guard.config.accounts.values().map(|act| {
-            let tokenstate_version = self.guard.tokenstates.get(&act.name).unwrap().version;
+            let tokenstate_version = self.guard.tokenstate_version(&act.name).version;
             CTGuardAccountId {
                 account: Arc::clone(act),
                 tokenstate_version,
@@ -269,9 +277,7 @@ impl<'a> CTGuard<'a> {
         }
         &self
             .guard
-            .tokenstates
-            .get(&act_id.account.name)
-            .unwrap()
+            .tokenstate_version(&act_id.account.name)
             .tokenstate
     }
 
@@ -289,11 +295,7 @@ impl<'a> CTGuard<'a> {
         if Weak::strong_count(&act_id.guard_rc) != 1 {
             panic!("CTGuardAccountId has outlived its parent CTGuard.");
         }
-        let mut ts_ver = self
-            .guard
-            .tokenstates
-            .get_mut(&act_id.account.name)
-            .unwrap();
+        let mut ts_ver = self.guard.tokenstate_version_mut(&act_id.account.name);
         debug_assert_eq!(ts_ver.version, act_id.tokenstate_version);
         ts_ver.version += 1;
         ts_ver.tokenstate = new_tokenstate;
@@ -317,9 +319,7 @@ impl<'a> CTGuard<'a> {
         }
         match self
             .guard
-            .tokenstates
-            .get_mut(&act_id.account.name)
-            .unwrap()
+            .tokenstate_version_mut(&act_id.account.name)
             .tokenstate
         {
             TokenState::Pending {
@@ -348,6 +348,7 @@ pub struct CTGuardAccountId {
 }
 
 /// Track the version of a [TokenState].
+#[derive(Clone, Debug)]
 struct TokenStateVersion {
     version: u128,
     tokenstate: TokenState,
@@ -462,7 +463,7 @@ mod test {
             let act_id = ct_lk.validate_act_name("x").unwrap();
             assert!(matches!(ct_lk.tokenstate(&act_id), TokenState::Empty));
             assert!(matches!(
-                ct_lk.guard.tokenstates.get("x").unwrap(),
+                ct_lk.guard.tokenstate_version("x"),
                 TokenStateVersion {
                     tokenstate: TokenState::Empty,
                     version: 0
@@ -475,7 +476,7 @@ mod test {
         {
             let ct_lk = pstate.ct_lock();
             assert!(matches!(
-                ct_lk.guard.tokenstates.get("x").unwrap(),
+                ct_lk.guard.tokenstate_version("x"),
                 TokenStateVersion {
                     tokenstate: TokenState::Empty,
                     version: 1
@@ -488,7 +489,7 @@ mod test {
         {
             let ct_lk = pstate.ct_lock();
             assert!(matches!(
-                ct_lk.guard.tokenstates.get("x").unwrap(),
+                ct_lk.guard.tokenstate_version("x"),
                 TokenStateVersion {
                     tokenstate: TokenState::Empty,
                     version: 1
@@ -501,7 +502,7 @@ mod test {
         {
             let ct_lk = pstate.ct_lock();
             assert!(matches!(
-                ct_lk.guard.tokenstates.get("x").unwrap(),
+                ct_lk.guard.tokenstate_version("x"),
                 TokenStateVersion {
                     tokenstate: TokenState::Empty,
                     version: 2
@@ -510,7 +511,7 @@ mod test {
             assert!(ct_lk.validate_act_name("x").is_some());
             assert!(ct_lk.validate_act_name("y").is_some());
             assert!(matches!(
-                ct_lk.guard.tokenstates.get("y").unwrap(),
+                ct_lk.guard.tokenstate_version("y"),
                 TokenStateVersion {
                     tokenstate: TokenState::Empty,
                     version: 0
@@ -523,7 +524,7 @@ mod test {
         {
             let ct_lk = pstate.ct_lock();
             assert!(matches!(
-                ct_lk.guard.tokenstates.get("x").unwrap(),
+                ct_lk.guard.tokenstate_version("x"),
                 TokenStateVersion {
                     tokenstate: TokenState::Empty,
                     version: 3
@@ -546,7 +547,7 @@ mod test {
                 },
             );
             assert!(matches!(
-                ct_lk.guard.tokenstates.get("x").unwrap(),
+                ct_lk.guard.tokenstate_version("x"),
                 TokenStateVersion {
                     tokenstate: TokenState::Pending { .. },
                     version: 4
@@ -560,7 +561,7 @@ mod test {
         {
             let ct_lk = pstate.ct_lock();
             assert!(matches!(
-                ct_lk.guard.tokenstates.get("x").unwrap(),
+                ct_lk.guard.tokenstate_version("x"),
                 TokenStateVersion {
                     tokenstate: TokenState::Pending { .. },
                     version: 4
@@ -573,7 +574,7 @@ mod test {
         {
             let ct_lk = pstate.ct_lock();
             assert!(matches!(
-                ct_lk.guard.tokenstates.get("x").unwrap(),
+                ct_lk.guard.tokenstate_version("x"),
                 TokenStateVersion {
                     tokenstate: TokenState::Empty,
                     version: 5
