@@ -302,33 +302,6 @@ impl<'a> CTGuard<'a> {
         act_id.tokenstate_version = ts_ver.version;
         act_id
     }
-
-    /// If the current tokenstate is [TokenState::Pending], update the last notification time to
-    /// `notification`.
-    ///
-    /// # Panics
-    ///
-    /// If the tokenstate for `act_id` is not [TokenState::Pending].
-    pub fn tokenstate_update_last_notification(
-        &mut self,
-        act_id: &CTGuardAccountId,
-        notification: Option<Instant>,
-    ) {
-        if Weak::strong_count(&act_id.guard_rc) != 1 {
-            panic!("CTGuardAccountId has outlived its parent CTGuard.");
-        }
-        match self
-            .guard
-            .tokenstate_version_mut(&act_id.account.name)
-            .tokenstate
-        {
-            TokenState::Pending {
-                ref mut last_notification,
-                ..
-            } => *last_notification = notification,
-            _ => unreachable!(),
-        }
-    }
 }
 
 /// An opaque account identifier, only fully valid while the [CTGuard] it was created from is not
@@ -524,7 +497,7 @@ mod test {
         {
             let ct_lk = pstate.ct_lock();
             assert!(matches!(
-                ct_lk.guard.tokenstate_version("x"),
+                dbg!(ct_lk.guard.tokenstate_version("x")),
                 TokenStateVersion {
                     tokenstate: TokenState::Empty,
                     version: 3

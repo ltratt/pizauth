@@ -65,28 +65,24 @@ impl Notifier {
             let now = Instant::now();
             let notify_interval = ct_lk.config().notify_interval; // Pulled out to avoid borrow checker problems.
             for act_id in ct_lk.act_ids().collect::<Vec<_>>() {
-                // The borrow checker causes us a bit of pain here, so if `url` is `Some(...)` we
-                // use that as a proxy for "update the notification state".
-                let url = match ct_lk.tokenstate(&act_id) {
-                    TokenState::Pending {
-                        last_notification,
-                        state: _,
-                        ref url,
-                    } => {
-                        if let Some(t) = last_notification {
-                            if let Some(t) = t.checked_add(notify_interval) {
-                                if t > now {
-                                    continue;
-                                }
+                let mut ts = ct_lk.tokenstate(&act_id).clone();
+                if let TokenState::Pending {
+                    ref mut last_notification,
+                    state: _,
+                    ref url,
+                } = ts
+                {
+                    if let Some(t) = last_notification {
+                        if let Some(t) = t.checked_add(notify_interval) {
+                            if t > now {
+                                continue;
                             }
                         }
-                        Some(url.clone())
                     }
-                    _ => continue,
-                };
-                if let Some(url) = url {
-                    ct_lk.tokenstate_update_last_notification(&act_id, Some(now));
+                    *last_notification = Some(now);
+                    let url = url.clone();
                     to_notify.push((ct_lk.account(&act_id).name.to_owned(), url.clone()));
+                    ct_lk.tokenstate_replace(act_id, ts);
                 }
             }
             drop(ct_lk);
