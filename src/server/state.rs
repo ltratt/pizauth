@@ -358,11 +358,11 @@ mod test {
         where
             Self: Sized,
         {
-            todo!()
+            unreachable!()
         }
 
         fn main_loop(self: Arc<Self>) -> Result<(), Box<dyn std::error::Error>> {
-            todo!()
+            unreachable!()
         }
 
         fn notify_error(
@@ -370,18 +370,18 @@ mod test {
             _act_name: String,
             _msg: &str,
         ) -> Result<(), Box<dyn std::error::Error>> {
-            todo!()
+            unreachable!()
         }
 
         fn notify_success(&self, _act_name: String) -> Result<(), Box<dyn std::error::Error>> {
-            todo!()
+            unreachable!()
         }
 
         fn notify_authorisations(
             &self,
             _to_notify: Vec<(String, Url)>,
         ) -> Result<(), Box<dyn std::error::Error>> {
-            todo!()
+            unreachable!()
         }
     }
 
