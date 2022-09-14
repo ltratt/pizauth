@@ -141,7 +141,7 @@ impl Refresher {
                             },
                         );
                         drop(ct_lk);
-                        self.update_refresher();
+                        self.notify_changes();
                         Ok(RefreshKind::Refreshed)
                     }
                     None => Ok(RefreshKind::AccountOrTokenStateChanged),
@@ -210,12 +210,15 @@ impl Refresher {
             .min()
     }
 
-    pub fn update_refresher(&self) {
+    /// Notify the refresher that one or more [TokenState]s is likely to have changed in a way that
+    /// effects the refresher.
+    pub fn notify_changes(&self) {
         let mut refresh_lk = self.pred.lock().unwrap();
         *refresh_lk = true;
         self.condvar.notify_one();
     }
 
+    /// Start the refresher thread.
     pub fn refresher(
         self: Arc<Self>,
         pstate: Arc<AuthenticatorState>,

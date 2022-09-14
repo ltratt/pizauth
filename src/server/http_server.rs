@@ -195,7 +195,7 @@ fn request(pstate: Arc<AuthenticatorState>, mut stream: TcpStream) -> Result<(),
             let msg = format!("Received token for {}", ct_lk.account(&act_id).name);
             drop(ct_lk);
             pstate.frontend.notify_success(&msg)?;
-            pstate.refresher.update_refresher();
+            pstate.refresher.notify_changes();
         }
         _ => {
             drop(ct_lk);
