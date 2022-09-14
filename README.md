@@ -182,3 +182,41 @@ Where:
 * `pizauth show` displays an access token, if one exists, for `account`. If an
   access token does not exist, a new request is initiated.
 * `pizauth shutdown` asks the server to shut itself down.
+
+
+## Example integrations
+
+One you have pizauth set up to receive tokens, you will need to set up your
+mail utilities to query pizauth when an authentication token is required. This
+section contains example configuration snippets to help you get up and running.
+
+In these examples, text in chevrons (like `<this>`) needs to be edited to match
+your individual setup. We also assume that `pizauth` is in `$PATH`, but if it
+is not, most tools allow you to use absolute paths instead.
+
+### msmtp
+
+In your config file (typcially `~/.config/msmtp/config`):
+
+```
+account <account-name>
+auth xoauth2
+host <smtp-server>
+protocol smtp
+from <email-address>
+user <username>
+passwordeval pizauth show <pizauth-account-name>
+```
+
+### mbsync
+
+Ensure you have the xoauth2 plugin for cyrus-sasl installed, and then use
+something like this for the IMAP account in `~/.mbsyncrc`:
+
+```
+IMAPAccount <account-name>
+Host <imap-server>
+User <username>
+PassCmd "pizauth show <pizauth-account-name>"
+AuthMechs XOAUTH2
+```
