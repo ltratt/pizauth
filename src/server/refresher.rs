@@ -42,7 +42,7 @@ impl Refresher {
     /// tokenstate.
     pub fn refresh(
         &self,
-        pstate: Arc<AuthenticatorState>,
+        pstate: &AuthenticatorState,
         mut ct_lk: CTGuard,
         mut act_id: CTGuardAccountId,
     ) -> Result<RefreshKind, Box<dyn Error>> {
@@ -270,7 +270,7 @@ impl Refresher {
                 let ct_lk = pstate.ct_lock();
                 if let Some(act_id) = ct_lk.validate_act_id(act_id) {
                     if let TokenState::Active { .. } = ct_lk.tokenstate(&act_id) {
-                        match self.refresh(Arc::clone(&pstate), ct_lk, act_id) {
+                        match self.refresh(&pstate, ct_lk, act_id) {
                             Ok(rk) => match rk {
                                 RefreshKind::AccountOrTokenStateChanged
                                 | RefreshKind::Refreshed
