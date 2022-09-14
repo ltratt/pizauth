@@ -141,7 +141,7 @@ impl Refresher {
                             },
                         );
                         drop(ct_lk);
-                        self.update_refresher(&pstate);
+                        self.update_refresher();
                         Ok(RefreshKind::Refreshed)
                     }
                     None => Ok(RefreshKind::AccountOrTokenStateChanged),
@@ -210,10 +210,10 @@ impl Refresher {
             .min()
     }
 
-    pub fn update_refresher(&self, pstate: &AuthenticatorState) {
-        let mut refresh_lk = pstate.refresher.pred.lock().unwrap();
+    pub fn update_refresher(&self) {
+        let mut refresh_lk = self.pred.lock().unwrap();
         *refresh_lk = true;
-        pstate.refresher.condvar.notify_one();
+        self.condvar.notify_one();
     }
 
     pub fn refresher(
@@ -222,7 +222,7 @@ impl Refresher {
     ) -> Result<(), Box<dyn Error>> {
         thread::spawn(move || loop {
             let next_wakeup = self.next_wakeup(&pstate);
-            let mut refresh_lk = pstate.refresher.pred.lock().unwrap();
+            let mut refresh_lk = self.pred.lock().unwrap();
             while !*refresh_lk {
                 #[cfg(debug_assertions)]
                 debug!(
@@ -241,8 +241,7 @@ impl Refresher {
                         }
                         match t.checked_duration_since(Instant::now()) {
                             Some(d) => {
-                                refresh_lk = pstate
-                                    .refresher
+                                refresh_lk = self
                                     .condvar
                                     .wait_timeout(refresh_lk, d)
                                     .unwrap()
@@ -251,7 +250,7 @@ impl Refresher {
                             None => break,
                         }
                     }
-                    None => refresh_lk = pstate.refresher.condvar.wait(refresh_lk).unwrap(),
+                    None => refresh_lk = self.condvar.wait(refresh_lk).unwrap(),
                 }
             }
 
