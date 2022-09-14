@@ -37,7 +37,7 @@ pub struct AuthenticatorState {
     pub http_port: u16,
     pub frontend: Arc<Box<dyn Frontend>>,
     pub notifier: Arc<Notifier>,
-    pub refresher: Refresher,
+    pub refresher: Arc<Refresher>,
 }
 
 impl AuthenticatorState {
@@ -46,7 +46,7 @@ impl AuthenticatorState {
         http_port: u16,
         frontend: Arc<Box<dyn Frontend>>,
         notifier: Arc<Notifier>,
-        refresher: Refresher,
+        refresher: Arc<Refresher>,
     ) -> Self {
         AuthenticatorState {
             locked_state: Mutex::new(LockedState::new(conf)),
@@ -349,7 +349,7 @@ pub enum TokenState {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::server::refresher::refresher_setup;
+    use crate::server::refresher::Refresher;
 
     struct DummyFrontend;
 
@@ -426,8 +426,7 @@ mod test {
         let conf = Config::from_str(conf1_str).unwrap();
         let frontend = Arc::<Box<dyn Frontend>>::new(Box::new(DummyFrontend));
         let notifier = Arc::new(Notifier::new().unwrap());
-        let pstate =
-            AuthenticatorState::new(conf, 0, frontend, notifier, refresher_setup().unwrap());
+        let pstate = AuthenticatorState::new(conf, 0, frontend, notifier, Refresher::new());
 
         {
             let ct_lk = pstate.ct_lock();

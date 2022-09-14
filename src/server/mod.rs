@@ -20,7 +20,7 @@ use nix::sys::signal::{raise, Signal};
 
 use crate::{config::Config, frontends::preferred_frontend, PIZAUTH_CACHE_SOCK_LEAF};
 use notifier::Notifier;
-use refresher::RefreshKind;
+use refresher::{RefreshKind, Refresher};
 use request_token::request_token;
 use state::{AuthenticatorState, CTGuard, CTGuardAccountId, TokenState};
 
@@ -64,7 +64,10 @@ fn request(pstate: Arc<AuthenticatorState>, mut stream: UnixStream) -> Result<()
                     stream.write_all(b"pending:")?;
                 }
                 TokenState::Active { .. } => {
-                    match refresher::refresh(Arc::clone(&pstate), ct_lk, act_id)? {
+                    match pstate
+                        .refresher
+                        .refresh(Arc::clone(&pstate), ct_lk, act_id)?
+                    {
                         RefreshKind::AccountOrTokenStateChanged => stream.write_all(b"error:")?,
                         RefreshKind::PermanentError(msg) => {
                             stream.write_all(format!("error:{msg:}").as_bytes())?
@@ -142,18 +145,18 @@ pub fn server(conf: Config, cache_path: &Path) -> Result<(), Box<dyn Error>> {
     let (http_port, http_state) = http_server::http_server_setup()?;
     let frontend = Arc::new(preferred_frontend()?);
     let notifier = Arc::new(Notifier::new()?);
-    let refresher = refresher::refresher_setup()?;
+    let refresher = Refresher::new();
 
     let pstate = Arc::new(AuthenticatorState::new(
         conf,
         http_port,
         Arc::clone(&frontend),
         Arc::clone(&notifier),
-        refresher,
+        Arc::clone(&refresher),
     ));
 
     http_server::http_server(Arc::clone(&pstate), http_state)?;
-    refresher::refresher(Arc::clone(&pstate))?;
+    refresher.refresher(Arc::clone(&pstate))?;
     notifier.notifier(Arc::clone(&pstate))?;
 
     let listener = UnixListener::bind(sock_path)?;

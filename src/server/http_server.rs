@@ -10,7 +10,7 @@ use std::{
 use log::warn;
 use url::Url;
 
-use super::{refresher::update_refresher, AuthenticatorState, CTGuardAccountId, TokenState};
+use super::{AuthenticatorState, CTGuardAccountId, TokenState};
 
 /// How often should we try making a request to an OAuth server for possibly-temporary transport
 /// issues?
@@ -195,7 +195,7 @@ fn request(pstate: Arc<AuthenticatorState>, mut stream: TcpStream) -> Result<(),
             let msg = format!("Received token for {}", ct_lk.account(&act_id).name);
             drop(ct_lk);
             pstate.frontend.notify_success(&msg)?;
-            update_refresher(pstate);
+            pstate.refresher.update_refresher(&pstate);
         }
         _ => {
             drop(ct_lk);
