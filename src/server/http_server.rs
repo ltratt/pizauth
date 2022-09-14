@@ -76,6 +76,7 @@ fn request(pstate: Arc<AuthenticatorState>, mut stream: TcpStream) -> Result<(),
     // Did authentication fail?
     if let Some((_, reason)) = uri.query_pairs().find(|(k, _)| k == "error") {
         let act_id = ct_lk.tokenstate_replace(act_id, TokenState::Empty);
+        let act_name = ct_lk.account(&act_id).name.clone();
         let msg = format!(
             "Authentication for {} failed: {}",
             ct_lk.account(&act_id).name,
@@ -83,7 +84,7 @@ fn request(pstate: Arc<AuthenticatorState>, mut stream: TcpStream) -> Result<(),
         );
         drop(ct_lk);
         http_400(stream);
-        pstate.frontend.notify_error(&msg)?;
+        pstate.frontend.notify_error(act_name, &msg)?;
         return Ok(());
     }
 
@@ -192,9 +193,9 @@ fn request(pstate: Arc<AuthenticatorState>, mut stream: TcpStream) -> Result<(),
                     refresh_token: refresh_token.map(|x| x.to_owned()),
                 },
             );
-            let msg = format!("Received token for {}", ct_lk.account(&act_id).name);
+            let act_name = ct_lk.account(&act_id).name.clone();
             drop(ct_lk);
-            pstate.frontend.notify_success(&msg)?;
+            pstate.frontend.notify_success(act_name)?;
             pstate.refresher.notify_changes();
         }
         _ => {
@@ -216,12 +217,13 @@ fn fail(
     let mut ct_lk = pstate.ct_lock();
     if let Some(act_id) = ct_lk.validate_act_id(act_id) {
         let act_id = ct_lk.tokenstate_replace(act_id, TokenState::Empty);
+        let act_name = ct_lk.account(&act_id).name.clone();
         let msg = format!(
             "Authentication for {} failed: {msg:}",
             ct_lk.account(&act_id).name
         );
         drop(ct_lk);
-        pstate.frontend.notify_error(&msg)?;
+        pstate.frontend.notify_error(act_name, &msg)?;
     }
     Ok(())
 }

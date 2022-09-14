@@ -14,11 +14,12 @@ pub fn refresh(
     accounts: Vec<String>,
 ) -> Result<(), Box<dyn Error>> {
     let sock_path = sock_path(cache_path);
-    for act in accounts {
+    let mut errs = Vec::new();
+    for act_name in accounts {
         let mut stream = UnixStream::connect(&sock_path)
             .map_err(|_| "pizauth authenticator not running or not responding")?;
         stream
-            .write_all(format!("refresh {act:}").as_bytes())
+            .write_all(format!("refresh {act_name:}").as_bytes())
             .map_err(|_| "Socket not writeable")?;
         stream.shutdown(Shutdown::Write)?;
 
@@ -26,12 +27,18 @@ pub fn refresh(
         stream.read_to_string(&mut rtn)?;
         match rtn.splitn(2, ':').collect::<Vec<_>>()[..] {
             ["ok", ""] => (),
-            ["error", cause] => return Err(cause.into()),
-            ["pending", ""] => return Err("Token unavailable until authentication complete".into()),
-            _ => return Err(format!("Malformed response '{rtn:}'").into()),
+            ["error", cause] => errs.push(format!("{act_name}:{cause:}")),
+            ["pending", ""] => errs.push(format!(
+                "{act_name:}: Token unavailable until authentication complete"
+            )),
+            _ => errs.push(format!("{act_name:}: Malformed response '{rtn:}'")),
         }
     }
-    Ok(())
+    if errs.is_empty() {
+        Ok(())
+    } else {
+        Err(errs.join("\n").into())
+    }
 }
 
 pub fn reload(_conf: Config, conf_path: PathBuf, cache_path: &Path) -> Result<(), Box<dyn Error>> {

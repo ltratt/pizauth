@@ -365,11 +365,15 @@ mod test {
             todo!()
         }
 
-        fn notify_error(&self, _msg: &str) -> Result<(), Box<dyn std::error::Error>> {
+        fn notify_error(
+            &self,
+            _act_name: String,
+            _msg: &str,
+        ) -> Result<(), Box<dyn std::error::Error>> {
             todo!()
         }
 
-        fn notify_success(&self, _msg: &str) -> Result<(), Box<dyn std::error::Error>> {
+        fn notify_success(&self, _act_name: String) -> Result<(), Box<dyn std::error::Error>> {
             todo!()
         }
 
