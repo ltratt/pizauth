@@ -35,7 +35,7 @@ pub struct AuthenticatorState {
     locked_state: Mutex<LockedState>,
     /// port of the HTTP server required by OAuth.
     pub http_port: u16,
-    pub frontend: Arc<Box<dyn Frontend>>,
+    pub frontend: Arc<dyn Frontend>,
     pub notifier: Arc<Notifier>,
     pub refresher: Arc<Refresher>,
 }
@@ -44,7 +44,7 @@ impl AuthenticatorState {
     pub fn new(
         conf: Config,
         http_port: u16,
-        frontend: Arc<Box<dyn Frontend>>,
+        frontend: Arc<dyn Frontend>,
         notifier: Arc<Notifier>,
         refresher: Arc<Refresher>,
     ) -> Self {
@@ -361,7 +361,7 @@ mod test {
             todo!()
         }
 
-        fn main_loop(&self) -> Result<(), Box<dyn std::error::Error>> {
+        fn main_loop(self: Arc<Self>) -> Result<(), Box<dyn std::error::Error>> {
             todo!()
         }
 
@@ -424,7 +424,7 @@ mod test {
             "#;
 
         let conf = Config::from_str(conf1_str).unwrap();
-        let frontend = Arc::<Box<dyn Frontend>>::new(Box::new(DummyFrontend));
+        let frontend = Arc::new(DummyFrontend);
         let notifier = Arc::new(Notifier::new().unwrap());
         let pstate = AuthenticatorState::new(conf, 0, frontend, notifier, Refresher::new());
 

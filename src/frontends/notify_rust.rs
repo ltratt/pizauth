@@ -1,6 +1,6 @@
 //! A front-end using the [notify-rust crate](https://crates.io/crates/notify-rust).
 
-use std::{error::Error, thread::sleep, time::Duration};
+use std::{error::Error, sync::Arc, thread::sleep, time::Duration};
 
 use notify_rust::{get_capabilities, get_server_information, Notification, Timeout};
 use url::Url;
@@ -32,7 +32,7 @@ impl Frontend for NotifyRust {
         }
     }
 
-    fn main_loop(&self) -> Result<(), Box<dyn Error>> {
+    fn main_loop(self: Arc<Self>) -> Result<(), Box<dyn Error>> {
         // This frontend has nothing to do in its main loop, so we just want to make sure that we
         // don't terminate the whole program by returning early. Duration::MAX equates to about
         // 584,942,417,355 years which is about 40x the age of the universe at the time of writing.

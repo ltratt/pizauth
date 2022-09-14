@@ -244,11 +244,7 @@ impl Refresher {
                         }
                         match t.checked_duration_since(Instant::now()) {
                             Some(d) => {
-                                refresh_lk = self
-                                    .condvar
-                                    .wait_timeout(refresh_lk, d)
-                                    .unwrap()
-                                    .0
+                                refresh_lk = self.condvar.wait_timeout(refresh_lk, d).unwrap().0
                             }
                             None => break,
                         }

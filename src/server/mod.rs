@@ -140,7 +140,7 @@ pub fn server(conf: Config, cache_path: &Path) -> Result<(), Box<dyn Error>> {
     }
 
     let (http_port, http_state) = http_server::http_server_setup()?;
-    let frontend = Arc::new(preferred_frontend()?);
+    let frontend = preferred_frontend()?;
     let notifier = Arc::new(Notifier::new()?);
     let refresher = Refresher::new();
 

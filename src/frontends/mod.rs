@@ -1,7 +1,7 @@
 #[cfg(feature = "frontend_notify-rust")]
 pub mod notify_rust;
 
-use std::error::Error;
+use std::{error::Error, sync::Arc};
 
 use url::Url;
 
@@ -12,7 +12,7 @@ pub trait Frontend: Send + Sync {
         Self: Sized;
 
     /// Execute the main loop of the front-end. When this function returns, pizauth will terminate.
-    fn main_loop(&self) -> Result<(), Box<dyn Error>>;
+    fn main_loop(self: Arc<Self>) -> Result<(), Box<dyn Error>>;
 
     /// Notify the user of a significant error. Note that:
     ///   1. This function may be called from an arbitrary thread. If the frontend needs to execute
@@ -39,7 +39,7 @@ pub trait Frontend: Send + Sync {
     fn notify_authorisations(&self, to_notify: Vec<(String, Url)>) -> Result<(), Box<dyn Error>>;
 }
 
-pub fn preferred_frontend() -> Result<Box<dyn Frontend>, Box<dyn Error>> {
+pub fn preferred_frontend() -> Result<Arc<dyn Frontend>, Box<dyn Error>> {
     #[cfg(feature = "frontend_notify-rust")]
-    Ok(Box::new(notify_rust::NotifyRust::new()?))
+    Ok(Arc::new(notify_rust::NotifyRust::new()?))
 }
