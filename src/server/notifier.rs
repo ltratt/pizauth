@@ -29,7 +29,7 @@ impl Notifier {
         pstate: Arc<AuthenticatorState>,
     ) -> Result<(), Box<dyn Error>> {
         thread::spawn(move || loop {
-            let next_wakeup = Arc::clone(&self).next_wakeup(&pstate);
+            let next_wakeup = self.next_wakeup(&pstate);
             let mut notify_lk = self.pred.lock().unwrap();
             while !*notify_lk {
                 #[cfg(debug_assertions)]
@@ -105,7 +105,7 @@ impl Notifier {
         self.condvar.notify_one();
     }
 
-    fn next_wakeup(self: Arc<Self>, pstate: &AuthenticatorState) -> Option<Instant> {
+    fn next_wakeup(&self, pstate: &AuthenticatorState) -> Option<Instant> {
         let ct_lk = pstate.ct_lock();
         ct_lk
             .act_ids()
