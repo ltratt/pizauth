@@ -220,3 +220,13 @@ User <username>
 PassCmd "pizauth show <pizauth-account-name>"
 AuthMechs XOAUTH2
 ```
+
+
+## Alternatives
+
+pizauth will not be perfect for everyone. You may also wish to consider these
+programs as alternatives:
+
+* [Email OAuth 2.0 Proxy](https://github.com/simonrob/email-oauth2-proxy)
+* [mailctl](https://github.com/pdobsan/mailctl)
+* [mutt_oauth2.py](https://gitlab.com/muttmua/mutt/-/blob/master/contrib/mutt_oauth2.py)
