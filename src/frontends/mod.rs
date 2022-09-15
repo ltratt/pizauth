@@ -53,6 +53,6 @@ pub fn frontend(name: &str) -> Result<Arc<dyn Frontend>, Box<dyn Error>> {
         "null" => Ok(Arc::new(null::Null::new()?)),
         #[cfg(feature = "frontend_notify-rust")]
         "notify-rust" => Ok(Arc::new(notify_rust::NotifyRust::new()?)),
-        _ => Err(format!("No frontend {name:}").into()),
+        _ => Err(format!("No frontend '{name:}'").into()),
     }
 }
