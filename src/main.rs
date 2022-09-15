@@ -18,6 +18,7 @@ use log::error;
 use nix::unistd::daemon;
 
 use config::Config;
+use frontends::{frontend, frontends};
 use user_sender::show_token;
 
 /// Name of cache directory within $XDG_DATA_HOME.
@@ -48,7 +49,7 @@ fn fatal(msg: &str) -> ! {
 fn usage() -> ! {
     let pn = progname();
     eprintln!(
-        "Usage:\n  {pn:} refresh [-c <config-path>] [<account> ... <account>]\n  {pn:} reload [-c <config-path>]\n  {pn:} server [-c <config-path>] [-dv]\n  {pn:} show [-c <config-path>] [-v] <account>\n  {pn:} shutdown"
+        "Usage:\n  {pn:} refresh [-c <config-path>] [<account> ... <account>]\n  {pn:} reload [-c <config-path>]\n  {pn:} server [-c <config-path>] [-dv] -f <frontend>\n  {pn:} show [-c <config-path>] [-v] <account>\n  {pn:} shutdown [-c <config-path>]"
     );
     process::exit(1)
 }
@@ -151,11 +152,29 @@ fn main() {
         "server" => {
             let matches = opts
                 .optflag("d", "", "Don't detach from the terminal.")
+                .reqopt(
+                    "f",
+                    "frontend",
+                    "Specify frontend ('help' lists frontends)",
+                    "",
+                )
                 .parse(&args[2..])
                 .unwrap_or_else(|_| usage());
             if matches.opt_present("h") || !matches.free.is_empty() {
                 usage();
             }
+            if matches.opt_str("f") == Some("help".to_owned()) {
+                println!("Available frontends: {}", frontends().join(", "));
+                process::exit(0);
+            }
+            let frontend = match frontend(&matches.opt_str("f").unwrap_or_else(|| "".to_owned())) {
+                Ok(f) => f,
+                Err(e) => {
+                    error!("{e:}");
+                    process::exit(1)
+                }
+            };
+
             let daemonise = !matches.opt_present("d");
             if daemonise {
                 let formatter = syslog::Formatter3164 {
@@ -184,7 +203,7 @@ fn main() {
             }
             let conf_path = conf_path(&matches);
             let conf = Config::from_path(&conf_path).unwrap_or_else(|m| fatal(&m));
-            if let Err(e) = server::server(conf, cache_path.as_path()) {
+            if let Err(e) = server::server(conf, cache_path.as_path(), frontend) {
                 error!("{e:}");
                 process::exit(1);
             }

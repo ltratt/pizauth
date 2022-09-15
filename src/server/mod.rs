@@ -18,7 +18,7 @@ use std::{
 use log::warn;
 use nix::sys::signal::{raise, Signal};
 
-use crate::{config::Config, frontends::preferred_frontend, PIZAUTH_CACHE_SOCK_LEAF};
+use crate::{config::Config, frontends::Frontend, PIZAUTH_CACHE_SOCK_LEAF};
 use notifier::Notifier;
 use refresher::{RefreshKind, Refresher};
 use request_token::request_token;
@@ -129,7 +129,11 @@ fn request(pstate: Arc<AuthenticatorState>, mut stream: UnixStream) -> Result<()
     }
 }
 
-pub fn server(conf: Config, cache_path: &Path) -> Result<(), Box<dyn Error>> {
+pub fn server(
+    conf: Config,
+    cache_path: &Path,
+    frontend: Arc<dyn Frontend>,
+) -> Result<(), Box<dyn Error>> {
     let sock_path = sock_path(cache_path);
     if sock_path.exists() {
         // Is an existing authenticator running?
@@ -140,7 +144,6 @@ pub fn server(conf: Config, cache_path: &Path) -> Result<(), Box<dyn Error>> {
     }
 
     let (http_port, http_state) = http_server::http_server_setup()?;
-    let frontend = preferred_frontend()?;
     let notifier = Arc::new(Notifier::new()?);
     let refresher = Refresher::new();
 

@@ -37,9 +37,14 @@ For each, attempt to refresh its existing access token; if there is not a valid
 access token, initiate a new token request.
 .It Sy reload
 Reload the server's configuration.
-.It Sy server Op Fl d
-Start the server.
-Will daemonise itself unless
+.It Sy server Oo Fl d Oc Fl f Ar frontend-name
+Start the server with frontend
+.Em frontend-name .
+To list the available frontends pass
+.Qq help
+as
+.Em frontend-name .
+The server will daemonise itself unless
 .Fl d
 is specified.
 .It Sy show Ar account

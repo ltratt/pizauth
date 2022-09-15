@@ -233,12 +233,7 @@ impl Account {
         for f in fields {
             match f {
                 config_ast::AccountField::AuthCmd(span) => {
-                    auth_cmd = Some(check_not_assigned_str(
-                        lexer,
-                        "auth_cmd",
-                        span,
-                        auth_cmd,
-                    )?)
+                    auth_cmd = Some(check_not_assigned_str(lexer, "auth_cmd", span, auth_cmd)?)
                 }
                 config_ast::AccountField::AuthUri(span) => {
                     auth_uri = Some(check_not_assigned_uri(lexer, "auth_uri", span, auth_uri)?)

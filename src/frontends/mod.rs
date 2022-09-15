@@ -1,5 +1,6 @@
 #[cfg(feature = "frontend_notify-rust")]
 pub mod notify_rust;
+pub mod null;
 
 use std::{error::Error, sync::Arc};
 
@@ -39,7 +40,19 @@ pub trait Frontend: Send + Sync {
     fn notify_authorisations(&self, to_notify: Vec<(String, Url)>) -> Result<(), Box<dyn Error>>;
 }
 
-pub fn preferred_frontend() -> Result<Arc<dyn Frontend>, Box<dyn Error>> {
-    #[cfg(feature = "frontend_notify-rust")]
-    Ok(Arc::new(notify_rust::NotifyRust::new()?))
+pub fn frontends() -> &'static [&'static str] {
+    &[
+        "null",
+        #[cfg(feature = "frontend_notify-rust")]
+        "notify-rust",
+    ]
+}
+
+pub fn frontend(name: &str) -> Result<Arc<dyn Frontend>, Box<dyn Error>> {
+    match name {
+        "null" => Ok(Arc::new(null::Null::new()?)),
+        #[cfg(feature = "frontend_notify-rust")]
+        "notify-rust" => Ok(Arc::new(notify_rust::NotifyRust::new()?)),
+        _ => Err(format!("No frontend {name:}").into()),
+    }
 }

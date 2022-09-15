@@ -58,10 +58,20 @@ account "officesmtp" {
 }
 ```
 
-You need to run the pizauth server:
+You need to run the pizauth server, choosing a frontend. The `null` frontend
+(which suppresses all notifications) is always available. To see what other
+front-ends your installation of pizauth has access to specify `help`:
 
 ```sh
-$ pizauth server
+$ pizauth server -f help
+Available frontends: null, notify-rust
+```
+
+To run the server with your preferred frontend, specify that frontend's name
+with `-f` to start the server:
+
+```sh
+$ pizauth server -f notify-rust
 ```
 
 and configure your program to request OAuth2 tokens with:
