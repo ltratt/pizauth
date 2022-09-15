@@ -170,7 +170,7 @@ fn main() {
             let frontend = match frontend(&matches.opt_str("f").unwrap_or_else(|| "".to_owned())) {
                 Ok(f) => f,
                 Err(e) => {
-                    error!("{e:}");
+                    eprintln!("{e:}");
                     process::exit(1)
                 }
             };
