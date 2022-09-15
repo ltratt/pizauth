@@ -1,5 +1,7 @@
 use std::{
+    env,
     error::Error,
+    process::Command,
     sync::{Arc, Condvar, Mutex},
     thread,
     time::Instant,
@@ -61,6 +63,7 @@ impl Notifier {
             drop(notify_lk);
 
             let mut to_notify = Vec::new();
+            let mut auth_cmds = Vec::new();
             let mut ct_lk = pstate.ct_lock();
             let now = Instant::now();
             let notify_interval = ct_lk.config().notify_interval; // Pulled out to avoid borrow checker problems.
@@ -81,7 +84,11 @@ impl Notifier {
                     }
                     *last_notification = Some(now);
                     let url = url.clone();
-                    to_notify.push((ct_lk.account(&act_id).name.to_owned(), url.clone()));
+                    let act = ct_lk.account(&act_id);
+                    to_notify.push((act.name.to_owned(), url.clone()));
+                    if let Some(ref auth_cmd) = act.auth_cmd {
+                        auth_cmds.push((act.name.to_owned(), auth_cmd.clone(), url));
+                    }
                     ct_lk.tokenstate_replace(act_id, ts);
                 }
             }
@@ -93,6 +100,31 @@ impl Notifier {
 
             if let Err(e) = pstate.frontend.notify_authorisations(to_notify) {
                 error!("Notifier: {e:}");
+            }
+
+            for (act_name, cmd, url) in auth_cmds.into_iter() {
+                thread::spawn(move || match env::var("SHELL") {
+                    Ok(s) => {
+                        match Command::new(s)
+                            .env("PIZAUTH_URL", url.as_str())
+                            .args(["-c", &cmd])
+                            .output()
+                        {
+                            Ok(output) => {
+                                if !output.status.success() {
+                                    error!(
+                                        "{act_name:}: error when running '{cmd:}': {}",
+                                        std::str::from_utf8(&output.stdout).unwrap_or_else(|_| {
+                                            "<stderr not representable as UTF-8"
+                                        })
+                                    );
+                                }
+                            }
+                            Err(e) => error!("{act_name:}: error when running '{cmd:}': {e:}"),
+                        }
+                    }
+                    Err(e) => error!("{e:}"),
+                });
             }
         });
 

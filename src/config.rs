@@ -199,6 +199,7 @@ fn check_assigned<T>(
 
 #[derive(Debug, PartialEq)]
 pub struct Account {
+    pub auth_cmd: Option<String>,
     pub name: String,
     pub auth_uri: String,
     pub client_id: String,
@@ -218,6 +219,7 @@ impl Account {
         overall_span: Span,
         fields: Vec<config_ast::AccountField>,
     ) -> Result<Self, String> {
+        let mut auth_cmd = None;
         let mut auth_uri = None;
         let mut client_id = None;
         let mut client_secret = None;
@@ -230,6 +232,14 @@ impl Account {
 
         for f in fields {
             match f {
+                config_ast::AccountField::AuthCmd(span) => {
+                    auth_cmd = Some(check_not_assigned_str(
+                        lexer,
+                        "auth_cmd",
+                        span,
+                        auth_cmd,
+                    )?)
+                }
                 config_ast::AccountField::AuthUri(span) => {
                     auth_uri = Some(check_not_assigned_uri(lexer, "auth_uri", span, auth_uri)?)
                 }
@@ -324,6 +334,7 @@ impl Account {
 
         Ok(Account {
             name,
+            auth_cmd,
             auth_uri,
             client_id,
             client_secret,
@@ -468,7 +479,8 @@ mod test {
                 redirect_uri = "http://f.com";
                 token_uri = "http://g.com";
                 // Optional fields
-                login_hint = "h";
+                auth_cmd = "h";
+                login_hint = "i";
                 refresh_before_expiry = 42s;
                 refresh_at_least = 43m;
             }
@@ -479,13 +491,14 @@ mod test {
         assert_eq!(c.refresh_retry_interval, Duration::from_secs(33));
 
         let act = &c.accounts["x"];
+        assert_eq!(act.auth_cmd, Some("h".to_owned()));
         assert_eq!(act.auth_uri, "http://a.com");
         assert_eq!(act.client_id, "b");
         assert_eq!(act.client_secret, "c");
         assert_eq!(&act.scopes, &["d".to_owned(), "e".to_owned()]);
         assert_eq!(act.redirect_uri, "http://f.com");
         assert_eq!(act.token_uri, "http://g.com");
-        assert_eq!(act.login_hint, Some("h".to_owned()));
+        assert_eq!(act.login_hint, Some("i".to_owned()));
         assert_eq!(act.refresh_before_expiry, Some(Duration::from_secs(42)));
         assert_eq!(act.refresh_at_least, Some(Duration::from_secs(43 * 60)));
     }

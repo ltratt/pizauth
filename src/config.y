@@ -21,7 +21,8 @@ AccountFields -> Result<Vec<AccountField>, ()>:
   ;
 
 AccountField -> Result<AccountField, ()>:
-    "AUTH_URI" "=" "STRING" ";" { Ok(AccountField::AuthUri(map_err($3)?)) }
+    "AUTH_CMD" "=" "STRING" ";" { Ok(AccountField::AuthCmd(map_err($3)?)) }
+  | "AUTH_URI" "=" "STRING" ";" { Ok(AccountField::AuthUri(map_err($3)?)) }
   | "CLIENT_ID" "=" "STRING" ";" { Ok(AccountField::ClientId(map_err($3)?)) }
   | "CLIENT_SECRET" "=" "STRING" ";" { Ok(AccountField::ClientSecret(map_err($3)?)) }
   | "LOGIN_HINT" "=" "STRING" ";" { Ok(AccountField::LoginHint(map_err($3)?)) }

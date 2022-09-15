@@ -10,6 +10,7 @@
 \] "]"
 ; ";"
 account "ACCOUNT"
+auth_cmd "AUTH_CMD"
 auth_uri "AUTH_URI"
 client_id "CLIENT_ID"
 client_secret "CLIENT_SECRET"

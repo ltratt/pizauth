@@ -7,6 +7,7 @@ pub enum TopLevel {
 }
 
 pub enum AccountField {
+    AuthCmd(Span),
     AuthUri(Span),
     ClientId(Span),
     ClientSecret(Span),
