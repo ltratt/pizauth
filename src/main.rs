@@ -103,7 +103,7 @@ fn main() {
         usage();
     }
     let mut opts = Options::new();
-    opts.optmulti("c", "config", "Path to pizauth.conf.", "<conf-path>")
+    opts.optflagopt("c", "config", "Path to pizauth.conf.", "<conf-path>")
         .optflag("h", "help", "")
         .optflagmulti("v", "verbose", "");
 
