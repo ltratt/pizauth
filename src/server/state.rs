@@ -331,6 +331,7 @@ pub enum TokenState {
     Empty,
     /// Pending authentication
     Pending {
+        code_verifier: String,
         last_notification: Option<Instant>,
         state: [u8; STATE_LEN],
         url: Url,
@@ -515,6 +516,7 @@ mod test {
             let act_id = ct_lk.tokenstate_replace(
                 act_id,
                 TokenState::Pending {
+                    code_verifier: "abc".to_owned(),
                     last_notification: None,
                     state: [0, 1, 2, 3, 4, 5, 6, 7],
                     url: Url::parse("http://a.com/").unwrap(),

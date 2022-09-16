@@ -17,6 +17,7 @@ lrpar = "0.12"
 rerun_except = "1"
 
 [dependencies]
+base64 = "0.13"
 cfgrammar = "0.12"
 getopts = "0.2"
 getrandom = "0.2"
@@ -27,6 +28,7 @@ lrpar = "0.12"
 nix = "0.25"
 notify-rust = { version = "4", optional = true }
 rand = "0.8"
+sha2 = "0.10"
 stderrlog = "0.5"
 syslog = "6"
 ureq = "2"

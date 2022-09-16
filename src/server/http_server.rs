@@ -100,6 +100,12 @@ fn request(pstate: Arc<AuthenticatorState>, mut stream: TcpStream) -> Result<(),
         }
     };
 
+    let code_verifier = match ct_lk.tokenstate(&act_id) {
+        TokenState::Pending {
+            ref code_verifier, ..
+        } => code_verifier.clone(),
+        _ => unreachable!(),
+    };
     let token_uri = act.token_uri.clone();
     let client_id = act.client_id.clone();
     let client_secret = act.client_secret.clone();
@@ -108,6 +114,7 @@ fn request(pstate: Arc<AuthenticatorState>, mut stream: TcpStream) -> Result<(),
         ("code", code.as_str()),
         ("client_id", client_id.as_str()),
         ("client_secret", client_secret.as_str()),
+        ("code_verifier", code_verifier.as_str()),
         ("redirect_uri", redirect_uri.as_str()),
         ("grant_type", "authorization_code"),
     ];

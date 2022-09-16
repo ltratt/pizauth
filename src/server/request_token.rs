@@ -1,9 +1,12 @@
 use std::{error::Error, sync::Arc};
 
 use rand::{thread_rng, RngCore};
+use sha2::{Digest, Sha256};
 use url::Url;
 
-use super::{AuthenticatorState, CTGuard, CTGuardAccountId, TokenState, STATE_LEN};
+use super::{
+    AuthenticatorState, CTGuard, CTGuardAccountId, TokenState, CODE_VERIFIER_LEN, STATE_LEN,
+};
 
 /// Request a new token for `act_id`, whose tokenstate must be `Empty`.
 pub fn request_token(
@@ -22,10 +25,25 @@ pub fn request_token(
     thread_rng().fill_bytes(&mut state);
     let state_str = urlencoding::encode_binary(&state).into_owned();
 
+    let mut code_verifier = [0u8; CODE_VERIFIER_LEN];
+    thread_rng().fill_bytes(&mut code_verifier);
+    let code_verifier = base64::encode_config(
+        &code_verifier,
+        base64::Config::new(base64::CharacterSet::Standard, false),
+    );
+    let mut hasher = Sha256::new();
+    hasher.update(&code_verifier);
+    let code_challenge = base64::encode_config(
+        hasher.finalize(),
+        base64::Config::new(base64::CharacterSet::Standard, false),
+    );
+
     let scopes_join = act.scopes.join(" ");
     let redirect_uri = act.redirect_uri(pstate.http_port)?.to_string();
     let mut params = vec![
         ("access_type", "offline"),
+        ("code_challenge", &code_challenge),
+        ("code_challenge_method", "S256"),
         ("scope", scopes_join.as_str()),
         ("client_id", act.client_id.as_str()),
         ("redirect_uri", redirect_uri.as_str()),
@@ -39,6 +57,7 @@ pub fn request_token(
     ct_lk.tokenstate_replace(
         act_id,
         TokenState::Pending {
+            code_verifier,
             last_notification: None,
             url,
             state,

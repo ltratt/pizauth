@@ -71,8 +71,8 @@ impl Notifier {
                 let mut ts = ct_lk.tokenstate(&act_id).clone();
                 if let TokenState::Pending {
                     ref mut last_notification,
-                    state: _,
                     ref url,
+                    ..
                 } = ts
                 {
                     if let Some(t) = last_notification {

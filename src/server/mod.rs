@@ -24,6 +24,8 @@ use refresher::{RefreshKind, Refresher};
 use request_token::request_token;
 use state::{AuthenticatorState, CTGuard, CTGuardAccountId, TokenState};
 
+/// Length of the PKCE code verifier in bytes.
+const CODE_VERIFIER_LEN: usize = 64;
 /// Length of the OAuth state in bytes.
 const STATE_LEN: usize = 8;
 
@@ -95,11 +97,7 @@ fn request(pstate: Arc<AuthenticatorState>, mut stream: UnixStream) -> Result<()
                     request_token(Arc::clone(&pstate), ct_lk, act_id)?;
                     stream.write_all(b"pending:")?;
                 }
-                TokenState::Pending {
-                    last_notification: _,
-                    state: _,
-                    url: _,
-                } => {
+                TokenState::Pending { .. } => {
                     drop(ct_lk);
                     stream.write_all(b"pending:")?;
                 }
