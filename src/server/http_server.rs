@@ -108,16 +108,18 @@ fn request(pstate: Arc<AuthenticatorState>, mut stream: TcpStream) -> Result<(),
     };
     let token_uri = act.token_uri.clone();
     let client_id = act.client_id.clone();
-    let client_secret = act.client_secret.clone();
     let redirect_uri = act.redirect_uri(pstate.http_port)?.to_string();
-    let pairs = [
+    let mut pairs = vec![
         ("code", code.as_str()),
         ("client_id", client_id.as_str()),
-        ("client_secret", client_secret.as_str()),
         ("code_verifier", code_verifier.as_str()),
         ("redirect_uri", redirect_uri.as_str()),
         ("grant_type", "authorization_code"),
     ];
+    let client_secret = act.client_secret.clone();
+    if let Some(ref x) = client_secret {
+        pairs.push(("client_secret", x));
+    }
 
     // At this point we know we've got a sensible looking query, so we complete the HTTP request,
     // because we don't know how long we'll spend going through the rest of the OAuth process, and

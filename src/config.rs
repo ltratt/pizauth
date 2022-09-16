@@ -203,7 +203,7 @@ pub struct Account {
     pub name: String,
     pub auth_uri: String,
     pub client_id: String,
-    pub client_secret: String,
+    pub client_secret: Option<String>,
     pub login_hint: Option<String>,
     redirect_uri: String,
     pub refresh_before_expiry: Option<Duration>,
@@ -322,7 +322,6 @@ impl Account {
 
         let auth_uri = check_assigned(lexer, "auth_uri", overall_span, auth_uri)?;
         let client_id = check_assigned(lexer, "client_id", overall_span, client_id)?;
-        let client_secret = check_assigned(lexer, "client_secret", overall_span, client_secret)?;
         let redirect_uri = check_assigned(lexer, "redirect_uri", overall_span, redirect_uri)?;
         let scopes = check_assigned(lexer, "scopes", overall_span, scopes)?;
         let token_uri = check_assigned(lexer, "token_uri", overall_span, token_uri)?;
@@ -469,12 +468,12 @@ mod test {
                 // Mandatory fields
                 auth_uri = "http://a.com";
                 client_id = "b";
-                client_secret = "c";
-                scopes = ["d", "e"];
-                redirect_uri = "http://f.com";
-                token_uri = "http://g.com";
+                scopes = ["c", "d"];
+                redirect_uri = "http://e.com";
+                token_uri = "http://f.com";
                 // Optional fields
-                auth_cmd = "h";
+                auth_cmd = "g";
+                client_secret = "h";
                 login_hint = "i";
                 refresh_before_expiry = 42s;
                 refresh_at_least = 43m;
@@ -486,13 +485,13 @@ mod test {
         assert_eq!(c.refresh_retry_interval, Duration::from_secs(33));
 
         let act = &c.accounts["x"];
-        assert_eq!(act.auth_cmd, Some("h".to_owned()));
+        assert_eq!(act.auth_cmd, Some("g".to_owned()));
         assert_eq!(act.auth_uri, "http://a.com");
         assert_eq!(act.client_id, "b");
-        assert_eq!(act.client_secret, "c");
-        assert_eq!(&act.scopes, &["d".to_owned(), "e".to_owned()]);
-        assert_eq!(act.redirect_uri, "http://f.com");
-        assert_eq!(act.token_uri, "http://g.com");
+        assert_eq!(act.client_secret, Some("h".to_owned()));
+        assert_eq!(&act.scopes, &["c".to_owned(), "d".to_owned()]);
+        assert_eq!(act.redirect_uri, "http://e.com");
+        assert_eq!(act.token_uri, "http://f.com");
         assert_eq!(act.login_hint, Some("i".to_owned()));
         assert_eq!(act.refresh_before_expiry, Some(Duration::from_secs(42)));
         assert_eq!(act.refresh_at_least, Some(Duration::from_secs(43 * 60)));
@@ -581,7 +580,6 @@ mod test {
         let fields = &[
             ("auth_uri", r#""http://a.com/""#),
             ("client_id", r#""a""#),
-            ("client_secret", r#""b""#),
             ("scopes", r#"["a"]"#),
             ("redirect_uri", r#""http://b.com/""#),
             ("token_uri", r#""http://b.com/""#),

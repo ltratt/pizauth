@@ -67,13 +67,15 @@ impl Refresher {
         let act = ct_lk.account(&act_id);
         let token_uri = act.token_uri.clone();
         let client_id = act.client_id.clone();
-        let client_secret = act.client_secret.clone();
-        let pairs = [
+        let mut pairs = vec![
             ("client_id", client_id.as_str()),
-            ("client_secret", client_secret.as_str()),
             ("refresh_token", refresh_token.as_str()),
             ("grant_type", "refresh_token"),
         ];
+        let client_secret = act.client_secret.clone();
+        if let Some(ref x) = client_secret {
+            pairs.push(("client_secret", x));
+        }
 
         drop(ct_lk);
         let body = match ureq::post(token_uri.as_str()).send_form(&pairs) {
