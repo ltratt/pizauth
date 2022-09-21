@@ -29,9 +29,11 @@ block supports the following options:
 .It Sy auth_cmd = Qo Em shell-cmd Qc ;
 specifies a shell command to be run via
 .Ql $SHELL -c
-when authentication is required. A special environment variable
+when authentication is required.
+A special environment variable
 .Em PIZAUTH_URL
-is set containing the URL required to authorise the account. Optional.
+is set containing the URL required to authorise the account.
+Mandatory.
 .It Sy auth_uri = Qo Em URI Qc ;
 where
 .Em URI
@@ -87,9 +89,14 @@ means 5 minutes.
 .Sh EXAMPLES
 An example
 .Nm
-file for accessing IMAP and SMTP services in Office365 is as follows:
+file for accessing IMAP and SMTP services in Office365, notifying the user of
+authorisation requests via
+.Xr pizauth 1
+(and escaping '&' characters which XFCE's notification daemon fails to parse)
+is as follows:
 .Bd -literal -offset 4n
 account "officesmtp" {
+    auth_cmd = "notify-send pizauth \\"<a href=\\\\\\"`echo $PIZAUTH_URL | sed 's/&/&amp;/g'`\\\\\\">officesmtp</a>\\"";
     auth_uri = "https://login.microsoftonline.com/common/oauth2/v2.0/authorize";
     token_uri = "https://login.microsoftonline.com/common/oauth2/v2.0/token";
     client_id = "..."; // Fill in with your Client ID

@@ -11,14 +11,13 @@ use std::{
     os::unix::net::{UnixListener, UnixStream},
     path::{Path, PathBuf},
     sync::Arc,
-    thread,
     time::Instant,
 };
 
 use log::warn;
 use nix::sys::signal::{raise, Signal};
 
-use crate::{config::Config, frontends::Frontend, PIZAUTH_CACHE_SOCK_LEAF};
+use crate::{config::Config, PIZAUTH_CACHE_SOCK_LEAF};
 use notifier::Notifier;
 use refresher::{RefreshKind, Refresher};
 use request_token::request_token;
@@ -127,11 +126,7 @@ fn request(pstate: Arc<AuthenticatorState>, mut stream: UnixStream) -> Result<()
     }
 }
 
-pub fn server(
-    conf: Config,
-    cache_path: &Path,
-    frontend: Arc<dyn Frontend>,
-) -> Result<(), Box<dyn Error>> {
+pub fn server(conf: Config, cache_path: &Path) -> Result<(), Box<dyn Error>> {
     let sock_path = sock_path(cache_path);
     if sock_path.exists() {
         // Is an existing authenticator running?
@@ -148,7 +143,6 @@ pub fn server(
     let pstate = Arc::new(AuthenticatorState::new(
         conf,
         http_port,
-        Arc::clone(&frontend),
         Arc::clone(&notifier),
         Arc::clone(&refresher),
     ));
@@ -158,16 +152,12 @@ pub fn server(
     notifier.notifier(Arc::clone(&pstate))?;
 
     let listener = UnixListener::bind(sock_path)?;
-    thread::spawn(move || {
-        for stream in listener.incoming().flatten() {
-            let pstate = Arc::clone(&pstate);
-            if let Err(e) = request(pstate, stream) {
-                warn!("{e:}");
-            }
+    for stream in listener.incoming().flatten() {
+        let pstate = Arc::clone(&pstate);
+        if let Err(e) = request(pstate, stream) {
+            warn!("{e:}");
         }
-    });
-
-    frontend.main_loop()?;
+    }
 
     Ok(())
 }

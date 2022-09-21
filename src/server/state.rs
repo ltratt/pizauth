@@ -23,10 +23,7 @@ use std::{
 use url::Url;
 
 use super::{notifier::Notifier, refresher::Refresher, STATE_LEN};
-use crate::{
-    config::{Account, Config},
-    frontends::Frontend,
-};
+use crate::config::{Account, Config};
 
 /// pizauth's global state.
 pub struct AuthenticatorState {
@@ -35,7 +32,6 @@ pub struct AuthenticatorState {
     locked_state: Mutex<LockedState>,
     /// port of the HTTP server required by OAuth.
     pub http_port: u16,
-    pub frontend: Arc<dyn Frontend>,
     pub notifier: Arc<Notifier>,
     pub refresher: Arc<Refresher>,
 }
@@ -44,14 +40,12 @@ impl AuthenticatorState {
     pub fn new(
         conf: Config,
         http_port: u16,
-        frontend: Arc<dyn Frontend>,
         notifier: Arc<Notifier>,
         refresher: Arc<Refresher>,
     ) -> Self {
         AuthenticatorState {
             locked_state: Mutex::new(LockedState::new(conf)),
             http_port,
-            frontend,
             notifier,
             refresher,
         }
@@ -352,44 +346,11 @@ mod test {
     use super::*;
     use crate::server::refresher::Refresher;
 
-    struct DummyFrontend;
-
-    impl Frontend for DummyFrontend {
-        fn new() -> Result<Self, Box<dyn std::error::Error>>
-        where
-            Self: Sized,
-        {
-            unreachable!()
-        }
-
-        fn main_loop(self: Arc<Self>) -> Result<(), Box<dyn std::error::Error>> {
-            unreachable!()
-        }
-
-        fn notify_error(
-            &self,
-            _act_name: String,
-            _msg: &str,
-        ) -> Result<(), Box<dyn std::error::Error>> {
-            unreachable!()
-        }
-
-        fn notify_success(&self, _act_name: String) -> Result<(), Box<dyn std::error::Error>> {
-            unreachable!()
-        }
-
-        fn notify_authorisations(
-            &self,
-            _to_notify: Vec<(String, Url)>,
-        ) -> Result<(), Box<dyn std::error::Error>> {
-            unreachable!()
-        }
-    }
-
     #[test]
     fn test_act_validation() {
         let conf1_str = r#"
             account "x" {
+                auth_cmd = "a";
                 auth_uri = "http://a.com";
                 client_id = "b";
                 client_secret = "c";
@@ -400,6 +361,7 @@ mod test {
             "#;
         let conf2_str = r#"
             account "x" {
+                auth_cmd = "a";
                 auth_uri = "http://h.com";
                 client_id = "b";
                 client_secret = "c";
@@ -410,6 +372,7 @@ mod test {
             "#;
         let conf3_str = r#"
             account "x" {
+                auth_cmd = "a";
                 auth_uri = "http://a.com";
                 client_id = "b";
                 client_secret = "c";
@@ -419,6 +382,7 @@ mod test {
             }
 
             account "y" {
+                auth_cmd = "a";
                 auth_uri = "http://a.com";
                 client_id = "b";
                 client_secret = "c";
@@ -429,9 +393,8 @@ mod test {
             "#;
 
         let conf = Config::from_str(conf1_str).unwrap();
-        let frontend = Arc::new(DummyFrontend);
         let notifier = Arc::new(Notifier::new().unwrap());
-        let pstate = AuthenticatorState::new(conf, 0, frontend, notifier, Refresher::new());
+        let pstate = AuthenticatorState::new(conf, 0, notifier, Refresher::new());
 
         {
             let ct_lk = pstate.ct_lock();

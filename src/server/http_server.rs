@@ -84,7 +84,7 @@ fn request(pstate: Arc<AuthenticatorState>, mut stream: TcpStream) -> Result<(),
         );
         drop(ct_lk);
         http_400(stream);
-        pstate.frontend.notify_error(act_name, &msg)?;
+        pstate.notifier.notify_error(act_name, &msg)?;
         return Ok(());
     }
 
@@ -204,7 +204,7 @@ fn request(pstate: Arc<AuthenticatorState>, mut stream: TcpStream) -> Result<(),
             );
             let act_name = ct_lk.account(&act_id).name.clone();
             drop(ct_lk);
-            pstate.frontend.notify_success(act_name)?;
+            pstate.notifier.notify_success(act_name)?;
             pstate.refresher.notify_changes();
         }
         _ => {
@@ -232,7 +232,7 @@ fn fail(
             ct_lk.account(&act_id).name
         );
         drop(ct_lk);
-        pstate.frontend.notify_error(act_name, &msg)?;
+        pstate.notifier.notify_error(act_name, &msg)?;
     }
     Ok(())
 }

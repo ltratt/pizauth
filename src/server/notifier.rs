@@ -62,7 +62,6 @@ impl Notifier {
             *notify_lk = false;
             drop(notify_lk);
 
-            let mut to_notify = Vec::new();
             let mut auth_cmds = Vec::new();
             let mut ct_lk = pstate.ct_lock();
             let now = Instant::now();
@@ -85,22 +84,11 @@ impl Notifier {
                     *last_notification = Some(now);
                     let url = url.clone();
                     let act = ct_lk.account(&act_id);
-                    to_notify.push((act.name.to_owned(), url.clone()));
-                    if let Some(ref auth_cmd) = act.auth_cmd {
-                        auth_cmds.push((act.name.to_owned(), auth_cmd.clone(), url));
-                    }
+                    auth_cmds.push((act.name.to_owned(), act.auth_cmd.clone(), url));
                     ct_lk.tokenstate_replace(act_id, ts);
                 }
             }
             drop(ct_lk);
-
-            if to_notify.is_empty() {
-                continue;
-            }
-
-            if let Err(e) = pstate.frontend.notify_authorisations(to_notify) {
-                error!("Notifier: {e:}");
-            }
 
             for (act_name, cmd, url) in auth_cmds.into_iter() {
                 thread::spawn(move || match env::var("SHELL") {
@@ -143,6 +131,20 @@ impl Notifier {
             .act_ids()
             .filter_map(|act_id| notify_at(pstate, &ct_lk, &act_id))
             .min()
+    }
+
+    pub fn notify_error(
+        &self,
+        _act_name: String,
+        _msg: &str,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        // FIXME
+        Ok(())
+    }
+
+    pub fn notify_success(&self, _act_name: String) -> Result<(), Box<dyn std::error::Error>> {
+        // FIXME
+        Ok(())
     }
 }
 

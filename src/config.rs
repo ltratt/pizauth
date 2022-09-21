@@ -199,7 +199,7 @@ fn check_assigned<T>(
 
 #[derive(Debug, PartialEq)]
 pub struct Account {
-    pub auth_cmd: Option<String>,
+    pub auth_cmd: String,
     pub name: String,
     pub auth_uri: String,
     pub client_id: String,
@@ -320,6 +320,7 @@ impl Account {
             }
         }
 
+        let auth_cmd = check_assigned(lexer, "auth_cmd", overall_span, auth_cmd)?;
         let auth_uri = check_assigned(lexer, "auth_uri", overall_span, auth_uri)?;
         let client_id = check_assigned(lexer, "client_id", overall_span, client_id)?;
         let redirect_uri = check_assigned(lexer, "redirect_uri", overall_span, redirect_uri)?;
@@ -466,13 +467,13 @@ mod test {
             refresh_retry_interval = 33s;
             account "x" {
                 // Mandatory fields
+                auth_cmd = "g";
                 auth_uri = "http://a.com";
                 client_id = "b";
                 scopes = ["c", "d"];
                 redirect_uri = "http://e.com";
                 token_uri = "http://f.com";
                 // Optional fields
-                auth_cmd = "g";
                 client_secret = "h";
                 login_hint = "i";
                 refresh_before_expiry = 42s;
@@ -485,7 +486,7 @@ mod test {
         assert_eq!(c.refresh_retry_interval, Duration::from_secs(33));
 
         let act = &c.accounts["x"];
-        assert_eq!(act.auth_cmd, Some("g".to_owned()));
+        assert_eq!(act.auth_cmd, "g".to_owned());
         assert_eq!(act.auth_uri, "http://a.com");
         assert_eq!(act.client_id, "b");
         assert_eq!(act.client_secret, Some("h".to_owned()));
@@ -578,6 +579,7 @@ mod test {
     #[test]
     fn mandatory_account_fields() {
         let fields = &[
+            ("auth_cmd", r#""a""#),
             ("auth_uri", r#""http://a.com/""#),
             ("client_id", r#""a""#),
             ("scopes", r#"["a"]"#),

@@ -52,59 +52,48 @@ account "officesmtp" {
       "offline_access"
     ];
     redirect_uri = "http://localhost/";
+    auth_cmd = "notify-send pizauth \"<a href=\\\"`echo $PIZAUTH_URL | sed 's/&/&amp;/g'`\\\">officesmtp</a>\"";
     // You don't have to specify login_hint, but it does make authentication a
     // little easier.
     login_hint = "email@example.com";
 }
 ```
 
-You need to run the pizauth server, choosing a frontend. The `null` frontend
-(which suppresses all notifications) is always available. To see what other
-front-ends your installation of pizauth has access to specify `help`:
+You need to run the pizauth server:
 
 ```sh
-$ pizauth server -f help
-Available frontends: null, notify-rust
+$ pizauth server
 ```
 
-To run the server with your preferred frontend, specify that frontend's name
-with `-f` to start the server:
-
-```sh
-$ pizauth server -f notify-rust
-```
-
-and configure your program to request OAuth2 tokens with:
+and configure software to request OAuth2 tokens with:
 
 ```
 pizauth show officesmtp
 ```
 
-The first time that `show officesmtp` is executed, pizauth will show a notification
-to the user including a URL. That URL needs to be opened in a browser, and the
-authentication process completed. When authentication is complete, you will see
-the message "pizauth successfully received authentication code" in your
-browser. `pizauth show officesmtp` will now print an OAuth2 token to `stdout`
-when it is called, for as long as the token is valid.
+The first time that `show officesmtp` is executed, the shell command `auth_cmd`
+will be run. In this case, `notify-send` is invoked, escaping `&` characters,
+as XFCE's notification daemon otherwise does not parse URLs correctly. As this
+suggests, users have complete flexibility within `auth_cmd` to run arbitrary
+shell commands. When authentication is complete, `pizauth show officesmtp` will
+print an OAuth2 token to `stdout` when it is called, for as long as the token
+is valid.
 
 Note that:
 
   1. `pizauth show` does not block: if a token is not available it will fail;
      once a token is available it will succeed.
-  2. `pizauth show` can print out OAuth2 tokens which are no longer valid.
-     By default, pizauth will continually refresh your token, but it may eventually
-     become invalid. There will be a delay between the token becoming invalid
-     and pizauth realising that has happened and notifying you to request a
-     new token.
+  2. `pizauth show` can print OAuth2 tokens which are no longer valid. By
+     default, pizauth will continually refresh your token, but it may
+     eventually become invalid. There will be a delay between the token
+     becoming invalid and pizauth realising that has happened and notifying you
+     to request a new token.
 
 
-## Frontend
+## Notification
 
-pizauth currently only supports a frontend based on
-[notify-rust](https://crates.io/crates/notify-rust) which shows notifications
-in your desktop. When a token is first requested (or because the previous token
-became invalid) a notification is shown to the user with a URL which needs to
-be used in a web browser. The user will be periodically reminded of any
+pizauth needs the user to perform authentication in order that it can obtain
+OAuth tokens. The user will be periodically reminded of any
 incomplete notifications, controlled by the global `notify_interval = <time>;`
 setting which defaults to `15m` (15 minutes).
 
@@ -116,16 +105,6 @@ setting which defaults to `15m` (15 minutes).
 | `m`    | minutes |
 | `h`    | hours   |
 | `d`    | days    |
-
-You can change the renotification value in `pizauth.conf`:
-
-```
-renotify = 120s;
-
-account "officesmtp" {
-  ...
-}
-```
 
 
 ## Token refresh
@@ -178,7 +157,7 @@ pizauth refresh [-c <config-path>] [<account> ... <account>]
 pizauth reload [-c <config-path>]
 pizauth server [-c <config-path>] [-dv]
 pizauth show [-c <config-path>] [-v] <account>
-pizauth shutdown
+pizauth shutdown [-c <config-path>]
 ```
 
 Where:
