@@ -29,13 +29,13 @@ pub fn request_token(
     thread_rng().fill_bytes(&mut code_verifier);
     let code_verifier = base64::encode_config(
         &code_verifier,
-        base64::Config::new(base64::CharacterSet::Standard, false),
+        base64::Config::new(base64::CharacterSet::UrlSafe, false),
     );
     let mut hasher = Sha256::new();
     hasher.update(&code_verifier);
     let code_challenge = base64::encode_config(
         hasher.finalize(),
-        base64::Config::new(base64::CharacterSet::Standard, false),
+        base64::Config::new(base64::CharacterSet::UrlSafe, false),
     );
 
     let scopes_join = act.scopes.join(" ");
