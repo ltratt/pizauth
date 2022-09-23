@@ -84,7 +84,7 @@ impl Notifier {
                     *last_notification = Some(now);
                     let url = url.clone();
                     let act = ct_lk.account(&act_id);
-                    if let Some(ref cmd) = act.auth_notify_cmd {
+                    if let Some(ref cmd) = ct_lk.config().auth_notify_cmd {
                         auth_cmds.push((act.name.to_owned(), cmd.clone(), url));
                     }
                     ct_lk.tokenstate_replace(act_id, ts);
@@ -96,6 +96,7 @@ impl Notifier {
                 thread::spawn(move || match env::var("SHELL") {
                     Ok(s) => {
                         match Command::new(s)
+                            .env("PIZAUTH_ACCOUNT", act_name.as_str())
                             .env("PIZAUTH_URL", url.as_str())
                             .args(["-c", &cmd])
                             .output()

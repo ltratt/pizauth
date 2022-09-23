@@ -27,6 +27,7 @@ const REFRESH_RETRY_INTERVAL_DEFAULT: u64 = 40;
 #[derive(Debug, PartialEq)]
 pub struct Config {
     pub accounts: HashMap<String, Arc<Account>>,
+    pub auth_notify_cmd: Option<String>,
     pub notify_interval: Duration,
     pub refresh_retry_interval: Duration,
 }
@@ -55,6 +56,7 @@ impl Config {
         }
 
         let mut accounts = HashMap::new();
+        let mut auth_notify_cmd = None;
         let mut notify_interval = None;
         let mut refresh_retry_interval = None;
         match astopt {
@@ -72,6 +74,14 @@ impl Config {
                                     fields,
                                 )?),
                             );
+                        }
+                        config_ast::TopLevel::AuthNotifyCmd(span) => {
+                            auth_notify_cmd = Some(check_not_assigned_str(
+                                &lexer,
+                                "auth_notify_cmd",
+                                span,
+                                auth_notify_cmd,
+                            )?)
                         }
                         config_ast::TopLevel::NotifyInterval(span) => {
                             match time_str_to_duration(check_not_assigned_time(
@@ -119,6 +129,7 @@ impl Config {
 
         Ok(Config {
             accounts,
+            auth_notify_cmd,
             notify_interval: notify_interval
                 .unwrap_or_else(|| Duration::from_secs(NOTIFY_INTERVAL_DEFAULT)),
             refresh_retry_interval: refresh_retry_interval
@@ -199,7 +210,6 @@ fn check_assigned<T>(
 
 #[derive(Debug, PartialEq)]
 pub struct Account {
-    pub auth_notify_cmd: Option<String>,
     pub name: String,
     pub auth_uri: String,
     pub client_id: String,
@@ -219,7 +229,6 @@ impl Account {
         overall_span: Span,
         fields: Vec<config_ast::AccountField>,
     ) -> Result<Self, String> {
-        let mut auth_notify_cmd = None;
         let mut auth_uri = None;
         let mut client_id = None;
         let mut client_secret = None;
@@ -232,14 +241,6 @@ impl Account {
 
         for f in fields {
             match f {
-                config_ast::AccountField::AuthNotifyCmd(span) => {
-                    auth_notify_cmd = Some(check_not_assigned_str(
-                        lexer,
-                        "auth_notify_cmd",
-                        span,
-                        auth_notify_cmd,
-                    )?)
-                }
                 config_ast::AccountField::AuthUri(span) => {
                     auth_uri = Some(check_not_assigned_uri(lexer, "auth_uri", span, auth_uri)?)
                 }
@@ -333,7 +334,6 @@ impl Account {
 
         Ok(Account {
             name,
-            auth_notify_cmd,
             auth_uri,
             client_id,
             client_secret,
@@ -467,6 +467,7 @@ mod test {
     fn valid_config() {
         let c = Config::from_str(
             r#"
+            auth_notify_cmd = "g";
             notify_interval = 88m;
             refresh_retry_interval = 33s;
             account "x" {
@@ -477,7 +478,6 @@ mod test {
                 redirect_uri = "http://e.com";
                 token_uri = "http://f.com";
                 // Optional fields
-                auth_notify_cmd = "g";
                 client_secret = "h";
                 login_hint = "i";
                 refresh_before_expiry = 42s;
@@ -486,11 +486,11 @@ mod test {
         "#,
         )
         .unwrap();
+        assert_eq!(c.auth_notify_cmd, Some("g".to_owned()));
         assert_eq!(c.notify_interval, Duration::from_secs(88 * 60));
         assert_eq!(c.refresh_retry_interval, Duration::from_secs(33));
 
         let act = &c.accounts["x"];
-        assert_eq!(act.auth_notify_cmd, Some("g".to_owned()));
         assert_eq!(act.auth_uri, "http://a.com");
         assert_eq!(act.client_id, "b");
         assert_eq!(act.client_secret, Some("h".to_owned()));
@@ -522,6 +522,10 @@ mod test {
     fn dup_fields() {
         match Config::from_str("notify_interval = 1s; notify_interval = 2s;") {
             Err(s) if s.contains("Mustn't specify 'notify_interval' more than once") => (),
+            _ => panic!(),
+        }
+        match Config::from_str(r#"auth_notify_cmd = "a"; auth_notify_cmd = "a";"#) {
+            Err(s) if s.contains("Mustn't specify 'auth_notify_cmd' more than once") => (),
             _ => panic!(),
         }
 

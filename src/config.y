@@ -11,6 +11,7 @@ TopLevels -> Result<Vec<TopLevel>, ()>:
 
 TopLevel -> Result<TopLevel, ()>:
     "ACCOUNT" "STRING" "{" AccountFields "}" { Ok(TopLevel::Account(overall_span($1, $5), map_err($2)?, $4?)) }
+  | "AUTH_NOTIFY_CMD" "=" "STRING" ";" { Ok(TopLevel::AuthNotifyCmd(map_err($3)?)) }
   | "NOTIFY_INTERVAL" "=" "TIME" ";" { Ok(TopLevel::NotifyInterval(map_err($3)?)) }
   | "REFRESH_RETRY_INTERVAL" "=" "TIME" ";" { Ok(TopLevel::RefreshRetryInterval(map_err($3)?)) }
   ;
@@ -21,8 +22,7 @@ AccountFields -> Result<Vec<AccountField>, ()>:
   ;
 
 AccountField -> Result<AccountField, ()>:
-    "AUTH_NOTIFY_CMD" "=" "STRING" ";" { Ok(AccountField::AuthNotifyCmd(map_err($3)?)) }
-  | "AUTH_URI" "=" "STRING" ";" { Ok(AccountField::AuthUri(map_err($3)?)) }
+    "AUTH_URI" "=" "STRING" ";" { Ok(AccountField::AuthUri(map_err($3)?)) }
   | "CLIENT_ID" "=" "STRING" ";" { Ok(AccountField::ClientId(map_err($3)?)) }
   | "CLIENT_SECRET" "=" "STRING" ";" { Ok(AccountField::ClientSecret(map_err($3)?)) }
   | "LOGIN_HINT" "=" "STRING" ";" { Ok(AccountField::LoginHint(map_err($3)?)) }

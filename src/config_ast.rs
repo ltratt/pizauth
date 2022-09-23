@@ -2,12 +2,12 @@ use lrpar::Span;
 
 pub enum TopLevel {
     Account(Span, Span, Vec<AccountField>),
+    AuthNotifyCmd(Span),
     NotifyInterval(Span),
     RefreshRetryInterval(Span),
 }
 
 pub enum AccountField {
-    AuthNotifyCmd(Span),
     AuthUri(Span),
     ClientId(Span),
     ClientSecret(Span),

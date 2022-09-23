@@ -101,25 +101,28 @@ $ pizauth show -u officesmtp
 ERROR - Token unavailable until authorised with URL
 ```
 
-You can then specify the `auth_notify_cmd` setting in an account e.g.:
+You can then specify the global `auth_notify_cmd` setting e.g.:
 
 ```
-account "officesmtp" {
-  ... // As before
-  auth_notify_cmd = "notify-send -t 30000 'pizauth authentication' \"<a href=\\\"`echo $PIZAUTH_URL | sed 's/&/&amp;/g'`\\\">officesmtp</a>\"";
+auth_notify_cmd = "notify-send -t 30000 'pizauth authentication' \"<a href=\\\"`echo $PIZAUTH_URL | sed 's/&/&amp;/g'`\\\">$PIZAUTH_ACCOUNT</a>\"";
 ```
 
-When `refresh` or `show` initiate a new token request, `auth_notify_cmd` wil be
-run with the environment variable `PIZAUTH_URL` set to the authorisation URL.
-In this case, `notify-send` is invoked, escaping `&` characters, as XFCE's
-notification daemon otherwise does not parse URLs correctly. As this suggests,
-users have complete flexibility within `auth_notify_cmd` to run arbitrary shell
-commands.
+When `refresh` or `show` initiate a new token request, `auth_notify_cmd` will be
+run with two environment variables set:
+
+  * `PIZAUTH_ACCOUNT` is set to the account name to be authorised.
+  * `PIZAUTH_URL` is set to the authorisation URL.
+
+In the example above, `notify-send` is invoked, escaping `&` characters, as
+XFCE's notification daemon otherwise does not parse URLs correctly. As this
+suggests, users have complete flexibility within `auth_notify_cmd` to run
+arbitrary shell commands.
 
 If `auth_notify_cmd` is specified, then pizauth will periodically run
-`auth_notify_cmd` until authorisation concludes (successfully or not). The
-period between notifications is controlled by the global `notify_interval =
-<time>;` setting which defaults to `15m` (15 minutes).
+`auth_notify_cmd` for a given account until authorisation concludes
+(successfully or not). The period between notifications is controlled by the
+global `notify_interval = <time>;` setting which defaults to `15m` (15
+minutes).
 
 `<time>` is an integer followed by one of:
 
