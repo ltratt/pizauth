@@ -121,7 +121,7 @@ arbitrary shell commands.
 If `auth_notify_cmd` is specified, then pizauth will periodically run
 `auth_notify_cmd` for a given account until authorisation concludes
 (successfully or not). The period between notifications is controlled by the
-global `notify_interval = <time>;` setting which defaults to `15m` (15
+global `auth_notify_interval = <time>;` setting which defaults to `15m` (15
 minutes).
 
 `<time>` is an integer followed by one of:

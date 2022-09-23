@@ -21,7 +21,7 @@ is set to the account name;
 .Em $PIZAUTH_URL
 is set containing the URL required to authorise the account.
 Optional.
-.It Sy notify_interval = Em time ;
+.It Sy auth_notify_interval = Em time ;
 specifies the gap between reminders to the user of authentication requests.
 Defaults to 15 minutes if not specified.
 .It Sy refresh_retry_interval = Em time ;
@@ -98,7 +98,6 @@ authorisation requests via
 is as follows:
 .Bd -literal -offset 4n
 account "officesmtp" {
-    auth_cmd = "notify-send pizauth \\"<a href=\\\\\\"`echo $PIZAUTH_URL | sed 's/&/&amp;/g'`\\\\\\">officesmtp</a>\\"";
     auth_uri = "https://login.microsoftonline.com/common/oauth2/v2.0/authorize";
     token_uri = "https://login.microsoftonline.com/common/oauth2/v2.0/token";
     client_id = "..."; // Fill in with your Client ID

@@ -65,7 +65,7 @@ impl Notifier {
             let mut auth_cmds = Vec::new();
             let mut ct_lk = pstate.ct_lock();
             let now = Instant::now();
-            let notify_interval = ct_lk.config().notify_interval; // Pulled out to avoid borrow checker problems.
+            let notify_interval = ct_lk.config().auth_notify_interval; // Pulled out to avoid borrow checker problems.
             for act_id in ct_lk.act_ids().collect::<Vec<_>>() {
                 let mut ts = ct_lk.tokenstate(&act_id).clone();
                 if let TokenState::Pending {
@@ -167,7 +167,7 @@ fn notify_at(
                 Some(t) => {
                     // There is no concept of Instant::MAX, so if `refreshed_at + d` exceeds
                     // Instant's bounds, there's nothing we can fall back on.
-                    t.checked_add(ct_lk.config().notify_interval)
+                    t.checked_add(ct_lk.config().auth_notify_interval)
                 }
             }
         }

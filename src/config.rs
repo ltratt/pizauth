@@ -20,7 +20,7 @@ const REFRESH_BEFORE_EXPIRY_DEFAULT: u64 = 90;
 const REFRESH_AT_LEAST_DEFAULT: u64 = 90 * 60;
 /// How many seconds do we raise a notification if it only contains authorisations that have been
 /// shown before?
-const NOTIFY_INTERVAL_DEFAULT: u64 = 15 * 60;
+const AUTH_NOTIFY_INTERVAL_DEFAULT: u64 = 15 * 60;
 /// How many seconds after a refresh failed in a non-permanent way before we retry refreshing?
 const REFRESH_RETRY_INTERVAL_DEFAULT: u64 = 40;
 
@@ -28,7 +28,7 @@ const REFRESH_RETRY_INTERVAL_DEFAULT: u64 = 40;
 pub struct Config {
     pub accounts: HashMap<String, Arc<Account>>,
     pub auth_notify_cmd: Option<String>,
-    pub notify_interval: Duration,
+    pub auth_notify_interval: Duration,
     pub refresh_retry_interval: Duration,
 }
 
@@ -57,7 +57,7 @@ impl Config {
 
         let mut accounts = HashMap::new();
         let mut auth_notify_cmd = None;
-        let mut notify_interval = None;
+        let mut auth_notify_interval = None;
         let mut refresh_retry_interval = None;
         match astopt {
             Some(Ok(opts)) => {
@@ -83,14 +83,14 @@ impl Config {
                                 auth_notify_cmd,
                             )?)
                         }
-                        config_ast::TopLevel::NotifyInterval(span) => {
+                        config_ast::TopLevel::AuthNotifyInterval(span) => {
                             match time_str_to_duration(check_not_assigned_time(
                                 &lexer,
-                                "notify_interval",
+                                "auth_notify_interval",
                                 span,
-                                notify_interval,
+                                auth_notify_interval,
                             )?) {
-                                Ok(t) => notify_interval = Some(t),
+                                Ok(t) => auth_notify_interval = Some(t),
                                 Err(e) => {
                                     return Err(error_at_span(
                                         &lexer,
@@ -130,8 +130,8 @@ impl Config {
         Ok(Config {
             accounts,
             auth_notify_cmd,
-            notify_interval: notify_interval
-                .unwrap_or_else(|| Duration::from_secs(NOTIFY_INTERVAL_DEFAULT)),
+            auth_notify_interval: auth_notify_interval
+                .unwrap_or_else(|| Duration::from_secs(AUTH_NOTIFY_INTERVAL_DEFAULT)),
             refresh_retry_interval: refresh_retry_interval
                 .unwrap_or_else(|| Duration::from_secs(REFRESH_RETRY_INTERVAL_DEFAULT)),
         })
@@ -468,7 +468,7 @@ mod test {
         let c = Config::from_str(
             r#"
             auth_notify_cmd = "g";
-            notify_interval = 88m;
+            auth_notify_interval = 88m;
             refresh_retry_interval = 33s;
             account "x" {
                 // Mandatory fields
@@ -487,7 +487,7 @@ mod test {
         )
         .unwrap();
         assert_eq!(c.auth_notify_cmd, Some("g".to_owned()));
-        assert_eq!(c.notify_interval, Duration::from_secs(88 * 60));
+        assert_eq!(c.auth_notify_interval, Duration::from_secs(88 * 60));
         assert_eq!(c.refresh_retry_interval, Duration::from_secs(33));
 
         let act = &c.accounts["x"];
@@ -512,7 +512,7 @@ mod test {
 
     #[test]
     fn invalid_time() {
-        match Config::from_str("notify_interval = 18446744073709551616s;") {
+        match Config::from_str("auth_notify_interval = 18446744073709551616s;") {
             Err(s) if s.contains("Invalid time: number too large") => (),
             _ => panic!(),
         }
@@ -520,8 +520,8 @@ mod test {
 
     #[test]
     fn dup_fields() {
-        match Config::from_str("notify_interval = 1s; notify_interval = 2s;") {
-            Err(s) if s.contains("Mustn't specify 'notify_interval' more than once") => (),
+        match Config::from_str("auth_notify_interval = 1s; auth_notify_interval = 2s;") {
+            Err(s) if s.contains("Mustn't specify 'auth_notify_interval' more than once") => (),
             _ => panic!(),
         }
         match Config::from_str(r#"auth_notify_cmd = "a"; auth_notify_cmd = "a";"#) {
