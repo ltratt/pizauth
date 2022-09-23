@@ -31,10 +31,14 @@ assumes the configuration file is located at
 .Pp
 The top-level commands are:
 .Bl -tag -width Ds
-.It Sy refresh Ar account ...
+.It Sy refresh Oo Fl u Oc Ar account ...
 Iterate through the list of accounts.
-For each, attempt to refresh its existing access token; if there is not a valid
-access token, initiate a new token request.
+For each, attempt to refresh its existing access token.
+If there is not currently a valid access or refresh token, prints an error to
+stderr, and initiates a new token request.
+Unless
+.Fl u
+is specified, the error will include an authorization URL.
 .It Sy reload
 Reload the server's configuration.
 .It Sy server Oo Fl d Oc
@@ -42,13 +46,15 @@ Start the server.
 The server will daemonise itself unless
 .Fl d
 is specified.
-.It Sy show Ar account
+.It Sy show Oo Fl u Oc Ar account
 Prints the current access token for
 .Em account
 to stdout.
-If there is not a valid access token, prints an error to stderr, and either:
-starts a refresh request of the existing access token; initiates a new token
-request.
+If there is not currently a valid access token, prints an error to stderr.
+If refreshing might obtain a valid access token, refreshing is initiated.
+Otherwise (unless
+.Fl u
+is specified), the error will include an authorization URL.
 Note that this command does not block: commands must expect that they might
 encounter an error when showing an access token.
 .It Sy shutdown

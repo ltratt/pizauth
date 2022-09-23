@@ -13,7 +13,7 @@ pub fn request_token(
     pstate: Arc<AuthenticatorState>,
     mut ct_lk: CTGuard,
     act_id: CTGuardAccountId,
-) -> Result<(), Box<dyn Error>> {
+) -> Result<Url, Box<dyn Error>> {
     assert!(matches!(
         ct_lk.tokenstate(&act_id),
         TokenState::Empty | TokenState::Pending { .. }
@@ -59,11 +59,11 @@ pub fn request_token(
         TokenState::Pending {
             code_verifier,
             last_notification: None,
-            url,
+            url: url.clone(),
             state,
         },
     );
     drop(ct_lk);
     pstate.notifier.notify_new(Arc::clone(&pstate));
-    Ok(())
+    Ok(url)
 }

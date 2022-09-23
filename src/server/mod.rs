@@ -49,7 +49,7 @@ fn request(pstate: Arc<AuthenticatorState>, mut stream: UnixStream) -> Result<()
             }
             Ok(())
         }
-        ["refresh", act_name] => {
+        ["refresh", with_url, act_name] => {
             let ct_lk = pstate.ct_lock();
             let act_id = match ct_lk.validate_act_name(act_name) {
                 Some(x) => x,
@@ -61,8 +61,12 @@ fn request(pstate: Arc<AuthenticatorState>, mut stream: UnixStream) -> Result<()
             };
             match ct_lk.tokenstate(&act_id) {
                 TokenState::Empty | TokenState::Pending { .. } => {
-                    request_token(Arc::clone(&pstate), ct_lk, act_id)?;
-                    stream.write_all(b"pending:")?;
+                    let url = request_token(Arc::clone(&pstate), ct_lk, act_id)?;
+                    if *with_url == "withurl" {
+                        stream.write_all(format!("pending:{url:}").as_bytes())?;
+                    } else {
+                        stream.write_all(b"pending:")?;
+                    }
                 }
                 TokenState::Active { .. } => {
                     match pstate.refresher.refresh(&pstate, ct_lk, act_id)? {
@@ -79,7 +83,7 @@ fn request(pstate: Arc<AuthenticatorState>, mut stream: UnixStream) -> Result<()
             }
             Ok(())
         }
-        ["showtoken", act_name] => {
+        ["showtoken", with_url, act_name] => {
             // If unwrap()ing the lock fails, we're in such deep trouble that trying to carry on is
             // pointless.
             let ct_lk = pstate.ct_lock();
@@ -93,12 +97,21 @@ fn request(pstate: Arc<AuthenticatorState>, mut stream: UnixStream) -> Result<()
             };
             match ct_lk.tokenstate(&act_id) {
                 TokenState::Empty => {
-                    request_token(Arc::clone(&pstate), ct_lk, act_id)?;
-                    stream.write_all(b"pending:")?;
+                    let url = request_token(Arc::clone(&pstate), ct_lk, act_id)?;
+                    if *with_url == "withurl" {
+                        stream.write_all(format!("pending:{url:}").as_bytes())?;
+                    } else {
+                        stream.write_all(b"pending:")?;
+                    }
                 }
-                TokenState::Pending { .. } => {
+                TokenState::Pending { ref url, .. } => {
+                    let response = if *with_url == "withurl" {
+                        format!("pending:{url:}")
+                    } else {
+                        "pending:".to_owned()
+                    };
                     drop(ct_lk);
-                    stream.write_all(b"pending:")?;
+                    stream.write_all(response.as_bytes())?;
                 }
                 TokenState::Active {
                     access_token,

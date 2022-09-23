@@ -12,14 +12,16 @@ pub fn refresh(
     _conf: Config,
     cache_path: &Path,
     accounts: Vec<String>,
+    with_url: bool,
 ) -> Result<(), Box<dyn Error>> {
     let sock_path = sock_path(cache_path);
     let mut errs = Vec::new();
+    let with_url = if with_url { "withurl" } else { "withouturl" };
     for act_name in accounts {
         let mut stream = UnixStream::connect(&sock_path)
             .map_err(|_| "pizauth authenticator not running or not responding")?;
         stream
-            .write_all(format!("refresh {act_name:}").as_bytes())
+            .write_all(format!("refresh {with_url:} {act_name:}").as_bytes())
             .map_err(|_| "Socket not writeable")?;
         stream.shutdown(Shutdown::Write)?;
 
@@ -28,8 +30,8 @@ pub fn refresh(
         match rtn.splitn(2, ':').collect::<Vec<_>>()[..] {
             ["ok", ""] => (),
             ["error", cause] => errs.push(format!("{act_name}:{cause:}")),
-            ["pending", ""] => errs.push(format!(
-                "{act_name:}: Token unavailable until authentication complete"
+            ["pending", url] => errs.push(format!(
+                "Token unavailable until authenticated with URL {url:}"
             )),
             _ => errs.push(format!("{act_name:}: Malformed response '{rtn:}'")),
         }
@@ -68,12 +70,18 @@ pub fn reload(_conf: Config, conf_path: PathBuf, cache_path: &Path) -> Result<()
     }
 }
 
-pub fn show_token(_conf: Config, cache_path: &Path, account: &str) -> Result<(), Box<dyn Error>> {
+pub fn show_token(
+    _conf: Config,
+    cache_path: &Path,
+    account: &str,
+    with_url: bool,
+) -> Result<(), Box<dyn Error>> {
     let sock_path = sock_path(cache_path);
+    let with_url = if with_url { "withurl" } else { "withouturl" };
     let mut stream = UnixStream::connect(&sock_path)
         .map_err(|_| "pizauth authenticator not running or not responding")?;
     stream
-        .write_all(format!("showtoken {account:}").as_bytes())
+        .write_all(format!("showtoken {with_url:} {account:}").as_bytes())
         .map_err(|_| "Socket not writeable")?;
     stream.shutdown(Shutdown::Write)?;
 
@@ -84,7 +92,9 @@ pub fn show_token(_conf: Config, cache_path: &Path, account: &str) -> Result<(),
             println!("{x:}");
             Ok(())
         }
-        ["pending", ""] => Err("Token unavailable until authentication complete".into()),
+        ["pending", url] => {
+            Err(format!("Token unavailable until authenticated with URL {url:}").into())
+        }
         ["error", cause] => Err(cause.into()),
         _ => Err(format!("Malformed response '{rtn:}'").into()),
     }

@@ -109,7 +109,10 @@ fn main() {
     let cache_path = cache_path();
     match args[1].as_str() {
         "refresh" => {
-            let matches = opts.parse(&args[2..]).unwrap_or_else(|_| usage());
+            let matches = opts
+                .optflag("u", "", "Don't display authorisation URLs.")
+                .parse(&args[2..])
+                .unwrap_or_else(|_| usage());
             if matches.opt_present("h") {
                 usage();
             }
@@ -120,12 +123,13 @@ fn main() {
                 .unwrap();
             let conf_path = conf_path(&matches);
             let conf = Config::from_path(&conf_path).unwrap_or_else(|m| fatal(&m));
+            let with_url = !matches.opt_present("u");
             let accounts = if matches.free.is_empty() {
                 conf.accounts.keys().cloned().collect::<Vec<_>>()
             } else {
                 matches.free
             };
-            if let Err(e) = user_sender::refresh(conf, &cache_path, accounts) {
+            if let Err(e) = user_sender::refresh(conf, &cache_path, accounts, with_url) {
                 error!("{e:}");
                 process::exit(1);
             }
@@ -190,7 +194,10 @@ fn main() {
             }
         }
         "show" => {
-            let matches = opts.parse(&args[2..]).unwrap_or_else(|_| usage());
+            let matches = opts
+                .optflag("u", "", "Don't display authorisation URLs.")
+                .parse(&args[2..])
+                .unwrap_or_else(|_| usage());
             if matches.opt_present("h") {
                 usage();
             }
@@ -205,7 +212,12 @@ fn main() {
             let account = matches.free[0].as_str();
             let conf_path = conf_path(&matches);
             let conf = Config::from_path(&conf_path).unwrap_or_else(|m| fatal(&m));
-            if let Err(e) = show_token(conf, cache_path.as_path(), account) {
+            if let Err(e) = show_token(
+                conf,
+                cache_path.as_path(),
+                account,
+                !matches.opt_present("u"),
+            ) {
                 error!("{e:}");
                 process::exit(1);
             }
