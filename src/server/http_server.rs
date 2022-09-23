@@ -192,7 +192,7 @@ fn request(pstate: Arc<AuthenticatorState>, mut stream: TcpStream) -> Result<(),
                 Some(x) => x,
                 None => return Err("Can't represent expiry".into()),
             };
-            let act_id = ct_lk.tokenstate_replace(
+            ct_lk.tokenstate_replace(
                 act_id,
                 TokenState::Active {
                     access_token: access_token.to_owned(),
@@ -202,9 +202,7 @@ fn request(pstate: Arc<AuthenticatorState>, mut stream: TcpStream) -> Result<(),
                     refresh_token: refresh_token.map(|x| x.to_owned()),
                 },
             );
-            let act_name = ct_lk.account(&act_id).name.clone();
             drop(ct_lk);
-            pstate.notifier.notify_success(act_name)?;
             pstate.refresher.notify_changes();
         }
         _ => {

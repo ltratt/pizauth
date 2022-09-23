@@ -172,11 +172,6 @@ impl Notifier {
         }
         Ok(())
     }
-
-    pub fn notify_success(&self, _act_name: String) -> Result<(), Box<dyn std::error::Error>> {
-        // FIXME
-        Ok(())
-    }
 }
 
 /// If `act_id` has a pending token, return the next time when that user should be notified that
