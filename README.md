@@ -89,7 +89,9 @@ Note that:
      to request a new token.
 
 
-## Notification
+## Notifications
+
+### Authorisation notifications
 
 By default, `pizauth show` displays authorisation URLs. If you prefer to be
 notified asynchronously, pizauth can run arbitrary commands to alert you that
@@ -107,8 +109,8 @@ You can then specify the global `auth_notify_cmd` setting e.g.:
 auth_notify_cmd = "notify-send -t 30000 'pizauth authentication' \"<a href=\\\"`echo $PIZAUTH_URL | sed 's/&/&amp;/g'`\\\">$PIZAUTH_ACCOUNT</a>\"";
 ```
 
-When `refresh` or `show` initiate a new token request, `auth_notify_cmd` will be
-run with two environment variables set:
+When `refresh` or `show` initiate a new token request, `auth_notify_cmd` is run
+with two environment variables set:
 
   * `PIZAUTH_ACCOUNT` is set to the account name to be authorised.
   * `PIZAUTH_URL` is set to the authorisation URL.
@@ -132,6 +134,21 @@ minutes).
 | `m`    | minutes |
 | `h`    | hours   |
 | `d`    | days    |
+
+
+### Error notifications
+
+pizauth reports authentication errors via syslog by default. To override this
+you can set the global `auth_error_cmd` setting e.g.:
+
+```
+auth_error_cmd = "notify-send -t 90000 \"pizauth error for $PIZAUTH_ACCOUNT\" \"$PIZAUTH_MSG\"";
+```
+
+`auth_error_cmd` is run with two environment variables set:
+
+  * `PIZAUTH_ACCOUNT` is set to the account name to be authorised.
+  * `PIZAUTH_MSG` is set to the error message.
 
 
 ## Token refresh

@@ -27,6 +27,7 @@ const REFRESH_RETRY_INTERVAL_DEFAULT: u64 = 40;
 #[derive(Debug, PartialEq)]
 pub struct Config {
     pub accounts: HashMap<String, Arc<Account>>,
+    pub auth_error_cmd: Option<String>,
     pub auth_notify_cmd: Option<String>,
     pub auth_notify_interval: Duration,
     pub refresh_retry_interval: Duration,
@@ -56,6 +57,7 @@ impl Config {
         }
 
         let mut accounts = HashMap::new();
+        let mut auth_error_cmd = None;
         let mut auth_notify_cmd = None;
         let mut auth_notify_interval = None;
         let mut refresh_retry_interval = None;
@@ -74,6 +76,14 @@ impl Config {
                                     fields,
                                 )?),
                             );
+                        }
+                        config_ast::TopLevel::AuthErrorCmd(span) => {
+                            auth_error_cmd = Some(check_not_assigned_str(
+                                &lexer,
+                                "auth_error_cmd",
+                                span,
+                                auth_error_cmd,
+                            )?)
                         }
                         config_ast::TopLevel::AuthNotifyCmd(span) => {
                             auth_notify_cmd = Some(check_not_assigned_str(
@@ -129,6 +139,7 @@ impl Config {
 
         Ok(Config {
             accounts,
+            auth_error_cmd,
             auth_notify_cmd,
             auth_notify_interval: auth_notify_interval
                 .unwrap_or_else(|| Duration::from_secs(AUTH_NOTIFY_INTERVAL_DEFAULT)),
@@ -467,6 +478,7 @@ mod test {
     fn valid_config() {
         let c = Config::from_str(
             r#"
+            auth_error_cmd = "j";
             auth_notify_cmd = "g";
             auth_notify_interval = 88m;
             refresh_retry_interval = 33s;
@@ -486,6 +498,7 @@ mod test {
         "#,
         )
         .unwrap();
+        assert_eq!(c.auth_error_cmd, Some("j".to_owned()));
         assert_eq!(c.auth_notify_cmd, Some("g".to_owned()));
         assert_eq!(c.auth_notify_interval, Duration::from_secs(88 * 60));
         assert_eq!(c.refresh_retry_interval, Duration::from_secs(33));
@@ -520,12 +533,16 @@ mod test {
 
     #[test]
     fn dup_fields() {
-        match Config::from_str("auth_notify_interval = 1s; auth_notify_interval = 2s;") {
-            Err(s) if s.contains("Mustn't specify 'auth_notify_interval' more than once") => (),
+        match Config::from_str(r#"auth_error_cmd = "a"; auth_error_cmd = "a";"#) {
+            Err(s) if s.contains("Mustn't specify 'auth_error_cmd' more than once") => (),
             _ => panic!(),
         }
         match Config::from_str(r#"auth_notify_cmd = "a"; auth_notify_cmd = "a";"#) {
             Err(s) if s.contains("Mustn't specify 'auth_notify_cmd' more than once") => (),
+            _ => panic!(),
+        }
+        match Config::from_str("auth_notify_interval = 1s; auth_notify_interval = 2s;") {
+            Err(s) if s.contains("Mustn't specify 'auth_notify_interval' more than once") => (),
             _ => panic!(),
         }
 

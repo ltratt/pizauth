@@ -10,6 +10,7 @@
 \] "]"
 ; ";"
 account "ACCOUNT"
+auth_error_cmd "AUTH_ERROR_CMD"
 auth_notify_cmd "AUTH_NOTIFY_CMD"
 auth_notify_interval "AUTH_NOTIFY_INTERVAL"
 auth_uri "AUTH_URI"

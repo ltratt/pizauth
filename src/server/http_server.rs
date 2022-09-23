@@ -84,7 +84,7 @@ fn request(pstate: Arc<AuthenticatorState>, mut stream: TcpStream) -> Result<(),
         );
         drop(ct_lk);
         http_400(stream);
-        pstate.notifier.notify_error(act_name, &msg)?;
+        pstate.notifier.notify_error(&pstate, act_name, msg)?;
         return Ok(());
     }
 
@@ -232,7 +232,7 @@ fn fail(
             ct_lk.account(&act_id).name
         );
         drop(ct_lk);
-        pstate.notifier.notify_error(act_name, &msg)?;
+        pstate.notifier.notify_error(&pstate, act_name, msg)?;
     }
     Ok(())
 }

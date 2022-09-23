@@ -11,6 +11,7 @@ TopLevels -> Result<Vec<TopLevel>, ()>:
 
 TopLevel -> Result<TopLevel, ()>:
     "ACCOUNT" "STRING" "{" AccountFields "}" { Ok(TopLevel::Account(overall_span($1, $5), map_err($2)?, $4?)) }
+  | "AUTH_ERROR_CMD" "=" "STRING" ";" { Ok(TopLevel::AuthErrorCmd(map_err($3)?)) }
   | "AUTH_NOTIFY_CMD" "=" "STRING" ";" { Ok(TopLevel::AuthNotifyCmd(map_err($3)?)) }
   | "AUTH_NOTIFY_INTERVAL" "=" "TIME" ";" { Ok(TopLevel::AuthNotifyInterval(map_err($3)?)) }
   | "REFRESH_RETRY_INTERVAL" "=" "TIME" ";" { Ok(TopLevel::RefreshRetryInterval(map_err($3)?)) }
