@@ -350,7 +350,6 @@ mod test {
     fn test_act_validation() {
         let conf1_str = r#"
             account "x" {
-                auth_cmd = "a";
                 auth_uri = "http://a.com";
                 client_id = "b";
                 client_secret = "c";
@@ -361,7 +360,6 @@ mod test {
             "#;
         let conf2_str = r#"
             account "x" {
-                auth_cmd = "a";
                 auth_uri = "http://h.com";
                 client_id = "b";
                 client_secret = "c";
@@ -372,7 +370,6 @@ mod test {
             "#;
         let conf3_str = r#"
             account "x" {
-                auth_cmd = "a";
                 auth_uri = "http://a.com";
                 client_id = "b";
                 client_secret = "c";
@@ -382,7 +379,6 @@ mod test {
             }
 
             account "y" {
-                auth_cmd = "a";
                 auth_uri = "http://a.com";
                 client_id = "b";
                 client_secret = "c";

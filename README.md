@@ -1,12 +1,12 @@
 # pizauth: a background OAuth2 token requester
 
 pizauth is a simple program for obtaining, handing out, and refreshing OAuth2
-tokens. It can be used by programs such as [fdm](https://github.com/nicm/fdm)
-and [msmtp](https://marlam.de/msmtp/) to obtain OAuth2 tokens. pizauth is
-formed of two components: a persistent "server" which interacts with the
-user to obtain tokens, and refreshes them as necessary; and a command-line
-interface which can be used by programs such as fdm and msmtp to show the
-OAuth2 token for a current account.
+access tokens. pizauth is formed of two components: a persistent server which
+interacts with the user to obtain tokens, and refreshes them as necessary; and
+a command-line interface which can be used by programs such as
+[fdm](https://github.com/nicm/fdm) and [msmtp](https://marlam.de/msmtp/) to
+display OAuth2 access tokens.
+
 
 ## Quick setup
 
@@ -14,20 +14,16 @@ pizauth's configuration file is `~/.config/pizauth.conf`. You need to specify
 at least one `account`, which tells pizauth how to authenticate against a
 particular OAuth2 setup. At a minimum you need to find out from your provider:
 
-  * The authorization URI.
+  * The authorisation URI.
   * The token URI.
-  * Your "Client ID" and "Client secret", which identify your software.
-  * The scope(s) which your OAuth2 token will give you access to. For
+  * Your "Client ID" (and in many cases also your "Client secret"), which
+    identify your software.
+  * The scope(s) which your OAuth2 access token will give you access to. For
     pizauth to be able to refresh tokens, you may need to add an explicit
     `offline_access` scope.
   * The redirect URI (you must copy this *exactly*, including trailing
     slash `/` characters). If in doubt, `http://localhost/` is a common
     choice.
-
-Unfortunately, it can be surprisingly hard to find these values out for your
-provider. One option is to inspect the values in open-source clients such as
-[Thunderbird](https://searchfox.org/comm-central/rev/234e91aa01d199c6b51183aa03328d556342acc8/mailnews/base/src/OAuth2Providers.jsm#126-135)
-to understand what you should be looking for.
 
 Some providers allow you to create Client IDs and Client Secrets at will (e.g.
 [Google](https://console.developers.google.com/projectselector/apis/credentials)).
@@ -52,32 +48,35 @@ account "officesmtp" {
       "offline_access"
     ];
     redirect_uri = "http://localhost/";
-    auth_cmd = "notify-send pizauth \"<a href=\\\"`echo $PIZAUTH_URL | sed 's/&/&amp;/g'`\\\">officesmtp</a>\"";
     // You don't have to specify login_hint, but it does make authentication a
     // little easier.
     login_hint = "email@example.com";
 }
 ```
 
-You need to run the pizauth server:
+You then need to run the pizauth server:
 
 ```sh
 $ pizauth server
 ```
 
-and configure software to request OAuth2 tokens with:
+and configure software to request OAuth2 tokens with `pizauth show officesmtp`.
+The first time that `pizauth show officesmtp` is executed, it will print an
+error to stderr that includes an authorisation URL:
 
 ```
-pizauth show officesmtp
+$ pizauth show officesmtp
+ERROR - Token unavailable until authorised with URL https://login.microsoftonline.com/common/oauth2/v2.0/authorize?access_type=offline&code_challenge=xpVa0mDzvR1Ozw5_cWN43DsO-k5_blQNHIzynyPfD3c&code_challenge_method=S256&scope=https%3A%2F%2Foutlook.office365.com%2FIMAP.AccessAsUser.All+https%3A%2F%2Foutlook.office365.com%2FSMTP.Send+offline_access&client_id=<your Client ID>&redirect_uri=http%3A%2F%2Flocalhost%3A14204%2F&response_type=code&state=%25E6%25A0%25EF%2503h6%25BCK&client_secret=<your Client Secret>&login_hint=email@example.com
 ```
 
-The first time that `show officesmtp` is executed, the shell command `auth_cmd`
-will be run. In this case, `notify-send` is invoked, escaping `&` characters,
-as XFCE's notification daemon otherwise does not parse URLs correctly. As this
-suggests, users have complete flexibility within `auth_cmd` to run arbitrary
-shell commands. When authentication is complete, `pizauth show officesmtp` will
-print an OAuth2 token to `stdout` when it is called, for as long as the token
-is valid.
+The user then needs to open that URL in the browser of their choice and
+complete authentication. Once complete, pizauth will be notified, and shortly
+afterwards `pizauth show officesmtp` will start showing a token on stdout:
+
+```
+$ pizauth show officesmtp
+DIASSPt7jlcBPTWUUCtXMWtj9TlPC6U3P3aV6C9NYrQyrhZ9L2LhyJKgl5MP7YV4
+```
 
 Note that:
 
@@ -92,10 +91,35 @@ Note that:
 
 ## Notification
 
-pizauth needs the user to perform authentication in order that it can obtain
-OAuth tokens. The user will be periodically reminded of any
-incomplete notifications, controlled by the global `notify_interval = <time>;`
-setting which defaults to `15m` (15 minutes).
+By default, `pizauth show` displays authorisation URLs. If you prefer to be
+notified asynchronously, pizauth can run arbitrary commands to alert you that
+you need to authorise a new token. You will first probably want to use `show
+-u` to suppress display of autherisation URLs:
+
+```
+$ pizauth show -u officesmtp
+ERROR - Token unavailable until authorised with URL
+```
+
+You can then specify the `auth_notify_cmd` setting in an account e.g.:
+
+```
+account "officesmtp" {
+  ... // As before
+  auth_notify_cmd = "notify-send -t 30000 'pizauth authentication' \"<a href=\\\"`echo $PIZAUTH_URL | sed 's/&/&amp;/g'`\\\">officesmtp</a>\"";
+```
+
+When `refresh` or `show` initiate a new token request, `auth_notify_cmd` wil be
+run with the environment variable `PIZAUTH_URL` set to the authorisation URL.
+In this case, `notify-send` is invoked, escaping `&` characters, as XFCE's
+notification daemon otherwise does not parse URLs correctly. As this suggests,
+users have complete flexibility within `auth_notify_cmd` to run arbitrary shell
+commands.
+
+If `auth_notify_cmd` is specified, then pizauth will periodically run
+`auth_notify_cmd` until authorisation concludes (successfully or not). The
+period between notifications is controlled by the global `notify_interval =
+<time>;` setting which defaults to `15m` (15 minutes).
 
 `<time>` is an integer followed by one of:
 
@@ -153,10 +177,10 @@ account "officesmtp" {
 pizauth's usage is:
 
 ```
-pizauth refresh [-c <config-path>] [<account> ... <account>]
+pizauth refresh [-c <config-path>] [-u] [<account> ... <account>]
 pizauth reload [-c <config-path>]
-pizauth server [-c <config-path>] [-dv]
-pizauth show [-c <config-path>] [-v] <account>
+pizauth server [-c <config-path>] [-d]
+pizauth show [-c <config-path>] [-u] <account>
 pizauth shutdown [-c <config-path>]
 ```
 
@@ -175,9 +199,9 @@ Where:
 
 ## Example integrations
 
-One you have pizauth set up to receive tokens, you will need to set up your
-mail utilities to query pizauth when an authentication token is required. This
-section contains example configuration snippets to help you get up and running.
+One you have pizauth set up to receive tokens, you will need to set up the software
+which needs access tokens. This section contains example configuration snippets
+to help you get up and running.
 
 In these examples, text in chevrons (like `<this>`) needs to be edited to match
 your individual setup. We also assume that `pizauth` is in `$PATH`, but if it

@@ -26,14 +26,14 @@ An
 .Sq account
 block supports the following options:
 .Bl -tag -width Ds
-.It Sy auth_cmd = Qo Em shell-cmd Qc ;
+.It Sy auth_notify_cmd = Qo Em shell-cmd Qc ;
 specifies a shell command to be run via
 .Ql $SHELL -c
-when authentication is required.
+when an account needs to be authenticated.
 A special environment variable
 .Em PIZAUTH_URL
 is set containing the URL required to authorise the account.
-Mandatory.
+Optional.
 .It Sy auth_uri = Qo Em URI Qc ;
 where
 .Em URI

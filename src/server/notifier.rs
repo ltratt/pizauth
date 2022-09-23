@@ -84,7 +84,9 @@ impl Notifier {
                     *last_notification = Some(now);
                     let url = url.clone();
                     let act = ct_lk.account(&act_id);
-                    auth_cmds.push((act.name.to_owned(), act.auth_cmd.clone(), url));
+                    if let Some(ref cmd) = act.auth_notify_cmd {
+                        auth_cmds.push((act.name.to_owned(), cmd.clone(), url));
+                    }
                     ct_lk.tokenstate_replace(act_id, ts);
                 }
             }

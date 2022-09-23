@@ -31,7 +31,7 @@ pub fn refresh(
             ["ok", ""] => (),
             ["error", cause] => errs.push(format!("{act_name}:{cause:}")),
             ["pending", url] => errs.push(format!(
-                "Token unavailable until authenticated with URL {url:}"
+                "Access token unavailable until authorised with URL {url:}"
             )),
             _ => errs.push(format!("{act_name:}: Malformed response '{rtn:}'")),
         }
@@ -93,7 +93,7 @@ pub fn show_token(
             Ok(())
         }
         ["pending", url] => {
-            Err(format!("Token unavailable until authenticated with URL {url:}").into())
+            Err(format!("Access token unavailable until authorised with URL {url:}").into())
         }
         ["error", cause] => Err(cause.into()),
         _ => Err(format!("Malformed response '{rtn:}'").into()),

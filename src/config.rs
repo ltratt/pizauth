@@ -199,7 +199,7 @@ fn check_assigned<T>(
 
 #[derive(Debug, PartialEq)]
 pub struct Account {
-    pub auth_cmd: String,
+    pub auth_notify_cmd: Option<String>,
     pub name: String,
     pub auth_uri: String,
     pub client_id: String,
@@ -219,7 +219,7 @@ impl Account {
         overall_span: Span,
         fields: Vec<config_ast::AccountField>,
     ) -> Result<Self, String> {
-        let mut auth_cmd = None;
+        let mut auth_notify_cmd = None;
         let mut auth_uri = None;
         let mut client_id = None;
         let mut client_secret = None;
@@ -232,8 +232,13 @@ impl Account {
 
         for f in fields {
             match f {
-                config_ast::AccountField::AuthCmd(span) => {
-                    auth_cmd = Some(check_not_assigned_str(lexer, "auth_cmd", span, auth_cmd)?)
+                config_ast::AccountField::AuthNotifyCmd(span) => {
+                    auth_notify_cmd = Some(check_not_assigned_str(
+                        lexer,
+                        "auth_notify_cmd",
+                        span,
+                        auth_notify_cmd,
+                    )?)
                 }
                 config_ast::AccountField::AuthUri(span) => {
                     auth_uri = Some(check_not_assigned_uri(lexer, "auth_uri", span, auth_uri)?)
@@ -320,7 +325,6 @@ impl Account {
             }
         }
 
-        let auth_cmd = check_assigned(lexer, "auth_cmd", overall_span, auth_cmd)?;
         let auth_uri = check_assigned(lexer, "auth_uri", overall_span, auth_uri)?;
         let client_id = check_assigned(lexer, "client_id", overall_span, client_id)?;
         let redirect_uri = check_assigned(lexer, "redirect_uri", overall_span, redirect_uri)?;
@@ -329,7 +333,7 @@ impl Account {
 
         Ok(Account {
             name,
-            auth_cmd,
+            auth_notify_cmd,
             auth_uri,
             client_id,
             client_secret,
@@ -467,13 +471,13 @@ mod test {
             refresh_retry_interval = 33s;
             account "x" {
                 // Mandatory fields
-                auth_cmd = "g";
                 auth_uri = "http://a.com";
                 client_id = "b";
                 scopes = ["c", "d"];
                 redirect_uri = "http://e.com";
                 token_uri = "http://f.com";
                 // Optional fields
+                auth_notify_cmd = "g";
                 client_secret = "h";
                 login_hint = "i";
                 refresh_before_expiry = 42s;
@@ -486,7 +490,7 @@ mod test {
         assert_eq!(c.refresh_retry_interval, Duration::from_secs(33));
 
         let act = &c.accounts["x"];
-        assert_eq!(act.auth_cmd, "g".to_owned());
+        assert_eq!(act.auth_notify_cmd, Some("g".to_owned()));
         assert_eq!(act.auth_uri, "http://a.com");
         assert_eq!(act.client_id, "b");
         assert_eq!(act.client_secret, Some("h".to_owned()));
@@ -579,7 +583,6 @@ mod test {
     #[test]
     fn mandatory_account_fields() {
         let fields = &[
-            ("auth_cmd", r#""a""#),
             ("auth_uri", r#""http://a.com/""#),
             ("client_id", r#""a""#),
             ("scopes", r#"["a"]"#),
