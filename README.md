@@ -21,9 +21,9 @@ particular OAuth2 setup. At a minimum you need to find out from your provider:
   * The scope(s) which your OAuth2 access token will give you access to. For
     pizauth to be able to refresh tokens, you may need to add an explicit
     `offline_access` scope.
-  * The redirect URI (you must copy this *exactly*, including trailing
-    slash `/` characters). If in doubt, `http://localhost/` is a common
-    choice.
+  * (In some cases) The redirect URI (you must copy this *exactly*, including
+    trailing slash `/` characters). The default value of `http://localhost/`
+    suffices in most instances.
 
 Some providers allow you to create Client IDs and Client Secrets at will (e.g.
 [Google](https://console.developers.google.com/projectselector/apis/credentials)).
@@ -47,7 +47,6 @@ account "officesmtp" {
       "https://outlook.office365.com/SMTP.Send",
       "offline_access"
     ];
-    redirect_uri = "http://localhost/";
     // You don't have to specify login_hint, but it does make authentication a
     // little easier.
     login_hint = "email@example.com";

@@ -339,7 +339,6 @@ impl Account {
 
         let auth_uri = check_assigned(lexer, "auth_uri", overall_span, auth_uri)?;
         let client_id = check_assigned(lexer, "client_id", overall_span, client_id)?;
-        let redirect_uri = check_assigned(lexer, "redirect_uri", overall_span, redirect_uri)?;
         let scopes = check_assigned(lexer, "scopes", overall_span, scopes)?;
         let token_uri = check_assigned(lexer, "token_uri", overall_span, token_uri)?;
 
@@ -349,7 +348,7 @@ impl Account {
             client_id,
             client_secret,
             login_hint,
-            redirect_uri,
+            redirect_uri: redirect_uri.unwrap_or_else(|| "http://localhost/".to_owned()),
             refresh_before_expiry: refresh_before_expiry
                 .or_else(|| Some(Duration::from_secs(REFRESH_BEFORE_EXPIRY_DEFAULT))),
             refresh_at_least: refresh_at_least
@@ -487,11 +486,11 @@ mod test {
                 auth_uri = "http://a.com";
                 client_id = "b";
                 scopes = ["c", "d"];
-                redirect_uri = "http://e.com";
                 token_uri = "http://f.com";
                 // Optional fields
                 client_secret = "h";
                 login_hint = "i";
+                redirect_uri = "http://e.com";
                 refresh_before_expiry = 42s;
                 refresh_at_least = 43m;
             }
@@ -607,7 +606,6 @@ mod test {
             ("auth_uri", r#""http://a.com/""#),
             ("client_id", r#""a""#),
             ("scopes", r#"["a"]"#),
-            ("redirect_uri", r#""http://b.com/""#),
             ("token_uri", r#""http://b.com/""#),
         ];
 

@@ -69,11 +69,9 @@ Optional.
 where
 .Em URI
 is a URI specifying the OAuth2 server's redirection URI.
-Not all OAuth2 servers specify this.
-If in doubt,
+Defaults to
 .Qq http://localhost/
-is often the correct value.
-Mandatory.
+if not specified.
 .It Sy refresh_before_expiry = Em time ;
 specifies how far in advance an access token should be refreshed before it
 expires.
