@@ -105,9 +105,8 @@ impl Notifier {
                                 if !output.status.success() {
                                     error!(
                                         "{act_name:}: error when running '{cmd:}': {}",
-                                        std::str::from_utf8(&output.stdout).unwrap_or_else(|_| {
-                                            "<stderr not representable as UTF-8"
-                                        })
+                                        std::str::from_utf8(&output.stdout)
+                                            .unwrap_or("<stderr not representable as UTF-8")
                                     );
                                 }
                             }
@@ -156,9 +155,8 @@ impl Notifier {
                                 if !output.status.success() {
                                     error!(
                                         "{act_name:}: error when running '{cmd:}': {}",
-                                        std::str::from_utf8(&output.stdout).unwrap_or_else(|_| {
-                                            "<stderr not representable as UTF-8"
-                                        })
+                                        std::str::from_utf8(&output.stdout)
+                                            .unwrap_or("<stderr not representable as UTF-8")
                                     );
                                 }
                             }
