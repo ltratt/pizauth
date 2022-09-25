@@ -218,17 +218,18 @@ Where:
 
 ## Example integrations
 
-One you have pizauth set up to receive tokens, you will need to set up the software
-which needs access tokens. This section contains example configuration snippets
-to help you get up and running.
+Once you have set up pizauth, you will then need to set up the software which
+needs access tokens. This section contains example configuration snippets to
+help you get up and running.
 
 In these examples, text in chevrons (like `<this>`) needs to be edited to match
-your individual setup. We also assume that `pizauth` is in `$PATH`, but if it
-is not, most tools allow you to use absolute paths instead.
+your individual setup. The examples assume that `pizauth` is in your `$PATH`:
+if it is not, you will need to substitute an absolute path to `pizauth` in
+these snippets.
 
 ### msmtp
 
-In your config file (typcially `~/.config/msmtp/config`):
+In your config file (typically `~/.config/msmtp/config`):
 
 ```
 account <account-name>
