@@ -8,6 +8,7 @@ mod user_sender;
 use std::{
     env::{self, current_exe},
     fs,
+    os::unix::net::UnixStream,
     path::PathBuf,
     process,
 };
@@ -17,6 +18,7 @@ use log::error;
 use nix::unistd::daemon;
 #[cfg(target_os = "openbsd")]
 use pledge::pledge;
+use server::sock_path;
 
 use config::Config;
 use user_sender::show_token;
@@ -160,6 +162,16 @@ fn main() {
                 .unwrap_or_else(|_| usage());
             if matches.opt_present("h") || !matches.free.is_empty() {
                 usage();
+            }
+
+            let sock_path = sock_path(&cache_path);
+            if sock_path.exists() {
+                // Is an existing authenticator running?
+                if UnixStream::connect(&sock_path).is_ok() {
+                    eprintln!("pizauth authenticator already running");
+                    process::exit(1);
+                }
+                fs::remove_file(&sock_path).ok();
             }
 
             let daemonise = !matches.opt_present("d");

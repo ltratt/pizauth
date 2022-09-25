@@ -6,7 +6,6 @@ mod state;
 
 use std::{
     error::Error,
-    fs,
     io::{Read, Write},
     os::unix::net::{UnixListener, UnixStream},
     path::{Path, PathBuf},
@@ -168,14 +167,6 @@ pub fn server(conf_path: PathBuf, conf: Config, cache_path: &Path) -> Result<(),
     unveil("/dev/random", "rx")?;
     #[cfg(target_os = "openbsd")]
     unveil("", "")?;
-
-    if sock_path.exists() {
-        // Is an existing authenticator running?
-        if UnixStream::connect(&sock_path).is_ok() {
-            return Err("pizauth authenticator already running".into());
-        }
-        fs::remove_file(&sock_path).ok();
-    }
 
     #[cfg(target_os = "openbsd")]
     pledge("stdio rpath wpath inet fattr unix dns proc exec", None).unwrap();
