@@ -630,6 +630,7 @@ dependencies = [
  "sha2",
  "stderrlog",
  "syslog",
+ "unveil",
  "ureq",
  "url",
  "urlencoding",
@@ -1056,6 +1057,15 @@ name = "untrusted"
 version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a156c684c91ea7d62626509bce3cb4e1d9ed5c4d978f7b4352658f96a4c26b4a"
+
+[[package]]
+name = "unveil"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5e7fa867d559102001ec694165ed17d5f82e95213060a65f9c8b6280084bbfec"
+dependencies = [
+ "libc",
+]
 
 [[package]]
 name = "ureq"

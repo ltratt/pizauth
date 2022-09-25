@@ -18,6 +18,8 @@ use log::warn;
 use nix::sys::signal::{raise, Signal};
 #[cfg(target_os = "openbsd")]
 use pledge::pledge;
+#[cfg(target_os = "openbsd")]
+use unveil::unveil;
 
 use crate::{config::Config, PIZAUTH_CACHE_SOCK_LEAF};
 use notifier::Notifier;
@@ -143,6 +145,30 @@ fn request(pstate: Arc<AuthenticatorState>, mut stream: UnixStream) -> Result<()
 
 pub fn server(conf_path: PathBuf, conf: Config, cache_path: &Path) -> Result<(), Box<dyn Error>> {
     let sock_path = sock_path(cache_path);
+
+    #[cfg(target_os = "openbsd")]
+    unveil(
+        conf_path
+            .as_os_str()
+            .to_str()
+            .ok_or_else(|| "Cannot use configuration path in unveil")?,
+        "rx",
+    )?;
+    #[cfg(target_os = "openbsd")]
+    unveil(
+        sock_path
+            .as_os_str()
+            .to_str()
+            .ok_or_else(|| "Cannot use socket path in unveil")?,
+        "rwxc",
+    )?;
+    #[cfg(target_os = "openbsd")]
+    unveil(std::env::var("SHELL")?, "rx")?;
+    #[cfg(target_os = "openbsd")]
+    unveil("/dev/random", "rx")?;
+    #[cfg(target_os = "openbsd")]
+    unveil("", "")?;
+
     if sock_path.exists() {
         // Is an existing authenticator running?
         if UnixStream::connect(&sock_path).is_ok() {
@@ -152,7 +178,7 @@ pub fn server(conf_path: PathBuf, conf: Config, cache_path: &Path) -> Result<(),
     }
 
     #[cfg(target_os = "openbsd")]
-    pledge("stdio rpath inet fattr unix dns proc exec", None).unwrap();
+    pledge("stdio rpath wpath inet fattr unix dns proc exec", None).unwrap();
 
     let (http_port, http_state) = http_server::http_server_setup()?;
     let notifier = Arc::new(Notifier::new()?);
