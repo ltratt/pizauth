@@ -5,7 +5,8 @@ access tokens. pizauth is formed of two components: a persistent server which
 interacts with the user to obtain tokens, and refreshes them as necessary; and
 a command-line interface which can be used by programs such as
 [fdm](https://github.com/nicm/fdm) and [msmtp](https://marlam.de/msmtp/) to
-display OAuth2 access tokens.
+display OAuth2 access tokens. Tokens are only ever stored in memory and are
+never persisted to disk.
 
 
 ## Quick setup
