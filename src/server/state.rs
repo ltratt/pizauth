@@ -15,6 +15,7 @@
 
 use std::{
     collections::{HashMap, HashSet},
+    path::PathBuf,
     rc::{Rc, Weak},
     sync::{Arc, Mutex, MutexGuard},
     time::Instant,
@@ -27,6 +28,7 @@ use crate::config::{Account, Config};
 
 /// pizauth's global state.
 pub struct AuthenticatorState {
+    pub conf_path: PathBuf,
     /// The "global lock" protecting the config and current [TokenState]s. Can only be accessed via
     /// [AuthenticatorState::ct_lock].
     locked_state: Mutex<LockedState>,
@@ -38,12 +40,14 @@ pub struct AuthenticatorState {
 
 impl AuthenticatorState {
     pub fn new(
+        conf_path: PathBuf,
         conf: Config,
         http_port: u16,
         notifier: Arc<Notifier>,
         refresher: Arc<Refresher>,
     ) -> Self {
         AuthenticatorState {
+            conf_path,
             locked_state: Mutex::new(LockedState::new(conf)),
             http_port,
             notifier,
@@ -390,7 +394,7 @@ mod test {
 
         let conf = Config::from_str(conf1_str).unwrap();
         let notifier = Arc::new(Notifier::new().unwrap());
-        let pstate = AuthenticatorState::new(conf, 0, notifier, Refresher::new());
+        let pstate = AuthenticatorState::new(PathBuf::new(), conf, 0, notifier, Refresher::new());
 
         {
             let ct_lk = pstate.ct_lock();

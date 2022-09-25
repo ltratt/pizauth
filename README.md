@@ -196,11 +196,11 @@ account "officesmtp" {
 pizauth's usage is:
 
 ```
-pizauth refresh [-c <config-path>] [-u] [<account> ... <account>]
-pizauth reload [-c <config-path>]
+pizauth refresh [-u] <account> [... <account>]
+pizauth reload
 pizauth server [-c <config-path>] [-d]
-pizauth show [-c <config-path>] [-u] <account>
-pizauth shutdown [-c <config-path>]
+pizauth show [-u] <account>
+pizauth shutdown
 ```
 
 Where:

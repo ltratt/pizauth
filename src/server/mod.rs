@@ -41,8 +41,8 @@ fn request(pstate: Arc<AuthenticatorState>, mut stream: UnixStream) -> Result<()
     stream.read_to_string(&mut cmd)?;
 
     match &cmd.split(' ').collect::<Vec<_>>()[..] {
-        ["reload", conf_path] => {
-            match Config::from_path(Path::new(conf_path)) {
+        ["reload"] => {
+            match Config::from_path(&pstate.conf_path) {
                 Ok(new_conf) => {
                     pstate.update_conf(new_conf);
                     stream.write_all(b"ok:")?
@@ -141,7 +141,7 @@ fn request(pstate: Arc<AuthenticatorState>, mut stream: UnixStream) -> Result<()
     }
 }
 
-pub fn server(conf: Config, cache_path: &Path) -> Result<(), Box<dyn Error>> {
+pub fn server(conf_path: PathBuf, conf: Config, cache_path: &Path) -> Result<(), Box<dyn Error>> {
     let sock_path = sock_path(cache_path);
     if sock_path.exists() {
         // Is an existing authenticator running?
@@ -159,6 +159,7 @@ pub fn server(conf: Config, cache_path: &Path) -> Result<(), Box<dyn Error>> {
     let refresher = Refresher::new();
 
     let pstate = Arc::new(AuthenticatorState::new(
+        conf_path,
         conf,
         http_port,
         Arc::clone(&notifier),

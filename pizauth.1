@@ -7,7 +7,6 @@
 .Sh SYNOPSIS
 .Nm pizauth
 .Ar Sy refresh | Sy reload | Sy server | Sy show | Sy shutdown
-.Op Fl c Ar config-file
 .Op Ar options ...
 .Sh DESCRIPTION
 .Nm
@@ -17,32 +16,26 @@ components: a persistent "server" which interacts with the user to obtain
 tokens, and refreshes them as necessary; and a command-line interface which can
 be used by other programs to show the OAuth2 token for a current account.
 .Pp
-There is a single global command-line option:
-.Bl -tag -width Ds
-.It Fl c Ar config-file
-is a path to a
-.Pa pizauth.conf
-configuration file.
-If not specified,
-.Nm
-assumes the configuration file is located at
-.Pa $HOME/.config/pizauth.conf .
-.El
-.Pp
 The top-level commands are:
 .Bl -tag -width Ds
-.It Sy refresh Oo Fl u Oc Ar account ...
-Iterate through the list of accounts.
-For each, attempt to refresh its existing access token.
-If there is not currently a valid access or refresh token, prints an error to
-stderr, and initiates a new token request.
+.It Sy refresh Oo Fl u Oc Ar account
+Attempt to refresh the access token for
+.Em account .
+If there is not currently a valid access or refresh token, reports an error
+and initiates a new token request.
 Unless
 .Fl u
 is specified, the error will include an authorization URL.
 .It Sy reload
 Reload the server's configuration.
-.It Sy server Oo Fl d Oc
+.It Sy server Oo Fl c Ar config-file Oc Oo Fl d Oc
 Start the server.
+If not specified with
+.Fl c ,
+.Nm
+checks for the configuration file (in order) at:
+.Pa $XDG_CONFIG_HOME/pizauth.conf ,
+.Pa $HOME/.config/pizauth.conf .
 The server will daemonise itself unless
 .Fl d
 is specified.

@@ -49,7 +49,7 @@ fn fatal(msg: &str) -> ! {
 fn usage() -> ! {
     let pn = progname();
     eprintln!(
-        "Usage:\n  {pn:} refresh [-c <config-path>] [<account> ... <account>]\n  {pn:} reload [-c <config-path>]\n  {pn:} server [-c <config-path>] [-dv]\n  {pn:} show [-c <config-path>] [-v] <account>\n  {pn:} shutdown [-c <config-path>]"
+        "Usage:\n  {pn:} refresh [-u] <account>\n  {pn:} reload\n  {pn:} server [-c <config-path>] [-dv]\n  {pn:} show [-v] <account>\n  {pn:} shutdown"
     );
     process::exit(1)
 }
@@ -113,8 +113,7 @@ fn main() {
         usage();
     }
     let mut opts = Options::new();
-    opts.optflagopt("c", "config", "Path to pizauth.conf.", "<conf-path>")
-        .optflag("h", "help", "")
+    opts.optflag("h", "help", "")
         .optflagmulti("v", "verbose", "");
 
     let cache_path = cache_path();
@@ -124,7 +123,7 @@ fn main() {
                 .optflag("u", "", "Don't display authorisation URLs.")
                 .parse(&args[2..])
                 .unwrap_or_else(|_| usage());
-            if matches.opt_present("h") {
+            if matches.opt_present("h") || matches.free.len() != 1 {
                 usage();
             }
             stderrlog::new()
@@ -132,15 +131,8 @@ fn main() {
                 .verbosity(matches.opt_count("v"))
                 .init()
                 .unwrap();
-            let conf_path = conf_path(&matches);
-            let conf = Config::from_path(&conf_path).unwrap_or_else(|m| fatal(&m));
             let with_url = !matches.opt_present("u");
-            let accounts = if matches.free.is_empty() {
-                conf.accounts.keys().cloned().collect::<Vec<_>>()
-            } else {
-                matches.free
-            };
-            if let Err(e) = user_sender::refresh(conf, &cache_path, accounts, with_url) {
+            if let Err(e) = user_sender::refresh(&cache_path, &matches.free[0], with_url) {
                 error!("{e:}");
                 process::exit(1);
             }
@@ -155,15 +147,14 @@ fn main() {
                 .verbosity(matches.opt_count("v"))
                 .init()
                 .unwrap();
-            let conf_path = conf_path(&matches);
-            let conf = Config::from_path(&conf_path).unwrap_or_else(|m| fatal(&m));
-            if let Err(e) = user_sender::reload(conf, conf_path, &cache_path) {
+            if let Err(e) = user_sender::reload(&cache_path) {
                 error!("{e:}");
                 process::exit(1);
             }
         }
         "server" => {
             let matches = opts
+                .optflagopt("c", "config", "Path to pizauth.conf.", "<conf-path>")
                 .optflag("d", "", "Don't detach from the terminal.")
                 .parse(&args[2..])
                 .unwrap_or_else(|_| usage());
@@ -199,7 +190,7 @@ fn main() {
             }
             let conf_path = conf_path(&matches);
             let conf = Config::from_path(&conf_path).unwrap_or_else(|m| fatal(&m));
-            if let Err(e) = server::server(conf, cache_path.as_path()) {
+            if let Err(e) = server::server(conf_path, conf, cache_path.as_path()) {
                 error!("{e:}");
                 process::exit(1);
             }
@@ -221,14 +212,7 @@ fn main() {
                 .init()
                 .unwrap();
             let account = matches.free[0].as_str();
-            let conf_path = conf_path(&matches);
-            let conf = Config::from_path(&conf_path).unwrap_or_else(|m| fatal(&m));
-            if let Err(e) = show_token(
-                conf,
-                cache_path.as_path(),
-                account,
-                !matches.opt_present("u"),
-            ) {
+            if let Err(e) = show_token(cache_path.as_path(), account, !matches.opt_present("u")) {
                 error!("{e:}");
                 process::exit(1);
             }
@@ -243,9 +227,7 @@ fn main() {
                 .verbosity(matches.opt_count("v"))
                 .init()
                 .unwrap();
-            let conf_path = conf_path(&matches);
-            let conf = Config::from_path(&conf_path).unwrap_or_else(|m| fatal(&m));
-            if let Err(e) = user_sender::shutdown(conf, conf_path, &cache_path) {
+            if let Err(e) = user_sender::shutdown(&cache_path) {
                 error!("{e:}");
                 process::exit(1);
             }
