@@ -39,7 +39,7 @@ fn request(pstate: Arc<AuthenticatorState>, mut stream: TcpStream) -> Result<(),
     // All valid requests (even those reporting an error!) should report back a valid "state" to
     // us, so fish that out of the URI and check that it matches a request we made.
     let state = match uri.query_pairs().find(|(k, _)| k == "state") {
-        Some((_, state)) => urlencoding::decode_binary(state.as_bytes()).into_owned(),
+        Some((_, state)) => state.into_owned(),
         None => {
             // As well as malformed OAuth queries this will also 404 for favicon.ico.
             http_404(stream);

@@ -22,7 +22,7 @@ use std::{
 
 use url::Url;
 
-use super::{notifier::Notifier, refresher::Refresher, STATE_LEN};
+use super::{notifier::Notifier, refresher::Refresher};
 use crate::config::{Account, Config};
 
 /// pizauth's global state.
@@ -239,10 +239,10 @@ impl<'a> CTGuard<'a> {
     }
 
     /// Return the [CTGuardAccountId] with state `state`.
-    pub fn act_id_matching_token_state(&self, state: &[u8]) -> Option<CTGuardAccountId> {
+    pub fn act_id_matching_token_state(&self, state: &str) -> Option<CTGuardAccountId> {
         self.act_ids()
             .find(|act_id|
-                matches!(self.tokenstate(act_id), &TokenState::Pending { state: s, .. } if s == state))
+                matches!(self.tokenstate(act_id), TokenState::Pending { state: s, .. } if s == state))
     }
 
     /// Return the [Account] for account `act_id`.
@@ -327,7 +327,7 @@ pub enum TokenState {
     Pending {
         code_verifier: String,
         last_notification: Option<Instant>,
-        state: [u8; STATE_LEN],
+        state: String,
         url: Url,
     },
     /// There is an active token (and, possibly, also an active refresh token).
@@ -477,7 +477,7 @@ mod test {
                 TokenState::Pending {
                     code_verifier: "abc".to_owned(),
                     last_notification: None,
-                    state: [0, 1, 2, 3, 4, 5, 6, 7],
+                    state: "xyz".to_string(),
                     url: Url::parse("http://a.com/").unwrap(),
                 },
             );

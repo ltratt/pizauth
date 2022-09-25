@@ -23,7 +23,10 @@ pub fn request_token(
 
     let mut state = [0u8; STATE_LEN];
     thread_rng().fill_bytes(&mut state);
-    let state_str = urlencoding::encode_binary(&state).into_owned();
+    let state = base64::encode_config(
+        &state,
+        base64::Config::new(base64::CharacterSet::UrlSafe, false),
+    );
 
     let mut code_verifier = [0u8; CODE_VERIFIER_LEN];
     thread_rng().fill_bytes(&mut code_verifier);
@@ -48,7 +51,7 @@ pub fn request_token(
         ("client_id", act.client_id.as_str()),
         ("redirect_uri", redirect_uri.as_str()),
         ("response_type", "code"),
-        ("state", state_str.as_str()),
+        ("state", &state),
     ];
     if let Some(x) = &act.client_secret {
         params.push(("client_secret", x));
