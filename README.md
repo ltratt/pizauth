@@ -263,3 +263,4 @@ programs as alternatives:
 * [Email OAuth 2.0 Proxy](https://github.com/simonrob/email-oauth2-proxy)
 * [mailctl](https://github.com/pdobsan/mailctl)
 * [mutt_oauth2.py](https://gitlab.com/muttmua/mutt/-/blob/master/contrib/mutt_oauth2.py)
+* [oauth-helper-office-365](https://github.com/ahrex/oauth-helper-office-365)
