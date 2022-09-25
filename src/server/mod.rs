@@ -16,6 +16,8 @@ use std::{
 
 use log::warn;
 use nix::sys::signal::{raise, Signal};
+#[cfg(target_os = "openbsd")]
+use pledge::pledge;
 
 use crate::{config::Config, PIZAUTH_CACHE_SOCK_LEAF};
 use notifier::Notifier;
@@ -148,6 +150,9 @@ pub fn server(conf: Config, cache_path: &Path) -> Result<(), Box<dyn Error>> {
         }
         fs::remove_file(&sock_path).ok();
     }
+
+    #[cfg(target_os = "openbsd")]
+    pledge("stdio rpath inet fattr unix dns proc exec", None).unwrap();
 
     let (http_port, http_state) = http_server::http_server_setup()?;
     let notifier = Arc::new(Notifier::new()?);

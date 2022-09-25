@@ -15,6 +15,8 @@ use std::{
 use getopts::Options;
 use log::error;
 use nix::unistd::daemon;
+#[cfg(target_os = "openbsd")]
+use pledge::pledge;
 
 use config::Config;
 use user_sender::show_token;
@@ -97,6 +99,15 @@ fn conf_path(matches: &getopts::Matches) -> PathBuf {
 }
 
 fn main() {
+    // Generic pledge support for all pizauth's commands. Note that the server later restricts
+    // these further.
+    #[cfg(target_os = "openbsd")]
+    pledge(
+        "stdio rpath wpath cpath tmppath inet fattr flock unix dns proc ps exec unveil",
+        None,
+    )
+    .unwrap();
+
     let args: Vec<String> = env::args().collect();
     if args.len() < 2 {
         usage();

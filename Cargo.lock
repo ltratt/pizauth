@@ -624,6 +624,7 @@ dependencies = [
  "lrlex",
  "lrpar",
  "nix",
+ "pledge",
  "rand",
  "rerun_except",
  "sha2",
@@ -632,6 +633,15 @@ dependencies = [
  "ureq",
  "url",
  "urlencoding",
+]
+
+[[package]]
+name = "pledge"
+version = "0.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "252599417b7d9a43b7fdc63dd790b0848666a8910b2ebe1a25118309c3c981e5"
+dependencies = [
+ "libc",
 ]
 
 [[package]]
