@@ -53,9 +53,6 @@ pub fn request_token(
         ("response_type", "code"),
         ("state", &state),
     ];
-    if let Some(x) = &act.client_secret {
-        params.push(("client_secret", x));
-    }
     if let Some(x) = &act.login_hint {
         params.push(("login_hint", x));
     }
