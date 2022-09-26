@@ -256,6 +256,50 @@ AuthMechs XOAUTH2
 ```
 
 
+## Example account settings
+
+Each provider you wish to authenticate with will have its own settings it
+requires of you. These can be difficult to find, so examples are provided in
+this section. Caveat emptor: these settings will not work in all situations,
+and providers have historically required users to intermittently change their
+settings.
+
+### Microsoft / Exchange
+
+```
+account "<your-account-name>" {
+    auth_uri = "https://login.microsoftonline.com/common/oauth2/v2.0/authorize";
+    token_uri = "https://login.microsoftonline.com/common/oauth2/v2.0/token";
+    client_id = "<your-client-id>";
+    client_secret = "<your-client-secret>";
+    scopes = [
+      "https://outlook.office365.com/IMAP.AccessAsUser.All",
+      "https://outlook.office365.com/POP.AccessAsUser.All",
+      "https://outlook.office365.com/SMTP.Send",
+      "offline_access"
+    ];
+    login_hint = "<your-email-address>";
+}
+```
+
+### Gmail
+
+You may need to create your own client ID and secret via the [credentials
+tab](https://console.cloud.google.com/apis/credentials/oauthclient/) of the
+Google Cloud Console.
+
+```
+account "<your-account-name>" {
+    auth_uri = "https://accounts.google.com/o/oauth2/auth";
+    token_uri = "https://oauth2.googleapis.com/token";
+    client_id = "<your-client-id>";
+    client_secret = "<your-client-secret>";
+    scopes = ["https://mail.google.com/"];
+    login_hint = "<your-email-address>";
+}
+```
+
+
 ## Alternatives
 
 pizauth will not be perfect for everyone. You may also wish to consider these
