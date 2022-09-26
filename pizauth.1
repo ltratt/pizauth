@@ -21,13 +21,15 @@ The top-level commands are:
 .It Sy refresh Oo Fl u Oc Ar account
 Attempt to refresh the access token for
 .Em account .
-If there is not currently a valid access or refresh token, reports an error
-and initiates a new token request.
+Exits with 0 upon success.
+If there is not currently a valid access or refresh token,
+reports an error to stderr, initiates a new token request, and exits with 1.
 Unless
 .Fl u
 is specified, the error will include an authorization URL.
 .It Sy reload
 Reload the server's configuration.
+Exits with 0 upon success or 1 if there is a problem in the configuration.
 .It Sy server Oo Fl c Ar config-file Oc Oo Fl d Oc
 Start the server.
 If not specified with
@@ -39,12 +41,15 @@ checks for the configuration file (in order) at:
 The server will daemonise itself unless
 .Fl d
 is specified.
+Exits with 0 if the server started successfully or 1 otherwise.
 .It Sy show Oo Fl u Oc Ar account
-Prints the current access token for
-.Em account
-to stdout.
-If there is not currently a valid access token, prints an error to stderr.
-If refreshing might obtain a valid access token, refreshing is initiated.
+If there is an access token for
+.Em account ,
+print that access token to stdout and exit with 0.
+If there is not currently a valid access token, prints an error to stderr
+and exits with 1.
+If refreshing might obtain a valid access token, refreshing is initiated
+in the background.
 Otherwise (unless
 .Fl u
 is specified), the error will include an authorization URL.
