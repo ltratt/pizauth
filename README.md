@@ -1,12 +1,12 @@
-# pizauth: a background OAuth2 token requester
+# pizauth: an OAuth2 token requester daemon
 
-pizauth is a simple program for obtaining, handing out, and refreshing OAuth2
+pizauth is a simple program for requesting, showing, and refreshing OAuth2
 access tokens. pizauth is formed of two components: a persistent server which
-interacts with the user to obtain tokens, and refreshes them as necessary; and
+interacts with the user to request tokens, and refreshes them as necessary; and
 a command-line interface which can be used by programs such as
 [fdm](https://github.com/nicm/fdm) and [msmtp](https://marlam.de/msmtp/) to
-display OAuth2 access tokens. Tokens are only ever stored in memory and are
-never persisted to disk.
+authenicate with OAuth2. Tokens are only ever stored in memory and are never
+persisted to disk.
 
 
 ## Quick setup
@@ -96,7 +96,7 @@ Note that:
 By default, `pizauth show` displays authorisation URLs. If you prefer to be
 notified asynchronously, pizauth can run arbitrary commands to alert you that
 you need to authorise a new token. You will first probably want to use `show
--u` to suppress display of autherisation URLs:
+-u` to suppress display of authorisation URLs:
 
 ```
 $ pizauth show -u officesmtp
@@ -230,7 +230,7 @@ these snippets.
 
 ### msmtp
 
-In your config file (typically `~/.config/msmtp/config`):
+In your configuration file (typically `~/.config/msmtp/config`):
 
 ```
 account <account-name>
@@ -265,6 +265,10 @@ and providers have historically required users to intermittently change their
 settings.
 
 ### Microsoft / Exchange
+
+You may need to create your own client ID and secret by registering with
+Microsoft's [identity
+platform](https://docs.microsoft.com/en-us/azure/active-directory/develop/quickstart-register-app).
 
 ```
 account "<your-account-name>" {
