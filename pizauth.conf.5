@@ -37,7 +37,10 @@ Optional.
 specifies the gap between reminders to the user of authentication requests.
 Defaults to 15 minutes if not specified.
 .It Sy refresh_retry_interval = Em time ;
-specifies the gap before a failed refresh request will be retried.
+specifies the gap before an incomplete (e.g. due to network errors) refresh
+request will be retried.
+Note that setting does not apply to refresh requests which return an error:
+such requests are complete.
 Defaults to 40 seconds if not specified.
 .It Sy account Qo ID Qc { Em account-options }
 specifies an OAuth account named
