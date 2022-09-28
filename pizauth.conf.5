@@ -120,9 +120,6 @@ account "officesmtp" {
       "https://outlook.office365.com/SMTP.Send",
       "offline_access"
     ];
-    // Note that Office365 requires the non-standard 'offline_access'
-    // scope to be specified for token refreshing to work.
-    redirect_uri = "http://localhost/";
     // You don't have to specify login_hint, but it does make
     // authentication a little easier.
     login_hint = "email@example.com";
