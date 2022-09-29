@@ -15,6 +15,10 @@ install:
 	install -d ${PREFIX}/share/examples/pizauth
 	install -c -m 444 pizauth.conf.example ${PREFIX}/share/examples/pizauth
 
+test:
+	cargo test
+	cargo test --release
+
 distrib:
 	test "X`git status --porcelain`" = "X"
 	@read v?'pizauth version: ' \
