@@ -304,6 +304,30 @@ account "<your-account-name>" {
 ```
 
 
+## pizauth on a remote machine
+
+You can run pizauth on a remote machine and have your local machine
+authenticate that remote existence with `ssh -L`. pizauth contains a small HTTP
+server used to receive authentication requests. By default the HTTP server
+listens on a random port, but it is easiest in this scenario to fix a port with
+the global `http_listen` option:
+
+```
+http_listen = "127.0.0.1:<port-number>";
+account "..." { ... }
+```
+
+Then on your local machine (using the same `<port-number>` as above run `ssh`:
+
+```
+ssh -L 127.0.0.1:<port-number>:127.0.0.1:<port-number> <remote>
+```
+
+Then on the remote machine start `pizauth server` and then `pizauth show
+<account-name>`. Copy the authentication URL into a browser on your local
+machine and continue as normal.
+
+
 ## Alternatives
 
 pizauth will not be perfect for everyone. You may also wish to consider these

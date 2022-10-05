@@ -171,7 +171,7 @@ pub fn server(conf_path: PathBuf, conf: Config, cache_path: &Path) -> Result<(),
     #[cfg(target_os = "openbsd")]
     pledge("stdio rpath wpath inet fattr unix dns proc exec", None).unwrap();
 
-    let (http_port, http_state) = http_server::http_server_setup()?;
+    let (http_port, http_state) = http_server::http_server_setup(&conf)?;
     let notifier = Arc::new(Notifier::new()?);
     let refresher = Refresher::new();
 

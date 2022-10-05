@@ -36,6 +36,12 @@ Optional.
 .It Sy auth_notify_interval = Em time ;
 specifies the gap between reminders to the user of authentication requests.
 Defaults to 15 minutes if not specified.
+.It Sy http_listen = Qo Em bind-name Qc ;
+specifies the address for the
+.Xr pizauth 1
+HTTP server to listen on.
+Defaults to
+.Qq 127.0.0.1:0 .
 .It Sy refresh_retry_interval = Em time ;
 specifies the gap before an incomplete (e.g. due to network errors) refresh
 request will be retried.

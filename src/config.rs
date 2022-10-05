@@ -21,6 +21,8 @@ const REFRESH_AT_LEAST_DEFAULT: u64 = 90 * 60;
 /// How many seconds do we raise a notification if it only contains authorisations that have been
 /// shown before?
 const AUTH_NOTIFY_INTERVAL_DEFAULT: u64 = 15 * 60;
+/// What is the default bind() address for the HTTP server?
+const HTTP_LISTEN_DEFAULT: &str = "127.0.0.1:0";
 /// How many seconds after a refresh failed in a non-permanent way before we retry refreshing?
 const REFRESH_RETRY_INTERVAL_DEFAULT: u64 = 40;
 
@@ -30,6 +32,7 @@ pub struct Config {
     pub auth_error_cmd: Option<String>,
     pub auth_notify_cmd: Option<String>,
     pub auth_notify_interval: Duration,
+    pub http_listen: String,
     pub refresh_retry_interval: Duration,
 }
 
@@ -60,6 +63,7 @@ impl Config {
         let mut auth_error_cmd = None;
         let mut auth_notify_cmd = None;
         let mut auth_notify_interval = None;
+        let mut http_listen = None;
         let mut refresh_retry_interval = None;
         match astopt {
             Some(Ok(opts)) => {
@@ -110,6 +114,14 @@ impl Config {
                                 }
                             }
                         }
+                        config_ast::TopLevel::HttpListen(span) => {
+                            http_listen = Some(check_not_assigned_str(
+                                &lexer,
+                                "http_listen",
+                                span,
+                                http_listen,
+                            )?)
+                        }
                         config_ast::TopLevel::RefreshRetryInterval(span) => {
                             match time_str_to_duration(check_not_assigned_time(
                                 &lexer,
@@ -143,6 +155,7 @@ impl Config {
             auth_notify_cmd,
             auth_notify_interval: auth_notify_interval
                 .unwrap_or_else(|| Duration::from_secs(AUTH_NOTIFY_INTERVAL_DEFAULT)),
+            http_listen: http_listen.unwrap_or_else(|| HTTP_LISTEN_DEFAULT.to_owned()),
             refresh_retry_interval: refresh_retry_interval
                 .unwrap_or_else(|| Duration::from_secs(REFRESH_RETRY_INTERVAL_DEFAULT)),
         })
@@ -480,6 +493,7 @@ mod test {
             auth_error_cmd = "j";
             auth_notify_cmd = "g";
             auth_notify_interval = 88m;
+            http_listen = "127.0.0.1:56789";
             refresh_retry_interval = 33s;
             account "x" {
                 // Mandatory fields
@@ -500,6 +514,7 @@ mod test {
         assert_eq!(c.auth_error_cmd, Some("j".to_owned()));
         assert_eq!(c.auth_notify_cmd, Some("g".to_owned()));
         assert_eq!(c.auth_notify_interval, Duration::from_secs(88 * 60));
+        assert_eq!(c.http_listen, "127.0.0.1:56789".to_owned());
         assert_eq!(c.refresh_retry_interval, Duration::from_secs(33));
 
         let act = &c.accounts["x"];
@@ -542,6 +557,10 @@ mod test {
         }
         match Config::from_str("auth_notify_interval = 1s; auth_notify_interval = 2s;") {
             Err(s) if s.contains("Mustn't specify 'auth_notify_interval' more than once") => (),
+            _ => panic!(),
+        }
+        match Config::from_str(r#"http_listen = "a"; http_listen = "b";"#) {
+            Err(s) if s.contains("Mustn't specify 'http_listen' more than once") => (),
             _ => panic!(),
         }
 

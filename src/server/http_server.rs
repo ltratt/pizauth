@@ -10,7 +10,7 @@ use std::{
 use log::warn;
 use url::Url;
 
-use super::{AuthenticatorState, CTGuardAccountId, TokenState};
+use super::{AuthenticatorState, CTGuardAccountId, Config, TokenState};
 
 /// How often should we try making a request to an OAuth server for possibly-temporary transport
 /// issues?
@@ -319,8 +319,8 @@ fn http_400(mut stream: TcpStream) {
     stream.write_all(b"HTTP/1.1 400").ok();
 }
 
-pub fn http_server_setup() -> Result<(u16, TcpListener), Box<dyn Error>> {
-    let listener = TcpListener::bind("127.0.0.1:0")?;
+pub fn http_server_setup(conf: &Config) -> Result<(u16, TcpListener), Box<dyn Error>> {
+    let listener = TcpListener::bind(&conf.http_listen)?;
     Ok((listener.local_addr()?.port(), listener))
 }
 
