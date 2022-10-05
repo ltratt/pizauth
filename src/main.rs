@@ -174,6 +174,9 @@ fn main() {
                 fs::remove_file(&sock_path).ok();
             }
 
+            let conf_path = conf_path(&matches);
+            let conf = Config::from_path(&conf_path).unwrap_or_else(|m| fatal(&m));
+
             let daemonise = !matches.opt_present("d");
             if daemonise {
                 let formatter = syslog::Formatter3164 {
@@ -200,8 +203,6 @@ fn main() {
                     .init()
                     .unwrap();
             }
-            let conf_path = conf_path(&matches);
-            let conf = Config::from_path(&conf_path).unwrap_or_else(|m| fatal(&m));
             if let Err(e) = server::server(conf_path, conf, cache_path.as_path()) {
                 error!("{e:}");
                 process::exit(1);
