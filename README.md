@@ -325,7 +325,11 @@ ssh -L 127.0.0.1:<port-number>:127.0.0.1:<port-number> <remote>
 
 Then on the remote machine start `pizauth server` and then `pizauth show
 <account-name>`. Copy the authentication URL into a browser on your local
-machine and continue as normal.
+machine and continue as normal. When you see the "pizauth processing
+authentication: you can safely close this page." message you can close the
+`ssh` tunnel. If the account later needs reauthenticating (e.g. because the
+refresh token has become invalid), simply reopen the `ssh` tunnel,
+reauthenticate, and close the `ssh` tunnel.
 
 
 ## Alternatives
