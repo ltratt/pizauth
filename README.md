@@ -93,10 +93,12 @@ Note that:
 
 ### Authorisation notifications
 
-By default, `pizauth show` displays authorisation URLs. If you prefer to be
-notified asynchronously, pizauth can run arbitrary commands to alert you that
-you need to authorise a new token. You will first probably want to use `show
--u` to suppress display of authorisation URLs:
+By default, `pizauth show` displays authorisation URLs on stdout. Depending on
+how and where you use pizauth, you might not notice this output. Fortunately,
+pizauth can run arbitrary commands to alert you that you need to authorise a
+new token, in essence giving you the ability to asynchronously display
+notifications. You will first probably want to use `show -u` to suppress
+display of authorisation URLs:
 
 ```
 $ pizauth show -u officesmtp
