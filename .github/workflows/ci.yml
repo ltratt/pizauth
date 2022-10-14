@@ -1,0 +1,17 @@
+name: CI
+
+on:
+  pull_request:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - name: debug_tests
+      run: cargo test
+    - name: release_tests
+      run: cargo test --release
