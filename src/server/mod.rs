@@ -150,7 +150,7 @@ pub fn server(conf_path: PathBuf, conf: Config, cache_path: &Path) -> Result<(),
         conf_path
             .as_os_str()
             .to_str()
-            .ok_or_else(|| "Cannot use configuration path in unveil")?,
+            .ok_or("Cannot use configuration path in unveil")?,
         "rx",
     )?;
     #[cfg(target_os = "openbsd")]
@@ -158,7 +158,7 @@ pub fn server(conf_path: PathBuf, conf: Config, cache_path: &Path) -> Result<(),
         sock_path
             .as_os_str()
             .to_str()
-            .ok_or_else(|| "Cannot use socket path in unveil")?,
+            .ok_or("Cannot use socket path in unveil")?,
         "rwxc",
     )?;
     #[cfg(target_os = "openbsd")]
