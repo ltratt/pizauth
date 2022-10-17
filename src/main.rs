@@ -1,5 +1,6 @@
 #![allow(clippy::derive_partial_eq_without_eq)]
 
+mod compat;
 mod config;
 mod config_ast;
 mod server;
@@ -15,11 +16,11 @@ use std::{
 
 use getopts::Options;
 use log::error;
-use nix::unistd::daemon;
 #[cfg(target_os = "openbsd")]
 use pledge::pledge;
 use server::sock_path;
 
+use compat::daemon;
 use config::Config;
 use user_sender::show_token;
 
