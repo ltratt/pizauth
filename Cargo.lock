@@ -692,6 +692,7 @@ dependencies = [
  "getopts",
  "getrandom",
  "json",
+ "libc",
  "log",
  "lrlex",
  "lrpar",
