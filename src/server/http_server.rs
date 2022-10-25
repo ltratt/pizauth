@@ -10,7 +10,7 @@ use std::{
 use log::warn;
 use url::Url;
 
-use super::{AuthenticatorState, CTGuardAccountId, Config, TokenState};
+use super::{expiry_instant, AuthenticatorState, CTGuardAccountId, Config, TokenState};
 
 /// How often should we try making a request to an OAuth server for possibly-temporary transport
 /// issues?
@@ -188,10 +188,7 @@ fn request(pstate: Arc<AuthenticatorState>, mut stream: TcpStream) -> Result<(),
             if token_type == "Bearer" =>
         {
             let refreshed_at = Instant::now();
-            let expiry = match refreshed_at.checked_add(Duration::from_secs(expires_in)) {
-                Some(x) => x,
-                None => return Err("Can't represent expiry".into()),
-            };
+            let expiry = expiry_instant(&ct_lk, &act_id, refreshed_at, expires_in)?;
             ct_lk.tokenstate_replace(
                 act_id,
                 TokenState::Active {

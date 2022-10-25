@@ -10,7 +10,7 @@ use std::{
     os::unix::net::{UnixListener, UnixStream},
     path::{Path, PathBuf},
     sync::Arc,
-    time::Instant,
+    time::{Duration, Instant},
 };
 
 use log::warn;
@@ -28,6 +28,10 @@ use state::{AuthenticatorState, CTGuard, CTGuardAccountId, TokenState};
 
 /// Length of the PKCE code verifier in bytes.
 const CODE_VERIFIER_LEN: usize = 64;
+/// If we're given a too-long expiry time, we might not be able to represent it. In such cases, we
+/// use a fixed expiry time in seconds (currently set to 44 minutes, on the basis that a plausible
+/// real expiry time is 45 minutes).
+const FALLBACK_EXPIRY_DURATION: Duration = Duration::from_secs(44 * 60);
 /// Length of the OAuth state in bytes.
 const STATE_LEN: usize = 8;
 
@@ -35,6 +39,27 @@ pub fn sock_path(cache_path: &Path) -> PathBuf {
     let mut p = cache_path.to_owned();
     p.push(PIZAUTH_CACHE_SOCK_LEAF);
     p
+}
+
+/// Calculate the [Instant] that a token will expire at. Returns `Err` if [Instant] cannot
+/// represent the expiry. 
+pub fn expiry_instant(
+    ct_lk: &CTGuard,
+    act_id: &CTGuardAccountId,
+    refreshed_at: Instant,
+    expires_in: u64,
+) -> Result<Instant, Box<dyn Error>> {
+    refreshed_at
+        .checked_add(Duration::from_secs(expires_in))
+        .or_else(|| {
+            refreshed_at.checked_add(
+                ct_lk
+                    .account(&act_id)
+                    .refresh_at_least
+                    .unwrap_or(FALLBACK_EXPIRY_DURATION),
+            )
+        })
+        .ok_or("Can't represent expiry".into())
 }
 
 fn request(pstate: Arc<AuthenticatorState>, mut stream: UnixStream) -> Result<(), Box<dyn Error>> {

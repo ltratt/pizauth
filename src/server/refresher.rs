@@ -3,14 +3,14 @@ use std::{
     error::Error,
     sync::{Arc, Condvar, Mutex},
     thread,
-    time::{Duration, Instant},
+    time::Instant,
 };
 
 #[cfg(debug_assertions)]
 use log::debug;
 use log::error;
 
-use super::{AuthenticatorState, CTGuard, CTGuardAccountId, TokenState};
+use super::{expiry_instant, AuthenticatorState, CTGuard, CTGuardAccountId, TokenState};
 
 /// The outcome of an attempted refresh.
 pub enum RefreshKind {
@@ -126,12 +126,18 @@ impl Refresher {
         ) {
             (Some(access_token), Some(expires_in), Some(token_type)) if token_type == "Bearer" => {
                 let refreshed_at = Instant::now();
-                let expiry = refreshed_at
-                    .checked_add(Duration::from_secs(expires_in))
-                    .ok_or("Can't represent expiry")?;
                 let mut ct_lk = pstate.ct_lock();
                 match ct_lk.validate_act_id(act_id) {
                     Some(act_id) => {
+                        let expiry = match expiry_instant(&ct_lk, &act_id, refreshed_at, expires_in)
+                        {
+                            Ok(x) => x,
+                            Err(e) => {
+                                ct_lk.tokenstate_replace(act_id, TokenState::Empty);
+                                drop(ct_lk);
+                                return Ok(RefreshKind::PermanentError(format!("{e}")));
+                            }
+                        };
                         ct_lk.tokenstate_replace(
                             act_id,
                             TokenState::Active {
