@@ -32,6 +32,8 @@ const CODE_VERIFIER_LEN: usize = 64;
 /// use a fixed expiry time in seconds (currently set to 44 minutes, on the basis that a plausible
 /// real expiry time is 45 minutes).
 const FALLBACK_EXPIRY_DURATION: Duration = Duration::from_secs(44 * 60);
+/// The timeout for ureq HTTP requests.
+pub const UREQ_TIMEOUT: Duration = Duration::from_secs(30);
 /// Length of the OAuth state in bytes.
 const STATE_LEN: usize = 8;
 
@@ -42,7 +44,7 @@ pub fn sock_path(cache_path: &Path) -> PathBuf {
 }
 
 /// Calculate the [Instant] that a token will expire at. Returns `Err` if [Instant] cannot
-/// represent the expiry. 
+/// represent the expiry.
 pub fn expiry_instant(
     ct_lk: &CTGuard,
     act_id: &CTGuardAccountId,

@@ -10,7 +10,9 @@ use std::{
 use log::warn;
 use url::Url;
 
-use super::{expiry_instant, AuthenticatorState, CTGuardAccountId, Config, TokenState};
+use super::{
+    expiry_instant, AuthenticatorState, CTGuardAccountId, Config, TokenState, UREQ_TIMEOUT,
+};
 
 /// How often should we try making a request to an OAuth server for possibly-temporary transport
 /// issues?
@@ -135,7 +137,12 @@ fn request(pstate: Arc<AuthenticatorState>, mut stream: TcpStream) -> Result<(),
     // we can't reuse authentication codes), and we'll have to start again entirely.
     let mut body = None;
     for _ in 0..RETRY_POST {
-        match ureq::post(token_uri.as_str()).send_form(&pairs) {
+        match ureq::AgentBuilder::new()
+            .timeout(UREQ_TIMEOUT)
+            .build()
+            .post(token_uri.as_str())
+            .send_form(&pairs)
+        {
             Ok(response) => match response.into_string() {
                 Ok(s) => {
                     body = Some(s);

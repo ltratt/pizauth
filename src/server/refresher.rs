@@ -10,7 +10,9 @@ use std::{
 use log::debug;
 use log::error;
 
-use super::{expiry_instant, AuthenticatorState, CTGuard, CTGuardAccountId, TokenState};
+use super::{
+    expiry_instant, AuthenticatorState, CTGuard, CTGuardAccountId, TokenState, UREQ_TIMEOUT,
+};
 
 /// The outcome of an attempted refresh.
 pub enum RefreshKind {
@@ -78,7 +80,12 @@ impl Refresher {
         }
 
         drop(ct_lk);
-        let body = match ureq::post(token_uri.as_str()).send_form(&pairs) {
+        let body = match ureq::AgentBuilder::new()
+            .timeout(UREQ_TIMEOUT)
+            .build()
+            .post(token_uri.as_str())
+            .send_form(&pairs)
+        {
             Ok(response) => match response.into_string() {
                 Ok(s) => s,
                 Err(e) => {
