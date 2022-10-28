@@ -125,22 +125,25 @@ impl Refresher {
             }
         };
 
-        let parsed = json::parse(&body)?;
-        if parsed["error"].as_str().is_some() {
-            // Refreshing failed. Unfortunately there is no standard way of knowing why it failed, so
-            // we take the most pessimistic assumption which is that the refresh token is no longer
-            // valid at all.
-            let mut ct_lk = pstate.ct_lock();
-            match ct_lk.validate_act_id(act_id) {
-                Some(act_id) => {
-                    let act_id = ct_lk.tokenstate_replace(act_id, TokenState::Empty);
-                    let msg = format!("Refreshing {} failed", ct_lk.account(&act_id).name);
-                    drop(ct_lk);
-                    return Ok(RefreshKind::PermanentError(msg));
+        let parsed = match json::parse(&body).map(|p| (p["error"].as_str().is_some(), p)) {
+            Err(_) | Ok((true, _)) => {
+                // Either JSON parsing failed, or the JSON contains an error field. Unfortunately,
+                // even in the latter case, there is no standard way of knowing why refreshing
+                // failed, so we take the most pessimistic assumption which is that the refresh
+                // token is no longer valid at all.
+                let mut ct_lk = pstate.ct_lock();
+                match ct_lk.validate_act_id(act_id) {
+                    Some(act_id) => {
+                        let act_id = ct_lk.tokenstate_replace(act_id, TokenState::Empty);
+                        let msg = format!("Refreshing {} failed", ct_lk.account(&act_id).name);
+                        drop(ct_lk);
+                        return Ok(RefreshKind::PermanentError(msg));
+                    }
+                    None => return Ok(RefreshKind::AccountOrTokenStateChanged),
                 }
-                None => return Ok(RefreshKind::AccountOrTokenStateChanged),
             }
-        }
+            Ok((false, p)) => p,
+        };
 
         match (
             parsed["access_token"].as_str(),
