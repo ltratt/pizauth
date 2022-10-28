@@ -106,7 +106,23 @@ impl Refresher {
                     None => return Ok(RefreshKind::AccountOrTokenStateChanged),
                 }
             }
-            Err(e) => return Ok(RefreshKind::TransitoryError(e.to_string())),
+            Err(ref e @ ureq::Error::Transport(ref t))
+                if t.kind() == ureq::ErrorKind::ConnectionFailed
+                    || t.kind() == ureq::ErrorKind::Dns
+                    || t.kind() == ureq::ErrorKind::Io =>
+            {
+                return Ok(RefreshKind::TransitoryError(e.to_string()))
+            }
+            Err(e) => {
+                let mut ct_lk = pstate.ct_lock();
+                match ct_lk.validate_act_id(act_id) {
+                    Some(act_id) => {
+                        ct_lk.tokenstate_replace(act_id, TokenState::Empty);
+                        return Ok(RefreshKind::PermanentError(e.to_string()));
+                    }
+                    None => return Ok(RefreshKind::AccountOrTokenStateChanged),
+                }
+            }
         };
 
         let parsed = json::parse(&body)?;
