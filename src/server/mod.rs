@@ -100,7 +100,7 @@ fn request(pstate: Arc<AuthenticatorState>, mut stream: UnixStream) -> Result<()
                     }
                 }
                 TokenState::Active { .. } => {
-                    match pstate.refresher.refresh(&pstate, ct_lk, act_id)? {
+                    match pstate.refresher.refresh(&pstate, ct_lk, act_id) {
                         RefreshKind::AccountOrTokenStateChanged => stream.write_all(b"error:")?,
                         RefreshKind::PermanentError(msg) => {
                             stream.write_all(format!("error:{msg:}").as_bytes())?

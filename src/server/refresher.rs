@@ -42,18 +42,22 @@ impl Refresher {
     /// For a [TokenState::Active] token for `act_id`, refresh it, blocking until the token is
     /// refreshed or an error occurred. This function must be called with a [TokenState::Active]
     /// tokenstate.
+    ///
+    /// # Panics
+    ///
+    /// If the tokenstate is not [TokenState::Active].
     pub fn refresh(
         &self,
         pstate: &AuthenticatorState,
         mut ct_lk: CTGuard,
         mut act_id: CTGuardAccountId,
-    ) -> Result<RefreshKind, Box<dyn Error>> {
+    ) -> RefreshKind {
         let refresh_token = match ct_lk.tokenstate(&act_id) {
             TokenState::Active {
                 refresh_token: Some(refresh_token),
                 ..
             } => refresh_token.to_owned(),
-            _ => return Err("tokenstate is not TokenState::Active".into()),
+            _ => unreachable!("tokenstate is not TokenState::Active"),
         };
 
         let mut new_ts = ct_lk.tokenstate(&act_id).clone();
@@ -89,7 +93,7 @@ impl Refresher {
             Ok(response) => match response.into_string() {
                 Ok(s) => s,
                 Err(e) => {
-                    return Ok(RefreshKind::TransitoryError(e.to_string()));
+                    return RefreshKind::TransitoryError(e.to_string());
                 }
             },
             Err(ureq::Error::Status(code, response)) => {
@@ -101,9 +105,9 @@ impl Refresher {
                 match ct_lk.validate_act_id(act_id) {
                     Some(act_id) => {
                         ct_lk.tokenstate_replace(act_id, TokenState::Empty);
-                        return Ok(RefreshKind::PermanentError(reason));
+                        return RefreshKind::PermanentError(reason);
                     }
-                    None => return Ok(RefreshKind::AccountOrTokenStateChanged),
+                    None => return RefreshKind::AccountOrTokenStateChanged,
                 }
             }
             Err(ref e @ ureq::Error::Transport(ref t))
@@ -111,16 +115,16 @@ impl Refresher {
                     || t.kind() == ureq::ErrorKind::Dns
                     || t.kind() == ureq::ErrorKind::Io =>
             {
-                return Ok(RefreshKind::TransitoryError(e.to_string()))
+                return RefreshKind::TransitoryError(e.to_string())
             }
             Err(e) => {
                 let mut ct_lk = pstate.ct_lock();
                 match ct_lk.validate_act_id(act_id) {
                     Some(act_id) => {
                         ct_lk.tokenstate_replace(act_id, TokenState::Empty);
-                        return Ok(RefreshKind::PermanentError(e.to_string()));
+                        return RefreshKind::PermanentError(e.to_string());
                     }
-                    None => return Ok(RefreshKind::AccountOrTokenStateChanged),
+                    None => return RefreshKind::AccountOrTokenStateChanged,
                 }
             }
         };
@@ -137,9 +141,9 @@ impl Refresher {
                         let act_id = ct_lk.tokenstate_replace(act_id, TokenState::Empty);
                         let msg = format!("Refreshing {} failed", ct_lk.account(&act_id).name);
                         drop(ct_lk);
-                        return Ok(RefreshKind::PermanentError(msg));
+                        return RefreshKind::PermanentError(msg);
                     }
-                    None => return Ok(RefreshKind::AccountOrTokenStateChanged),
+                    None => return RefreshKind::AccountOrTokenStateChanged,
                 }
             }
             Ok((false, p)) => p,
@@ -161,7 +165,7 @@ impl Refresher {
                             Err(e) => {
                                 ct_lk.tokenstate_replace(act_id, TokenState::Empty);
                                 drop(ct_lk);
-                                return Ok(RefreshKind::PermanentError(format!("{e}")));
+                                return RefreshKind::PermanentError(format!("{e}"));
                             }
                         };
                         ct_lk.tokenstate_replace(
@@ -176,9 +180,9 @@ impl Refresher {
                         );
                         drop(ct_lk);
                         self.notify_changes();
-                        Ok(RefreshKind::Refreshed)
+                        RefreshKind::Refreshed
                     }
-                    None => Ok(RefreshKind::AccountOrTokenStateChanged),
+                    None => RefreshKind::AccountOrTokenStateChanged,
                 }
             }
             _ => {
@@ -186,11 +190,11 @@ impl Refresher {
                 match ct_lk.validate_act_id(act_id) {
                     Some(act_id) => {
                         ct_lk.tokenstate_replace(act_id, TokenState::Empty);
-                        Ok(RefreshKind::PermanentError(
+                        RefreshKind::PermanentError(
                             "Received JSON in unexpected format".to_string(),
-                        ))
+                        )
                     }
-                    None => Ok(RefreshKind::AccountOrTokenStateChanged),
+                    None => RefreshKind::AccountOrTokenStateChanged,
                 }
             }
         }
@@ -303,15 +307,12 @@ impl Refresher {
                 if let Some(act_id) = ct_lk.validate_act_id(act_id) {
                     if let TokenState::Active { .. } = ct_lk.tokenstate(&act_id) {
                         match self.refresh(&pstate, ct_lk, act_id) {
-                            Ok(rk) => match rk {
-                                RefreshKind::AccountOrTokenStateChanged
-                                | RefreshKind::Refreshed
-                                | RefreshKind::TransitoryError(_) => (),
-                                RefreshKind::PermanentError(msg) => {
-                                    error!("Token refresh failed: {msg:}")
-                                }
-                            },
-                            Err(e) => error!("Token refresh failed: {e:}"),
+                            RefreshKind::AccountOrTokenStateChanged
+                            | RefreshKind::Refreshed
+                            | RefreshKind::TransitoryError(_) => (),
+                            RefreshKind::PermanentError(msg) => {
+                                error!("Token refresh failed: {msg:}")
+                            }
                         }
                     }
                 }
