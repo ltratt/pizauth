@@ -23,7 +23,7 @@ pub enum RefreshKind {
     /// The token was refreshed.
     Refreshed,
     /// Refreshing failed but in a way that is not likely to repeat if retried.
-    TransitoryError(String),
+    TransitoryError(CTGuardAccountId, String),
 }
 
 pub struct Refresher {
@@ -93,7 +93,7 @@ impl Refresher {
             Ok(response) => match response.into_string() {
                 Ok(s) => s,
                 Err(e) => {
-                    return RefreshKind::TransitoryError(e.to_string());
+                    return RefreshKind::TransitoryError(act_id, e.to_string());
                 }
             },
             Err(ureq::Error::Status(code, response)) => {
@@ -115,7 +115,7 @@ impl Refresher {
                     || t.kind() == ureq::ErrorKind::Dns
                     || t.kind() == ureq::ErrorKind::Io =>
             {
-                return RefreshKind::TransitoryError(e.to_string())
+                return RefreshKind::TransitoryError(act_id, e.to_string())
             }
             Err(e) => {
                 let mut ct_lk = pstate.ct_lock();
@@ -175,6 +175,7 @@ impl Refresher {
                                 expiry,
                                 refreshed_at,
                                 last_refresh_attempt: None,
+                                last_refresh_warning: None,
                                 refresh_token: Some(refresh_token),
                             },
                         );
@@ -240,11 +241,45 @@ impl Refresher {
         }
     }
 
+    /// If `act_id` has an active token, return the time when a warning about refreshing failure
+    /// should be made.
+    fn warn_at(
+        &self,
+        _pstate: &AuthenticatorState,
+        ct_lk: &CTGuard,
+        act_id: &CTGuardAccountId,
+    ) -> Option<Instant> {
+        match ct_lk.tokenstate(act_id) {
+            TokenState::Active {
+                expiry,
+                last_refresh_warning,
+                ..
+            } => {
+                if let Some(x) = last_refresh_warning {
+                    x.checked_add(ct_lk.config().refresh_warn_interval)
+                } else {
+                    expiry.checked_add(ct_lk.config().refresh_warn_interval)
+                }
+            }
+            _ => None,
+        }
+    }
+
     fn next_wakeup(&self, pstate: &AuthenticatorState) -> Option<Instant> {
         let ct_lk = pstate.ct_lock();
         ct_lk
             .act_ids()
-            .filter_map(|act_id| self.refresh_at(pstate, &ct_lk, &act_id))
+            .filter_map(|act_id| {
+                match (
+                    self.refresh_at(pstate, &ct_lk, &act_id),
+                    self.warn_at(pstate, &ct_lk, &act_id),
+                ) {
+                    (Some(x), Some(y)) => Some(cmp::min(x, y)),
+                    (Some(x), None) => Some(x),
+                    (None, Some(y)) => Some(y),
+                    (None, None) => None,
+                }
+            })
             .min()
     }
 
@@ -307,9 +342,53 @@ impl Refresher {
                 if let Some(act_id) = ct_lk.validate_act_id(act_id) {
                     if let TokenState::Active { .. } = ct_lk.tokenstate(&act_id) {
                         match self.refresh(&pstate, ct_lk, act_id) {
-                            RefreshKind::AccountOrTokenStateChanged
-                            | RefreshKind::Refreshed
-                            | RefreshKind::TransitoryError(_) => (),
+                            RefreshKind::AccountOrTokenStateChanged | RefreshKind::Refreshed => (),
+                            RefreshKind::TransitoryError(act_id, msg) => {
+                                // Has refreshing this token not succeeded for too long a
+                                // period?
+                                let mut ct_lk = pstate.ct_lock();
+                                if let Some(act_id) = ct_lk.validate_act_id(act_id) {
+                                    // Note that we deliberately use `now` and not a (fresh)
+                                    // `Instant::now()`. That means that if (for example) a laptop
+                                    // suspended while we were trying to refresh a token, we won't
+                                    // immediately mark the token as having failed to refresh:
+                                    // we'll make one more attempt to refresh it before warning the
+                                    // user (there is an inevitable race, where someone suspends a
+                                    // machine between releasing refresh_lk and getting a value for
+                                    // `now`, and we don't realise that's happened; this doesn't
+                                    // seem worth worrying about).
+                                    if self.warn_at(&pstate, &ct_lk, &act_id) <= Some(now) {
+                                        let mut new_ts = ct_lk.tokenstate(&act_id).clone();
+                                        if let TokenState::Active {
+                                            ref mut last_refresh_warning,
+                                            ..
+                                        } = new_ts
+                                        {
+                                            *last_refresh_warning = Some(Instant::now());
+                                            let act_id = ct_lk.tokenstate_replace(act_id, new_ts);
+                                            match &ct_lk.config().refresh_warn_cmd {
+                                                Some(cmd) => {
+                                                    if let Err(e) = pstate.notifier.notify_warn(
+                                                        &pstate,
+                                                        Some(cmd.to_string()),
+                                                        ct_lk.account(&act_id).name.clone(),
+                                                        msg,
+                                                    ) {
+                                                        error!("When running auth_warn_cmd: {e:}");
+                                                    }
+                                                }
+                                                None => {
+                                                    ct_lk.tokenstate_replace(
+                                                        act_id,
+                                                        TokenState::Empty,
+                                                    );
+                                                    error!("Token refresh failed for too long a period")
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
                             RefreshKind::PermanentError(msg) => {
                                 error!("Token refresh failed: {msg:}")
                             }

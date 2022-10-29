@@ -106,7 +106,7 @@ fn request(pstate: Arc<AuthenticatorState>, mut stream: UnixStream) -> Result<()
                             stream.write_all(format!("error:{msg:}").as_bytes())?
                         }
                         RefreshKind::Refreshed => stream.write_all(b"ok:")?,
-                        RefreshKind::TransitoryError(msg) => {
+                        RefreshKind::TransitoryError(_, msg) => {
                             stream.write_all(format!("error:{msg:}").as_bytes())?
                         }
                     }
@@ -149,6 +149,7 @@ fn request(pstate: Arc<AuthenticatorState>, mut stream: UnixStream) -> Result<()
                     expiry,
                     refreshed_at: _,
                     last_refresh_attempt: _,
+                    last_refresh_warning: _,
                     refresh_token: _,
                 } => {
                     let response = if expiry > &Instant::now() {

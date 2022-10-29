@@ -45,9 +45,25 @@ Defaults to
 .It Sy refresh_retry_interval = Em time ;
 specifies the gap before an incomplete (e.g. due to network errors) refresh
 request will be retried.
-Note that setting does not apply to refresh requests which return an error:
-such requests are complete.
 Defaults to 40 seconds if not specified.
+.It Sy refresh_warn_cmd = Qo Em shell-cmd Qc ;
+specifies a shell command to be run via
+.Ql $SHELL -c
+when refreshing has failed for a period of at least
+.Em refresh_warn_interval .
+Two special environment variables are set:
+.Em $PIZAUTH_ACCOUNT
+is set to the account name;
+.Em $PIZAUTH_MSG
+is set to the error message.
+Defaults to both: logging to
+.Xr syslog 3 ;
+and invalidating the access token for the given account (i.e. requiring the
+user to reauthenticate).
+.It Sy refresh_warn_interval = Em time ;
+specifies the gap between an access token expiring and the user being warned
+that refreshing has not yet succeeded.
+Defaults to 60 minutes if not specified.
 .It Sy account Qo ID Qc { Em account-options }
 specifies an OAuth account named
 .Em ID .

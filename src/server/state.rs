@@ -340,6 +340,9 @@ pub enum TokenState {
         refreshed_at: Instant,
         /// The instant in time when the last ongoing, or unsuccessful, refresh attempt was made.
         last_refresh_attempt: Option<Instant>,
+        /// The instant in time when the user was last warned that refreshing had not yet
+        /// succeeded.
+        last_refresh_warning: Option<Instant>,
         expiry: Instant,
         refresh_token: Option<String>,
     },

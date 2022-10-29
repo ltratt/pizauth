@@ -7,6 +7,8 @@ pub enum TopLevel {
     AuthNotifyInterval(Span),
     HttpListen(Span),
     RefreshRetryInterval(Span),
+    RefreshWarnCmd(Span),
+    RefreshWarnInterval(Span),
 }
 
 pub enum AccountField {
