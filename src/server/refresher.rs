@@ -340,7 +340,12 @@ impl Refresher {
             for act_id in to_refresh.into_iter() {
                 let ct_lk = pstate.ct_lock();
                 if let Some(act_id) = ct_lk.validate_act_id(act_id) {
-                    if let TokenState::Active { .. } = ct_lk.tokenstate(&act_id) {
+                    if let TokenState::Active {
+                        last_refresh_attempt,
+                        ..
+                    } = ct_lk.tokenstate(&act_id)
+                    {
+                        let refreshed_at_least_once = last_refresh_attempt.is_some();
                         match self.refresh(&pstate, ct_lk, act_id) {
                             RefreshKind::AccountOrTokenStateChanged | RefreshKind::Refreshed => (),
                             RefreshKind::TransitoryError(act_id, msg) => {
@@ -348,15 +353,15 @@ impl Refresher {
                                 // period?
                                 let mut ct_lk = pstate.ct_lock();
                                 if let Some(act_id) = ct_lk.validate_act_id(act_id) {
+                                    // Make sure that we try refreshing at least twice.
+                                    if !refreshed_at_least_once {
+                                        continue;
+                                    }
+
                                     // Note that we deliberately use `now` and not a (fresh)
-                                    // `Instant::now()`. That means that if (for example) a laptop
-                                    // suspended while we were trying to refresh a token, we won't
-                                    // immediately mark the token as having failed to refresh:
-                                    // we'll make one more attempt to refresh it before warning the
-                                    // user (there is an inevitable race, where someone suspends a
-                                    // machine between releasing refresh_lk and getting a value for
-                                    // `now`, and we don't realise that's happened; this doesn't
-                                    // seem worth worrying about).
+                                    // `Instant::now()` as it is a partial proxy for "the machine
+                                    // was suspended during the refreshing process so try once
+                                    // more".
                                     if self.warn_at(&pstate, &ct_lk, &act_id) <= Some(now) {
                                         let mut new_ts = ct_lk.tokenstate(&act_id).clone();
                                         if let TokenState::Active {
