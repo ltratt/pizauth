@@ -178,8 +178,8 @@ an access and refresh token are no longer valid in a sensible period of time.
 
 Refreshing can fail for temporary reasons (e.g. lack of network connectivity).
 When a refresh fails for temporary reasons, pizauth will regularly retry
-refreshing, controlled by the `refresh_retry_interval` setting which defaults
-to 40 seconds.
+refreshing, controlled by the `refresh_retry` setting which defaults to 40
+seconds.
 
 You can set these values explicitly as follows:
 
@@ -189,7 +189,7 @@ account "officesmtp" {
     // Other settings as above
     refresh_at_least = 90m;
     refresh_before_expiry = 90s;
-    refresh_retry_interval = 40s;
+    refresh_retry = 40s;
 }
 ```
 

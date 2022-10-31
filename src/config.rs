@@ -24,7 +24,7 @@ const AUTH_NOTIFY_INTERVAL_DEFAULT: u64 = 15 * 60;
 /// What is the default bind() address for the HTTP server?
 const HTTP_LISTEN_DEFAULT: &str = "127.0.0.1:0";
 /// How many seconds after a refresh failed in a non-permanent way before we retry refreshing?
-const REFRESH_RETRY_INTERVAL_DEFAULT: u64 = 40;
+const REFRESH_RETRY_DEFAULT: u64 = 40;
 /// How long after a token has expired do we warn the user that refreshing has not yet succeeded?
 const REFRESH_WARN_INTERVAL_DEFAULT: Duration = Duration::from_secs(60 * 120);
 
@@ -254,7 +254,7 @@ pub struct Account {
     redirect_uri: String,
     pub refresh_at_least: Option<Duration>,
     pub refresh_before_expiry: Option<Duration>,
-    pub refresh_retry_interval: Duration,
+    pub refresh_retry: Duration,
     pub scopes: Vec<String>,
     pub token_uri: String,
 }
@@ -273,7 +273,7 @@ impl Account {
         let mut redirect_uri = None;
         let mut refresh_at_least = None;
         let mut refresh_before_expiry = None;
-        let mut refresh_retry_interval = None;
+        let mut refresh_retry = None;
         let mut scopes = None;
         let mut token_uri = None;
 
@@ -335,14 +335,14 @@ impl Account {
                         }
                     }
                 }
-                config_ast::AccountField::RefreshRetryInterval(span) => {
+                config_ast::AccountField::RefreshRetry(span) => {
                     match time_str_to_duration(check_not_assigned_time(
                         lexer,
-                        "refresh_retry_interval",
+                        "refresh_retry",
                         span,
-                        refresh_retry_interval,
+                        refresh_retry,
                     )?) {
-                        Ok(t) => refresh_retry_interval = Some(t),
+                        Ok(t) => refresh_retry = Some(t),
                         Err(e) => {
                             return Err(error_at_span(lexer, span, &format!("Invalid time: {e:}")))
                         }
@@ -393,8 +393,8 @@ impl Account {
                 .or_else(|| Some(Duration::from_secs(REFRESH_AT_LEAST_DEFAULT))),
             refresh_before_expiry: refresh_before_expiry
                 .or_else(|| Some(Duration::from_secs(REFRESH_BEFORE_EXPIRY_DEFAULT))),
-            refresh_retry_interval: refresh_retry_interval
-                .unwrap_or_else(|| Duration::from_secs(REFRESH_RETRY_INTERVAL_DEFAULT)),
+            refresh_retry: refresh_retry
+                .unwrap_or_else(|| Duration::from_secs(REFRESH_RETRY_DEFAULT)),
             scopes,
             token_uri,
         })
@@ -535,7 +535,7 @@ mod test {
                 redirect_uri = "http://e.com";
                 refresh_at_least = 43m;
                 refresh_before_expiry = 42s;
-                refresh_retry_interval = 33s;
+                refresh_retry = 33s;
             }
         "#,
         )
@@ -555,7 +555,7 @@ mod test {
         assert_eq!(act.login_hint, Some("i".to_owned()));
         assert_eq!(act.refresh_at_least, Some(Duration::from_secs(43 * 60)));
         assert_eq!(act.refresh_before_expiry, Some(Duration::from_secs(42)));
-        assert_eq!(act.refresh_retry_interval, Duration::from_secs(33));
+        assert_eq!(act.refresh_retry, Duration::from_secs(33));
     }
 
     #[test]

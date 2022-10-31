@@ -18,7 +18,7 @@ pub enum AccountField {
     RedirectUri(Span),
     RefreshAtLeast(Span),
     RefreshBeforeExpiry(Span),
-    RefreshRetryInterval(Span),
+    RefreshRetry(Span),
     Scopes(Span, Vec<Span>),
     TokenUri(Span),
 }

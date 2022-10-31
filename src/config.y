@@ -32,7 +32,7 @@ AccountField -> Result<AccountField, ()>:
   | "REDIRECT_URI" "=" "STRING" ";" { Ok(AccountField::RedirectUri(map_err($3)?)) }
   | "REFRESH_AT_LEAST" "=" "TIME" ";" { Ok(AccountField::RefreshAtLeast(map_err($3)?)) }
   | "REFRESH_BEFORE_EXPIRY" "=" "TIME" ";" { Ok(AccountField::RefreshBeforeExpiry(map_err($3)?)) }
-  | "REFRESH_RETRY_INTERVAL" "=" "TIME" ";" { Ok(AccountField::RefreshRetryInterval(map_err($3)?)) }
+  | "REFRESH_RETRY" "=" "TIME" ";" { Ok(AccountField::RefreshRetry(map_err($3)?)) }
   | "SCOPES" "=" "[" Scopes "]" ";" { Ok(AccountField::Scopes($1.unwrap_or_else(|x| x).span(), $4?)) }
   | "TOKEN_URI" "=" "STRING" ";" { Ok(AccountField::TokenUri(map_err($3)?)) }
   ;
