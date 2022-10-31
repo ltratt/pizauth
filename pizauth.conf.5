@@ -42,10 +42,6 @@ specifies the address for the
 HTTP server to listen on.
 Defaults to
 .Qq 127.0.0.1:0 .
-.It Sy refresh_retry_interval = Em time ;
-specifies the gap before an incomplete (e.g. due to network errors) refresh
-request will be retried.
-Defaults to 40 seconds if not specified.
 .It Sy refresh_warn_cmd = Qo Em shell-cmd Qc ;
 specifies a shell command to be run via
 .Ql $SHELL -c
@@ -62,7 +58,7 @@ and invalidating the access token for the given account (i.e. requiring the
 user to reauthenticate).
 .It Sy refresh_warn_interval = Em time ;
 specifies the gap between an access token expiring and the user being warned
-that refreshing has not yet succeeded.
+(or rewarned) that refreshing has not yet succeeded.
 Defaults to 60 minutes if not specified.
 .It Sy account Qo ID Qc { Em account-options }
 specifies an OAuth account named
@@ -97,14 +93,18 @@ is a URI specifying the OAuth2 server's redirection URI.
 Defaults to
 .Qq http://localhost/
 if not specified.
-.It Sy refresh_before_expiry = Em time ;
-specifies how far in advance an access token should be refreshed before it
-expires.
-Defaults to 90 seconds if not specified.
 .It Sy refresh_at_least = Em time ;
 specifies the maximum period of time before an access token will be forcibly
 refreshed.
 Defaults to 90 minutes if not specified.
+.It Sy refresh_before_expiry = Em time ;
+specifies how far in advance an access token should be refreshed before it
+expires.
+Defaults to 90 seconds if not specified.
+.It Sy refresh_retry_interval = Em time ;
+specifies the gap between retrying refreshing after transitory errors
+(e.g. due to network problems).
+Defaults to 40 seconds if not specified.
 .It Sy scopes = [ Qo Em Scope 1 Qc , ..., Qo Em Scope n Qc ] ;
 specifies one or more OAuth2 scopes (i.e.
 .Qq permissions )

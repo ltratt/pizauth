@@ -229,7 +229,7 @@ impl Refresher {
                     }
                 }
                 if let Some(lra) = last_refresh_attempt {
-                    if let Some(t) = lra.checked_add(ct_lk.config().refresh_retry_interval) {
+                    if let Some(t) = lra.checked_add(act.refresh_retry_interval) {
                         if t > expiry {
                             return Some(t.to_owned());
                         }

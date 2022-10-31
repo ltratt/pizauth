@@ -35,7 +35,6 @@ pub struct Config {
     pub auth_notify_cmd: Option<String>,
     pub auth_notify_interval: Duration,
     pub http_listen: String,
-    pub refresh_retry_interval: Duration,
     pub refresh_warn_cmd: Option<String>,
     pub refresh_warn_interval: Duration,
 }
@@ -68,7 +67,6 @@ impl Config {
         let mut auth_notify_cmd = None;
         let mut auth_notify_interval = None;
         let mut http_listen = None;
-        let mut refresh_retry_interval = None;
         let mut refresh_warn_cmd = None;
         let mut refresh_warn_interval = None;
         match astopt {
@@ -128,23 +126,6 @@ impl Config {
                                 http_listen,
                             )?)
                         }
-                        config_ast::TopLevel::RefreshRetryInterval(span) => {
-                            match time_str_to_duration(check_not_assigned_time(
-                                &lexer,
-                                "refresh_retry_interval",
-                                span,
-                                refresh_retry_interval,
-                            )?) {
-                                Ok(t) => refresh_retry_interval = Some(t),
-                                Err(e) => {
-                                    return Err(error_at_span(
-                                        &lexer,
-                                        span,
-                                        &format!("Invalid time: {e:}"),
-                                    ))
-                                }
-                            }
-                        }
                         config_ast::TopLevel::RefreshWarnCmd(span) => {
                             refresh_warn_cmd = Some(check_not_assigned_str(
                                 &lexer,
@@ -187,8 +168,6 @@ impl Config {
             auth_notify_interval: auth_notify_interval
                 .unwrap_or_else(|| Duration::from_secs(AUTH_NOTIFY_INTERVAL_DEFAULT)),
             http_listen: http_listen.unwrap_or_else(|| HTTP_LISTEN_DEFAULT.to_owned()),
-            refresh_retry_interval: refresh_retry_interval
-                .unwrap_or_else(|| Duration::from_secs(REFRESH_RETRY_INTERVAL_DEFAULT)),
             refresh_warn_cmd,
             refresh_warn_interval: refresh_warn_interval.unwrap_or(REFRESH_WARN_INTERVAL_DEFAULT),
         })
@@ -273,8 +252,9 @@ pub struct Account {
     pub client_secret: Option<String>,
     pub login_hint: Option<String>,
     redirect_uri: String,
-    pub refresh_before_expiry: Option<Duration>,
     pub refresh_at_least: Option<Duration>,
+    pub refresh_before_expiry: Option<Duration>,
+    pub refresh_retry_interval: Duration,
     pub scopes: Vec<String>,
     pub token_uri: String,
 }
@@ -291,8 +271,9 @@ impl Account {
         let mut client_secret = None;
         let mut login_hint = None;
         let mut redirect_uri = None;
-        let mut refresh_before_expiry = None;
         let mut refresh_at_least = None;
+        let mut refresh_before_expiry = None;
+        let mut refresh_retry_interval = None;
         let mut scopes = None;
         let mut token_uri = None;
 
@@ -328,6 +309,19 @@ impl Account {
                         redirect_uri,
                     )?)
                 }
+                config_ast::AccountField::RefreshAtLeast(span) => {
+                    match time_str_to_duration(check_not_assigned_time(
+                        lexer,
+                        "refresh_at_least",
+                        span,
+                        refresh_at_least,
+                    )?) {
+                        Ok(t) => refresh_at_least = Some(t),
+                        Err(e) => {
+                            return Err(error_at_span(lexer, span, &format!("Invalid time: {e:}")))
+                        }
+                    }
+                }
                 config_ast::AccountField::RefreshBeforeExpiry(span) => {
                     match time_str_to_duration(check_not_assigned_time(
                         lexer,
@@ -341,14 +335,14 @@ impl Account {
                         }
                     }
                 }
-                config_ast::AccountField::RefreshAtLeast(span) => {
+                config_ast::AccountField::RefreshRetryInterval(span) => {
                     match time_str_to_duration(check_not_assigned_time(
                         lexer,
-                        "refresh_at_least",
+                        "refresh_retry_interval",
                         span,
-                        refresh_at_least,
+                        refresh_retry_interval,
                     )?) {
-                        Ok(t) => refresh_at_least = Some(t),
+                        Ok(t) => refresh_retry_interval = Some(t),
                         Err(e) => {
                             return Err(error_at_span(lexer, span, &format!("Invalid time: {e:}")))
                         }
@@ -395,10 +389,12 @@ impl Account {
             client_secret,
             login_hint,
             redirect_uri: redirect_uri.unwrap_or_else(|| "http://localhost/".to_owned()),
-            refresh_before_expiry: refresh_before_expiry
-                .or_else(|| Some(Duration::from_secs(REFRESH_BEFORE_EXPIRY_DEFAULT))),
             refresh_at_least: refresh_at_least
                 .or_else(|| Some(Duration::from_secs(REFRESH_AT_LEAST_DEFAULT))),
+            refresh_before_expiry: refresh_before_expiry
+                .or_else(|| Some(Duration::from_secs(REFRESH_BEFORE_EXPIRY_DEFAULT))),
+            refresh_retry_interval: refresh_retry_interval
+                .unwrap_or_else(|| Duration::from_secs(REFRESH_RETRY_INTERVAL_DEFAULT)),
             scopes,
             token_uri,
         })
@@ -527,7 +523,6 @@ mod test {
             auth_notify_cmd = "g";
             auth_notify_interval = 88m;
             http_listen = "127.0.0.1:56789";
-            refresh_retry_interval = 33s;
             account "x" {
                 // Mandatory fields
                 auth_uri = "http://a.com";
@@ -538,8 +533,9 @@ mod test {
                 client_secret = "h";
                 login_hint = "i";
                 redirect_uri = "http://e.com";
-                refresh_before_expiry = 42s;
                 refresh_at_least = 43m;
+                refresh_before_expiry = 42s;
+                refresh_retry_interval = 33s;
             }
         "#,
         )
@@ -548,7 +544,6 @@ mod test {
         assert_eq!(c.auth_notify_cmd, Some("g".to_owned()));
         assert_eq!(c.auth_notify_interval, Duration::from_secs(88 * 60));
         assert_eq!(c.http_listen, "127.0.0.1:56789".to_owned());
-        assert_eq!(c.refresh_retry_interval, Duration::from_secs(33));
 
         let act = &c.accounts["x"];
         assert_eq!(act.auth_uri, "http://a.com");
@@ -558,8 +553,9 @@ mod test {
         assert_eq!(act.redirect_uri, "http://e.com");
         assert_eq!(act.token_uri, "http://f.com");
         assert_eq!(act.login_hint, Some("i".to_owned()));
-        assert_eq!(act.refresh_before_expiry, Some(Duration::from_secs(42)));
         assert_eq!(act.refresh_at_least, Some(Duration::from_secs(43 * 60)));
+        assert_eq!(act.refresh_before_expiry, Some(Duration::from_secs(42)));
+        assert_eq!(act.refresh_retry_interval, Duration::from_secs(33));
     }
 
     #[test]

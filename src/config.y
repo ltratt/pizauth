@@ -15,7 +15,6 @@ TopLevel -> Result<TopLevel, ()>:
   | "AUTH_NOTIFY_CMD" "=" "STRING" ";" { Ok(TopLevel::AuthNotifyCmd(map_err($3)?)) }
   | "AUTH_NOTIFY_INTERVAL" "=" "TIME" ";" { Ok(TopLevel::AuthNotifyInterval(map_err($3)?)) }
   | "HTTP_LISTEN" "=" "STRING" ";" { Ok(TopLevel::HttpListen(map_err($3)?)) }
-  | "REFRESH_RETRY_INTERVAL" "=" "TIME" ";" { Ok(TopLevel::RefreshRetryInterval(map_err($3)?)) }
   | "REFRESH_WARN_CMD" "=" "STRING" ";" { Ok(TopLevel::RefreshWarnCmd(map_err($3)?)) }
   | "REFRESH_WARN_INTERVAL" "=" "TIME" ";" { Ok(TopLevel::RefreshWarnInterval(map_err($3)?)) }
   ;
@@ -31,8 +30,9 @@ AccountField -> Result<AccountField, ()>:
   | "CLIENT_SECRET" "=" "STRING" ";" { Ok(AccountField::ClientSecret(map_err($3)?)) }
   | "LOGIN_HINT" "=" "STRING" ";" { Ok(AccountField::LoginHint(map_err($3)?)) }
   | "REDIRECT_URI" "=" "STRING" ";" { Ok(AccountField::RedirectUri(map_err($3)?)) }
-  | "REFRESH_BEFORE_EXPIRY" "=" "TIME" ";" { Ok(AccountField::RefreshBeforeExpiry(map_err($3)?)) }
   | "REFRESH_AT_LEAST" "=" "TIME" ";" { Ok(AccountField::RefreshAtLeast(map_err($3)?)) }
+  | "REFRESH_BEFORE_EXPIRY" "=" "TIME" ";" { Ok(AccountField::RefreshBeforeExpiry(map_err($3)?)) }
+  | "REFRESH_RETRY_INTERVAL" "=" "TIME" ";" { Ok(AccountField::RefreshRetryInterval(map_err($3)?)) }
   | "SCOPES" "=" "[" Scopes "]" ";" { Ok(AccountField::Scopes($1.unwrap_or_else(|x| x).span(), $4?)) }
   | "TOKEN_URI" "=" "STRING" ";" { Ok(AccountField::TokenUri(map_err($3)?)) }
   ;
