@@ -10,9 +10,7 @@ use std::{
 use log::warn;
 use url::Url;
 
-use super::{
-    expiry_instant, AuthenticatorState, CTGuardAccountId, Config, TokenState, UREQ_TIMEOUT,
-};
+use super::{expiry_instant, AccountId, AuthenticatorState, Config, TokenState, UREQ_TIMEOUT};
 
 /// How often should we try making a request to an OAuth server for possibly-temporary transport
 /// issues?
@@ -63,7 +61,7 @@ fn request(pstate: Arc<AuthenticatorState>, mut stream: TcpStream) -> Result<(),
 
     // Now that we know which account has been matched we can check if the full URI requested
     // matched the redirect URI we expected for that account.
-    let act = ct_lk.account(&act_id);
+    let act = ct_lk.account(act_id);
     let expected_uri = act.redirect_uri(pstate.http_port)?;
     if expected_uri.scheme() != uri.scheme()
         || expected_uri.host_str() != uri.host_str()
@@ -78,10 +76,10 @@ fn request(pstate: Arc<AuthenticatorState>, mut stream: TcpStream) -> Result<(),
     // Did authentication fail?
     if let Some((_, reason)) = uri.query_pairs().find(|(k, _)| k == "error") {
         let act_id = ct_lk.tokenstate_replace(act_id, TokenState::Empty);
-        let act_name = ct_lk.account(&act_id).name.clone();
+        let act_name = ct_lk.account(act_id).name.clone();
         let msg = format!(
             "Authentication for {} failed: {}",
-            ct_lk.account(&act_id).name,
+            ct_lk.account(act_id).name,
             reason
         );
         drop(ct_lk);
@@ -102,7 +100,7 @@ fn request(pstate: Arc<AuthenticatorState>, mut stream: TcpStream) -> Result<(),
         }
     };
 
-    let code_verifier = match ct_lk.tokenstate(&act_id) {
+    let code_verifier = match ct_lk.tokenstate(act_id) {
         TokenState::Pending {
             ref code_verifier, ..
         } => code_verifier.clone(),
@@ -195,7 +193,7 @@ fn request(pstate: Arc<AuthenticatorState>, mut stream: TcpStream) -> Result<(),
             if token_type == "Bearer" =>
         {
             let refreshed_at = Instant::now();
-            let expiry = expiry_instant(&ct_lk, &act_id, refreshed_at, expires_in)?;
+            let expiry = expiry_instant(&ct_lk, act_id, refreshed_at, expires_in)?;
             ct_lk.tokenstate_replace(
                 act_id,
                 TokenState::Active {
@@ -223,16 +221,16 @@ fn request(pstate: Arc<AuthenticatorState>, mut stream: TcpStream) -> Result<(),
 /// request while we've been trying (unsuccessfully) with the OAuth server.
 fn fail(
     pstate: Arc<AuthenticatorState>,
-    act_id: CTGuardAccountId,
+    act_id: AccountId,
     msg: &str,
 ) -> Result<(), Box<dyn Error>> {
     let mut ct_lk = pstate.ct_lock();
     if let Some(act_id) = ct_lk.validate_act_id(act_id) {
         let act_id = ct_lk.tokenstate_replace(act_id, TokenState::Empty);
-        let act_name = ct_lk.account(&act_id).name.clone();
+        let act_name = ct_lk.account(act_id).name.clone();
         let msg = format!(
             "Authentication for {} failed: {msg:}",
-            ct_lk.account(&act_id).name
+            ct_lk.account(act_id).name
         );
         drop(ct_lk);
         pstate.notifier.notify_error(&pstate, act_name, msg)?;

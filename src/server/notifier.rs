@@ -11,7 +11,7 @@ use std::{
 use log::debug;
 use log::{error, warn};
 
-use super::{AuthenticatorState, CTGuard, CTGuardAccountId, TokenState};
+use super::{AccountId, AuthenticatorState, CTGuard, TokenState};
 
 pub struct Notifier {
     pred: Mutex<bool>,
@@ -67,7 +67,7 @@ impl Notifier {
             let now = Instant::now();
             let notify_interval = ct_lk.config().auth_notify_interval; // Pulled out to avoid borrow checker problems.
             for act_id in ct_lk.act_ids().collect::<Vec<_>>() {
-                let mut ts = ct_lk.tokenstate(&act_id).clone();
+                let mut ts = ct_lk.tokenstate(act_id).clone();
                 if let TokenState::Pending {
                     ref mut last_notification,
                     ref url,
@@ -83,7 +83,7 @@ impl Notifier {
                     }
                     *last_notification = Some(now);
                     let url = url.clone();
-                    let act = ct_lk.account(&act_id);
+                    let act = ct_lk.account(act_id);
                     if let Some(ref cmd) = ct_lk.config().auth_notify_cmd {
                         auth_cmds.push((act.name.to_owned(), cmd.clone(), url));
                     }
@@ -131,7 +131,7 @@ impl Notifier {
         let ct_lk = pstate.ct_lock();
         ct_lk
             .act_ids()
-            .filter_map(|act_id| notify_at(pstate, &ct_lk, &act_id))
+            .filter_map(|act_id| notify_at(pstate, &ct_lk, act_id))
             .min()
     }
 
@@ -211,11 +211,7 @@ impl Notifier {
 
 /// If `act_id` has a pending token, return the next time when that user should be notified that
 /// it is pending.
-fn notify_at(
-    _pstate: &AuthenticatorState,
-    ct_lk: &CTGuard,
-    act_id: &CTGuardAccountId,
-) -> Option<Instant> {
+fn notify_at(_pstate: &AuthenticatorState, ct_lk: &CTGuard, act_id: AccountId) -> Option<Instant> {
     match ct_lk.tokenstate(act_id) {
         TokenState::Pending {
             last_notification, ..

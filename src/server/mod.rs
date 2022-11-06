@@ -24,7 +24,7 @@ use crate::{config::Config, PIZAUTH_CACHE_SOCK_LEAF};
 use notifier::Notifier;
 use refresher::{RefreshKind, Refresher};
 use request_token::request_token;
-use state::{AuthenticatorState, CTGuard, CTGuardAccountId, TokenState};
+use state::{AccountId, AuthenticatorState, CTGuard, TokenState};
 
 /// Length of the PKCE code verifier in bytes.
 const CODE_VERIFIER_LEN: usize = 64;
@@ -48,7 +48,7 @@ pub fn sock_path(cache_path: &Path) -> PathBuf {
 /// represent the expiry.
 pub fn expiry_instant(
     ct_lk: &CTGuard,
-    act_id: &CTGuardAccountId,
+    act_id: AccountId,
     refreshed_at: Instant,
     expires_in: u64,
 ) -> Result<Instant, Box<dyn Error>> {
@@ -57,7 +57,7 @@ pub fn expiry_instant(
         .or_else(|| {
             refreshed_at.checked_add(
                 ct_lk
-                    .account(&act_id)
+                    .account(act_id)
                     .refresh_at_least
                     .unwrap_or(FALLBACK_EXPIRY_DURATION),
             )
@@ -90,7 +90,7 @@ fn request(pstate: Arc<AuthenticatorState>, mut stream: UnixStream) -> Result<()
                     return Ok(());
                 }
             };
-            match ct_lk.tokenstate(&act_id) {
+            match ct_lk.tokenstate(act_id) {
                 TokenState::Empty | TokenState::Pending { .. } => {
                     let url = request_token(Arc::clone(&pstate), ct_lk, act_id)?;
                     if *with_url == "withurl" {
@@ -126,7 +126,7 @@ fn request(pstate: Arc<AuthenticatorState>, mut stream: UnixStream) -> Result<()
                     return Ok(());
                 }
             };
-            match ct_lk.tokenstate(&act_id) {
+            match ct_lk.tokenstate(act_id) {
                 TokenState::Empty => {
                     let url = request_token(Arc::clone(&pstate), ct_lk, act_id)?;
                     if *with_url == "withurl" {

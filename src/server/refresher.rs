@@ -10,9 +10,7 @@ use std::{
 use log::debug;
 use log::error;
 
-use super::{
-    expiry_instant, AuthenticatorState, CTGuard, CTGuardAccountId, TokenState, UREQ_TIMEOUT,
-};
+use super::{expiry_instant, AccountId, AuthenticatorState, CTGuard, TokenState, UREQ_TIMEOUT};
 
 /// The outcome of an attempted refresh.
 pub enum RefreshKind {
@@ -23,7 +21,7 @@ pub enum RefreshKind {
     /// The token was refreshed.
     Refreshed,
     /// Refreshing failed but in a way that is not likely to repeat if retried.
-    TransitoryError(CTGuardAccountId, String),
+    TransitoryError(AccountId, String),
 }
 
 pub struct Refresher {
@@ -50,9 +48,9 @@ impl Refresher {
         &self,
         pstate: &AuthenticatorState,
         mut ct_lk: CTGuard,
-        mut act_id: CTGuardAccountId,
+        mut act_id: AccountId,
     ) -> RefreshKind {
-        let refresh_token = match ct_lk.tokenstate(&act_id) {
+        let refresh_token = match ct_lk.tokenstate(act_id) {
             TokenState::Active {
                 refresh_token: Some(refresh_token),
                 ..
@@ -60,7 +58,7 @@ impl Refresher {
             _ => unreachable!("tokenstate is not TokenState::Active"),
         };
 
-        let mut new_ts = ct_lk.tokenstate(&act_id).clone();
+        let mut new_ts = ct_lk.tokenstate(act_id).clone();
         if let TokenState::Active {
             ref mut last_refresh_attempt,
             ..
@@ -70,7 +68,7 @@ impl Refresher {
             act_id = ct_lk.tokenstate_replace(act_id, new_ts);
         }
 
-        let act = ct_lk.account(&act_id);
+        let act = ct_lk.account(act_id);
         let token_uri = act.token_uri.clone();
         let client_id = act.client_id.clone();
         let mut pairs = vec![
@@ -139,7 +137,7 @@ impl Refresher {
                 match ct_lk.validate_act_id(act_id) {
                     Some(act_id) => {
                         let act_id = ct_lk.tokenstate_replace(act_id, TokenState::Empty);
-                        let msg = format!("Refreshing {} failed", ct_lk.account(&act_id).name);
+                        let msg = format!("Refreshing {} failed", ct_lk.account(act_id).name);
                         drop(ct_lk);
                         return RefreshKind::PermanentError(msg);
                     }
@@ -159,7 +157,7 @@ impl Refresher {
                 let mut ct_lk = pstate.ct_lock();
                 match ct_lk.validate_act_id(act_id) {
                     Some(act_id) => {
-                        let expiry = match expiry_instant(&ct_lk, &act_id, refreshed_at, expires_in)
+                        let expiry = match expiry_instant(&ct_lk, act_id, refreshed_at, expires_in)
                         {
                             Ok(x) => x,
                             Err(e) => {
@@ -206,7 +204,7 @@ impl Refresher {
         &self,
         _pstate: &AuthenticatorState,
         ct_lk: &CTGuard,
-        act_id: &CTGuardAccountId,
+        act_id: AccountId,
     ) -> Option<Instant> {
         match ct_lk.tokenstate(act_id) {
             TokenState::Active {
@@ -247,7 +245,7 @@ impl Refresher {
         &self,
         _pstate: &AuthenticatorState,
         ct_lk: &CTGuard,
-        act_id: &CTGuardAccountId,
+        act_id: AccountId,
     ) -> Option<Instant> {
         match ct_lk.tokenstate(act_id) {
             TokenState::Active {
@@ -271,8 +269,8 @@ impl Refresher {
             .act_ids()
             .filter_map(|act_id| {
                 match (
-                    self.refresh_at(pstate, &ct_lk, &act_id),
-                    self.warn_at(pstate, &ct_lk, &act_id),
+                    self.refresh_at(pstate, &ct_lk, act_id),
+                    self.warn_at(pstate, &ct_lk, act_id),
                 ) {
                     (Some(x), Some(y)) => Some(cmp::min(x, y)),
                     (Some(x), None) => Some(x),
@@ -333,7 +331,7 @@ impl Refresher {
             let now = Instant::now();
             let to_refresh = ct_lk
                 .act_ids()
-                .filter(|act_id| self.refresh_at(&pstate, &ct_lk, act_id) <= Some(now))
+                .filter(|act_id| self.refresh_at(&pstate, &ct_lk, *act_id) <= Some(now))
                 .collect::<Vec<_>>();
             drop(ct_lk);
 
@@ -343,7 +341,7 @@ impl Refresher {
                     if let TokenState::Active {
                         last_refresh_attempt,
                         ..
-                    } = ct_lk.tokenstate(&act_id)
+                    } = ct_lk.tokenstate(act_id)
                     {
                         let refreshed_at_least_once = last_refresh_attempt.is_some();
                         match self.refresh(&pstate, ct_lk, act_id) {
@@ -362,8 +360,8 @@ impl Refresher {
                                     // `Instant::now()` as it is a partial proxy for "the machine
                                     // was suspended during the refreshing process so try once
                                     // more".
-                                    if self.warn_at(&pstate, &ct_lk, &act_id) <= Some(now) {
-                                        let mut new_ts = ct_lk.tokenstate(&act_id).clone();
+                                    if self.warn_at(&pstate, &ct_lk, act_id) <= Some(now) {
+                                        let mut new_ts = ct_lk.tokenstate(act_id).clone();
                                         if let TokenState::Active {
                                             ref mut last_refresh_warning,
                                             ..
@@ -376,7 +374,7 @@ impl Refresher {
                                                     if let Err(e) = pstate.notifier.notify_warn(
                                                         &pstate,
                                                         Some(cmd.to_string()),
-                                                        ct_lk.account(&act_id).name.clone(),
+                                                        ct_lk.account(act_id).name.clone(),
                                                         msg,
                                                     ) {
                                                         error!("When running auth_warn_cmd: {e:}");

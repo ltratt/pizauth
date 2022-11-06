@@ -4,22 +4,20 @@ use rand::{thread_rng, RngCore};
 use sha2::{Digest, Sha256};
 use url::Url;
 
-use super::{
-    AuthenticatorState, CTGuard, CTGuardAccountId, TokenState, CODE_VERIFIER_LEN, STATE_LEN,
-};
+use super::{AccountId, AuthenticatorState, CTGuard, TokenState, CODE_VERIFIER_LEN, STATE_LEN};
 
 /// Request a new token for `act_id`, whose tokenstate must be `Empty`.
 pub fn request_token(
     pstate: Arc<AuthenticatorState>,
     mut ct_lk: CTGuard,
-    act_id: CTGuardAccountId,
+    act_id: AccountId,
 ) -> Result<Url, Box<dyn Error>> {
     assert!(matches!(
-        ct_lk.tokenstate(&act_id),
+        ct_lk.tokenstate(act_id),
         TokenState::Empty | TokenState::Pending { .. }
     ));
 
-    let act = ct_lk.account(&act_id);
+    let act = ct_lk.account(act_id);
 
     let mut state = [0u8; STATE_LEN];
     thread_rng().fill_bytes(&mut state);
@@ -56,7 +54,7 @@ pub fn request_token(
     if let Some(x) = &act.login_hint {
         params.push(("login_hint", x));
     }
-    let url = Url::parse_with_params(ct_lk.account(&act_id).auth_uri.as_str(), &params)?;
+    let url = Url::parse_with_params(ct_lk.account(act_id).auth_uri.as_str(), &params)?;
     ct_lk.tokenstate_replace(
         act_id,
         TokenState::Pending {

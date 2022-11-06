@@ -698,7 +698,6 @@ dependencies = [
  "lrpar",
  "nix",
  "pledge",
- "portable-atomic",
  "rand",
  "rerun_except",
  "sha2",
@@ -718,12 +717,6 @@ checksum = "252599417b7d9a43b7fdc63dd790b0848666a8910b2ebe1a25118309c3c981e5"
 dependencies = [
  "libc",
 ]
-
-[[package]]
-name = "portable-atomic"
-version = "0.3.15"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "15eb2c6e362923af47e13c23ca5afb859e83d54452c55b0b9ac763b8f7c1ac16"
 
 [[package]]
 name = "ppv-lite86"
