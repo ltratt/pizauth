@@ -17,10 +17,11 @@ use std::{
     collections::{HashMap, HashSet},
     path::PathBuf,
     rc::{Rc, Weak},
-    sync::{Arc, Mutex, MutexGuard},
+    sync::{atomic::Ordering, Arc, Mutex, MutexGuard},
     time::Instant,
 };
 
+use portable_atomic::AtomicU128;
 use url::Url;
 
 use super::{notifier::Notifier, refresher::Refresher};
@@ -81,21 +82,25 @@ impl AuthenticatorState {
 /// in one of these sets it is guaranteed to be found in the other.
 struct LockedState {
     config: Config,
-    account_map: HashMap<String, usize>,
-    tokenstates: Vec<TokenStateVersion>,
+    account_map: HashMap<String, AccountId>,
+    tokenstates: HashMap<AccountId, TokenStateVersion>,
 }
 
 impl LockedState {
     fn new(config: Config) -> Self {
         let mut account_map = HashMap::with_capacity(config.accounts.len());
-        let mut tokenstates = Vec::with_capacity(config.accounts.len());
+        let mut tokenstates = HashMap::with_capacity(config.accounts.len());
 
         for act_name in config.accounts.keys() {
-            account_map.insert(act_name.to_owned(), tokenstates.len());
-            tokenstates.push(TokenStateVersion {
-                version: 0,
-                tokenstate: TokenState::Empty,
-            });
+            let act_id = AccountId::new();
+            account_map.insert(act_name.to_owned(), act_id);
+            tokenstates.insert(
+                act_id,
+                TokenStateVersion {
+                    version: 0,
+                    tokenstate: TokenState::Empty,
+                },
+            );
         }
 
         LockedState {
@@ -111,7 +116,7 @@ impl LockedState {
     ///
     /// If `act_name` is not active. See Invariant I1 above.
     fn tokenstate_version(&self, act_name: &str) -> &TokenStateVersion {
-        &self.tokenstates[self.account_map[act_name]]
+        &self.tokenstates[&self.account_map[act_name]]
     }
 
     /// Return a mutable tokenstate for `act_name.
@@ -120,26 +125,27 @@ impl LockedState {
     ///
     /// If `act_name` is not active. See Invariant I1 above.
     fn tokenstate_version_mut(&mut self, act_name: &str) -> &mut TokenStateVersion {
-        &mut self.tokenstates[self.account_map[act_name]]
+        self.tokenstates
+            .get_mut(&self.account_map[act_name])
+            .unwrap()
     }
 
     fn update_conf(&mut self, config: Config) {
         let mut account_map = HashMap::with_capacity(config.accounts.len());
-        let mut tokenstates = Vec::with_capacity(config.accounts.len());
+        let mut tokenstates = HashMap::with_capacity(config.accounts.len());
 
         for act_name in config.accounts.keys() {
-            account_map.insert(act_name.to_owned(), tokenstates.len());
-            tokenstates.push(TokenStateVersion {
-                version: 0,
-                tokenstate: TokenState::Empty,
-            });
-        }
-
-        for act_name in account_map.keys() {
             if let Some(old_act) = self.config.accounts.get(act_name) {
                 let new_act = &config.accounts[act_name];
-                let mut ts = self.tokenstates[self.account_map[act_name]].clone();
-                if new_act != old_act {
+                let ts = self.tokenstates[&self.account_map[act_name]].clone();
+                if new_act == old_act {
+                    let act_id = self.account_map[act_name];
+                    account_map.insert(act_name.to_owned(), act_id);
+                    tokenstates.insert(
+                        self.account_map[act_name].clone(),
+                        self.tokenstates[&act_id].clone(),
+                    );
+                } else {
                     // The two accounts are not the same so we can't reuse the existing tokenstate,
                     // instead keeping it as Empty. However, we need to increment the version
                     // number, because there could be a very long-running thread that started
@@ -147,10 +153,26 @@ impl LockedState {
                     // update its status, even though multiple other updates have happened in the
                     // interim. Incrementing the version implicitly invalidates whatever (slow...)
                     // calculation it has performed.
-                    ts.tokenstate = TokenState::Empty;
-                    ts.version += 1;
+                    let act_id = AccountId::new();
+                    account_map.insert(act_name.to_owned(), act_id);
+                    tokenstates.insert(
+                        act_id,
+                        TokenStateVersion {
+                            version: ts.version + 1,
+                            tokenstate: TokenState::Empty,
+                        },
+                    );
                 }
-                tokenstates[account_map[act_name]] = ts;
+            } else {
+                let act_id = AccountId::new();
+                account_map.insert(act_name.to_owned(), act_id);
+                tokenstates.insert(
+                    act_id,
+                    TokenStateVersion {
+                        version: 0,
+                        tokenstate: TokenState::Empty,
+                    },
+                );
             }
         }
 
@@ -314,6 +336,21 @@ pub struct CTGuardAccountId {
     // recklessly, use a u64 it could wrap in a blink-and-you-miss-it 245 years.
     tokenstate_version: u128,
     guard_rc: Weak<()>,
+}
+
+static ACCOUNT_ID_COUNT: AtomicU128 = AtomicU128::new(0);
+
+#[derive(Copy, Clone, Eq, Hash, PartialEq)]
+struct AccountId {
+    id: u128,
+}
+
+impl AccountId {
+    fn new() -> Self {
+        AccountId {
+            id: ACCOUNT_ID_COUNT.fetch_add(1, Ordering::Relaxed),
+        }
+    }
 }
 
 /// Track the version of a [TokenState].
