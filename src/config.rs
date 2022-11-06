@@ -28,7 +28,7 @@ const REFRESH_RETRY_DEFAULT: u64 = 40;
 /// How long after a token has expired do we warn the user that refreshing has not yet succeeded?
 const REFRESH_WARN_INTERVAL_DEFAULT: Duration = Duration::from_secs(60 * 120);
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug)]
 pub struct Config {
     pub accounts: HashMap<String, Arc<Account>>,
     pub auth_error_cmd: Option<String>,
@@ -561,8 +561,8 @@ mod test {
     #[test]
     fn at_least_one_account() {
         assert_eq!(
-            Config::from_str(""),
-            Err("Must specify at least one account".into())
+            Config::from_str("").unwrap_err().as_str(),
+            "Must specify at least one account"
         );
     }
 
