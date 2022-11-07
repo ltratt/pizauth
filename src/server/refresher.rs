@@ -1,9 +1,10 @@
 use std::{
     cmp,
+    collections::HashSet,
     error::Error,
     sync::{Arc, Condvar, Mutex},
     thread,
-    time::Instant,
+    time::{Duration, Instant},
 };
 
 #[cfg(debug_assertions)]
@@ -231,6 +232,10 @@ impl Refresher {
 
     /// If `act_id` has an active token, return the time when a warning about refreshing failure
     /// should be made.
+    ///
+    /// # Panics
+    ///
+    /// If `act_id` is not valid.
     fn warn_at(
         &self,
         _pstate: &AuthenticatorState,
@@ -284,78 +289,110 @@ impl Refresher {
         self: Arc<Self>,
         pstate: Arc<AuthenticatorState>,
     ) -> Result<(), Box<dyn Error>> {
-        thread::spawn(move || loop {
-            let next_wakeup = self.next_wakeup(&pstate);
-            let mut refresh_lk = self.pred.lock().unwrap();
-            while !*refresh_lk {
-                #[cfg(debug_assertions)]
-                debug!(
-                    "Refresher: next wakeup {}",
-                    next_wakeup
-                        .map(|x| x
-                            .checked_duration_since(Instant::now())
-                            .map(|x| x.as_secs().to_string())
-                            .unwrap_or_else(|| "<none>".to_owned()))
-                        .unwrap_or_else(|| "<none>".to_owned())
-                );
-                match next_wakeup {
-                    Some(t) => {
-                        if Instant::now() >= t {
-                            break;
-                        }
-                        match t.checked_duration_since(Instant::now()) {
-                            Some(d) => {
-                                refresh_lk = self.condvar.wait_timeout(refresh_lk, d).unwrap().0
+        let refresher = Arc::clone(&self);
+        thread::spawn(move || {
+            // There is a potential race where we start a new thread refreshing but before it has
+            // updated `TokenState::last_refresh_time` we read the "old" value and assume we need
+            // to try refreshing again. `recent_refreshes` stops us starting two threads for the
+            // same [AccountId].
+            let mut recent_refreshes = HashSet::new();
+            loop {
+                let next_wakeup = refresher.next_wakeup(&pstate);
+                let mut refresh_lk = refresher.pred.lock().unwrap();
+                while !*refresh_lk {
+                    #[cfg(debug_assertions)]
+                    debug!(
+                        "Refresher: next wakeup {}",
+                        next_wakeup
+                            .map(|x| x
+                                .checked_duration_since(Instant::now())
+                                .map(|x| x.as_secs().to_string())
+                                .unwrap_or_else(|| "<none>".to_owned()))
+                            .unwrap_or_else(|| "<none>".to_owned())
+                    );
+                    match next_wakeup {
+                        Some(t) => {
+                            if Instant::now() >= t {
+                                break;
                             }
-                            None => break,
+                            match t.checked_duration_since(Instant::now()) {
+                                Some(d) => {
+                                    refresh_lk =
+                                        refresher.condvar.wait_timeout(refresh_lk, d).unwrap().0
+                                }
+                                None => break,
+                            }
                         }
+                        None => refresh_lk = refresher.condvar.wait(refresh_lk).unwrap(),
                     }
-                    None => refresh_lk = self.condvar.wait(refresh_lk).unwrap(),
                 }
-            }
 
-            *refresh_lk = false;
-            drop(refresh_lk);
+                *refresh_lk = false;
+                drop(refresh_lk);
 
-            let ct_lk = pstate.ct_lock();
-            let now = Instant::now();
-            let to_refresh = ct_lk
-                .act_ids()
-                .filter(
-                    |act_id| match refresher.refresh_at(&pstate, &ct_lk, *act_id) {
-                        Some(t) => t <= now,
-                        None => false,
-                    },
-                )
-                .collect::<Vec<_>>();
-            drop(ct_lk);
-
-            for act_id in to_refresh.into_iter() {
                 let ct_lk = pstate.ct_lock();
-                if ct_lk.is_act_id_valid(act_id) {
-                    if let TokenState::Active {
-                        last_refresh_attempt,
-                        ..
-                    } = ct_lk.tokenstate(act_id)
-                    {
-                        let refreshed_at_least_once = last_refresh_attempt.is_some();
-                        match self.refresh(&pstate, ct_lk, act_id) {
-                            RefreshKind::AccountOrTokenStateChanged | RefreshKind::Refreshed => (),
-                            RefreshKind::TransitoryError(act_id, msg) => {
-                                // Has refreshing this token not succeeded for too long a
-                                // period?
-                                let mut ct_lk = pstate.ct_lock();
-                                if ct_lk.is_act_id_valid(act_id) {
-                                    // Make sure that we try refreshing at least twice.
-                                    if !refreshed_at_least_once {
-                                        continue;
-                                    }
+                let now = Instant::now();
+                let to_refresh = ct_lk
+                    .act_ids()
+                    .filter(
+                        |act_id| match refresher.refresh_at(&pstate, &ct_lk, *act_id) {
+                            Some(t) => {
+                                t <= now
+                            }
+                            None => false,
+                        },
+                    )
+                    .collect::<HashSet<_>>();
+                drop(ct_lk);
 
+                for act_id in to_refresh.iter() {
+                    if !recent_refreshes.contains(act_id) {
+                        refresher.try_refresh(Arc::clone(&pstate), *act_id, now);
+                    }
+                }
+                recent_refreshes = to_refresh;
+                // It's safe for us to immediately recheck whether there's anything to refresh
+                // since `recent_refreshes` stops us trying to endlessly refresh the same
+                // [AccountId]. However, the chances are that if we go around the loop immediately
+                // then none of the refresh threads will have started, and we'll spin pointlessly.
+                // This sleep is intended to largely stop that spinning without unduly pausing the
+                // main refresher thread.
+                thread::sleep(Duration::from_micros(250));
+            }
+        });
+        Ok(())
+    }
+
+    fn try_refresh(
+        self: &Arc<Self>,
+        pstate: Arc<AuthenticatorState>,
+        act_id: AccountId,
+        now: Instant,
+    ) {
+        let refresher = Arc::clone(&self);
+        thread::spawn(move || {
+            let ct_lk = pstate.ct_lock();
+            if ct_lk.is_act_id_valid(act_id) {
+                if let TokenState::Active {
+                    last_refresh_attempt,
+                    ..
+                } = ct_lk.tokenstate(act_id)
+                {
+                    let refreshed_at_least_once = last_refresh_attempt.is_some();
+                    match refresher.refresh(&pstate, ct_lk, act_id) {
+                        RefreshKind::AccountOrTokenStateChanged | RefreshKind::Refreshed => (),
+                        RefreshKind::TransitoryError(act_id, msg) => {
+                            // Has refreshing this token not succeeded for too long a
+                            // period?
+                            let mut ct_lk = pstate.ct_lock();
+                            if ct_lk.is_act_id_valid(act_id) {
+                                // Make sure that we try refreshing at least twice.
+                                if refreshed_at_least_once {
                                     // Note that we deliberately use `now` and not a (fresh)
                                     // `Instant::now()` as it is a partial proxy for "the machine
                                     // was suspended during the refreshing process so try once
                                     // more".
-                                    if self.warn_at(&pstate, &ct_lk, act_id) <= Some(now) {
+                                    if refresher.warn_at(&pstate, &ct_lk, act_id) <= Some(now) {
                                         let mut new_ts = ct_lk.tokenstate(act_id).clone();
                                         if let TokenState::Active {
                                             ref mut last_refresh_warning,
@@ -372,6 +409,7 @@ impl Refresher {
                                                         ct_lk.account(act_id).name.clone(),
                                                         msg,
                                                     ) {
+                                                        drop(ct_lk);
                                                         error!("When running auth_warn_cmd: {e:}");
                                                     }
                                                 }
@@ -380,6 +418,7 @@ impl Refresher {
                                                         act_id,
                                                         TokenState::Empty,
                                                     );
+                                                    drop(ct_lk);
                                                     error!("Token refresh failed for too long a period")
                                                 }
                                             }
@@ -387,15 +426,13 @@ impl Refresher {
                                     }
                                 }
                             }
-                            RefreshKind::PermanentError(msg) => {
-                                error!("Token refresh failed: {msg:}")
-                            }
+                        }
+                        RefreshKind::PermanentError(msg) => {
+                            error!("Token refresh failed: {msg:}")
                         }
                     }
                 }
             }
         });
-
-        Ok(())
     }
 }
