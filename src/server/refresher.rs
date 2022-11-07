@@ -100,12 +100,11 @@ impl Refresher {
                     Err(_) => format!("{code:}"),
                 };
                 let mut ct_lk = pstate.ct_lock();
-                match ct_lk.validate_act_id(act_id) {
-                    Some(act_id) => {
-                        ct_lk.tokenstate_replace(act_id, TokenState::Empty);
-                        return RefreshKind::PermanentError(reason);
-                    }
-                    None => return RefreshKind::AccountOrTokenStateChanged,
+                if ct_lk.is_act_id_valid(act_id) {
+                    ct_lk.tokenstate_replace(act_id, TokenState::Empty);
+                    return RefreshKind::PermanentError(reason);
+                } else {
+                    return RefreshKind::AccountOrTokenStateChanged;
                 }
             }
             Err(ref e @ ureq::Error::Transport(ref t))
@@ -117,12 +116,11 @@ impl Refresher {
             }
             Err(e) => {
                 let mut ct_lk = pstate.ct_lock();
-                match ct_lk.validate_act_id(act_id) {
-                    Some(act_id) => {
-                        ct_lk.tokenstate_replace(act_id, TokenState::Empty);
-                        return RefreshKind::PermanentError(e.to_string());
-                    }
-                    None => return RefreshKind::AccountOrTokenStateChanged,
+                if ct_lk.is_act_id_valid(act_id) {
+                    ct_lk.tokenstate_replace(act_id, TokenState::Empty);
+                    return RefreshKind::PermanentError(e.to_string());
+                } else {
+                    return RefreshKind::AccountOrTokenStateChanged;
                 }
             }
         };
@@ -134,14 +132,13 @@ impl Refresher {
                 // failed, so we take the most pessimistic assumption which is that the refresh
                 // token is no longer valid at all.
                 let mut ct_lk = pstate.ct_lock();
-                match ct_lk.validate_act_id(act_id) {
-                    Some(act_id) => {
-                        let act_id = ct_lk.tokenstate_replace(act_id, TokenState::Empty);
-                        let msg = format!("Refreshing {} failed", ct_lk.account(act_id).name);
-                        drop(ct_lk);
-                        return RefreshKind::PermanentError(msg);
-                    }
-                    None => return RefreshKind::AccountOrTokenStateChanged,
+                if ct_lk.is_act_id_valid(act_id) {
+                    let act_id = ct_lk.tokenstate_replace(act_id, TokenState::Empty);
+                    let msg = format!("Refreshing {} failed", ct_lk.account(act_id).name);
+                    drop(ct_lk);
+                    return RefreshKind::PermanentError(msg);
+                } else {
+                    return RefreshKind::AccountOrTokenStateChanged;
                 }
             }
             Ok((false, p)) => p,
@@ -155,45 +152,40 @@ impl Refresher {
             (Some(access_token), Some(expires_in), Some(token_type)) if token_type == "Bearer" => {
                 let refreshed_at = Instant::now();
                 let mut ct_lk = pstate.ct_lock();
-                match ct_lk.validate_act_id(act_id) {
-                    Some(act_id) => {
-                        let expiry = match expiry_instant(&ct_lk, act_id, refreshed_at, expires_in)
-                        {
-                            Ok(x) => x,
-                            Err(e) => {
-                                ct_lk.tokenstate_replace(act_id, TokenState::Empty);
-                                drop(ct_lk);
-                                return RefreshKind::PermanentError(format!("{e}"));
-                            }
-                        };
-                        ct_lk.tokenstate_replace(
-                            act_id,
-                            TokenState::Active {
-                                access_token: access_token.to_owned(),
-                                expiry,
-                                refreshed_at,
-                                last_refresh_attempt: None,
-                                last_refresh_warning: None,
-                                refresh_token: Some(refresh_token),
-                            },
-                        );
-                        drop(ct_lk);
-                        self.notify_changes();
-                        RefreshKind::Refreshed
-                    }
-                    None => RefreshKind::AccountOrTokenStateChanged,
+                if ct_lk.is_act_id_valid(act_id) {
+                    let expiry = match expiry_instant(&ct_lk, act_id, refreshed_at, expires_in) {
+                        Ok(x) => x,
+                        Err(e) => {
+                            ct_lk.tokenstate_replace(act_id, TokenState::Empty);
+                            drop(ct_lk);
+                            return RefreshKind::PermanentError(format!("{e}"));
+                        }
+                    };
+                    ct_lk.tokenstate_replace(
+                        act_id,
+                        TokenState::Active {
+                            access_token: access_token.to_owned(),
+                            expiry,
+                            refreshed_at,
+                            last_refresh_attempt: None,
+                            last_refresh_warning: None,
+                            refresh_token: Some(refresh_token),
+                        },
+                    );
+                    drop(ct_lk);
+                    self.notify_changes();
+                    RefreshKind::Refreshed
+                } else {
+                    RefreshKind::AccountOrTokenStateChanged
                 }
             }
             _ => {
                 let mut ct_lk = pstate.ct_lock();
-                match ct_lk.validate_act_id(act_id) {
-                    Some(act_id) => {
-                        ct_lk.tokenstate_replace(act_id, TokenState::Empty);
-                        RefreshKind::PermanentError(
-                            "Received JSON in unexpected format".to_string(),
-                        )
-                    }
-                    None => RefreshKind::AccountOrTokenStateChanged,
+                if ct_lk.is_act_id_valid(act_id) {
+                    ct_lk.tokenstate_replace(act_id, TokenState::Empty);
+                    RefreshKind::PermanentError("Received JSON in unexpected format".to_string())
+                } else {
+                    RefreshKind::AccountOrTokenStateChanged
                 }
             }
         }
@@ -337,7 +329,7 @@ impl Refresher {
 
             for act_id in to_refresh.into_iter() {
                 let ct_lk = pstate.ct_lock();
-                if let Some(act_id) = ct_lk.validate_act_id(act_id) {
+                if ct_lk.is_act_id_valid(act_id) {
                     if let TokenState::Active {
                         last_refresh_attempt,
                         ..
@@ -350,7 +342,7 @@ impl Refresher {
                                 // Has refreshing this token not succeeded for too long a
                                 // period?
                                 let mut ct_lk = pstate.ct_lock();
-                                if let Some(act_id) = ct_lk.validate_act_id(act_id) {
+                                if ct_lk.is_act_id_valid(act_id) {
                                     // Make sure that we try refreshing at least twice.
                                     if !refreshed_at_least_once {
                                         continue;

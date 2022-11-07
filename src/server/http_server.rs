@@ -172,10 +172,9 @@ fn request(pstate: Arc<AuthenticatorState>, mut stream: TcpStream) -> Result<(),
     };
 
     let mut ct_lk = pstate.ct_lock();
-    let act_id = match ct_lk.validate_act_id(act_id) {
-        Some(x) => x,
-        None => return Ok(()),
-    };
+    if !ct_lk.is_act_id_valid(act_id) {
+        return Ok(());
+    }
 
     if let Some(err_msg) = parsed["error"].as_str() {
         drop(ct_lk);
@@ -225,7 +224,7 @@ fn fail(
     msg: &str,
 ) -> Result<(), Box<dyn Error>> {
     let mut ct_lk = pstate.ct_lock();
-    if let Some(act_id) = ct_lk.validate_act_id(act_id) {
+    if ct_lk.is_act_id_valid(act_id) {
         let act_id = ct_lk.tokenstate_replace(act_id, TokenState::Empty);
         let act_name = ct_lk.account(act_id).name.clone();
         let msg = format!(

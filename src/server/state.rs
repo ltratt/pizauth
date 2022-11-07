@@ -180,15 +180,9 @@ impl<'a> CTGuard<'a> {
         self.guard.account_map.get(act_name).cloned()
     }
 
-    /// If `act_id` would still be a valid account under the current [CTGuard], create a new
-    /// [AccountId] which can be used in its stead. If the input `act_id` is no longer
-    /// valid, return `None`.
-    pub fn validate_act_id(&self, act_id: AccountId) -> Option<AccountId> {
-        if self.guard.tokenstates.contains_key(&act_id) {
-            Some(act_id)
-        } else {
-            None
-        }
+    /// Is `act_id` still a valid [AccountId]?
+    pub fn is_act_id_valid(&self, act_id: AccountId) -> bool {
+        self.guard.tokenstates.contains_key(&act_id)
     }
 
     /// An iterator that will produce one [AccountId] for each currently active account.
@@ -394,7 +388,7 @@ mod test {
             assert!(matches!(ct_lk.tokenstate(act_id), TokenState::Empty));
 
             assert!(ct_lk.validate_act_name("y").is_none());
-            assert!(ct_lk.validate_act_id(AccountId { id: old_y_ver }).is_none());
+            assert!(!ct_lk.is_act_id_valid(AccountId { id: old_y_ver }));
         }
 
         {
