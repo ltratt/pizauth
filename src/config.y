@@ -16,8 +16,6 @@ TopLevel -> Result<TopLevel, ()>:
   | "AUTH_NOTIFY_INTERVAL" "=" "TIME" ";" { Ok(TopLevel::AuthNotifyInterval(map_err($3)?)) }
   | "EXPECT_TRANSIENT_ERRORS_IF" "=" "STRING" ";" { Ok(TopLevel::ExpectTransientErrorsIf(map_err($3)?)) }
   | "HTTP_LISTEN" "=" "STRING" ";" { Ok(TopLevel::HttpListen(map_err($3)?)) }
-  | "REFRESH_WARN_CMD" "=" "STRING" ";" { Ok(TopLevel::RefreshWarnCmd(map_err($3)?)) }
-  | "REFRESH_WARN_INTERVAL" "=" "TIME" ";" { Ok(TopLevel::RefreshWarnInterval(map_err($3)?)) }
   ;
 
 AccountFields -> Result<Vec<AccountField>, ()>:

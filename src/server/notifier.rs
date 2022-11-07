@@ -9,7 +9,7 @@ use std::{
 
 #[cfg(debug_assertions)]
 use log::debug;
-use log::{error, warn};
+use log::error;
 
 use super::{AccountId, AuthenticatorState, CTGuard, TokenState};
 
@@ -158,43 +158,6 @@ impl Notifier {
                 });
             }
             None => error!("{act_name:}: {msg:}"),
-        }
-        Ok(())
-    }
-
-    pub fn notify_warn(
-        &self,
-        _pstate: &AuthenticatorState,
-        cmd: Option<String>,
-        act_name: String,
-        msg: String,
-    ) -> Result<(), Box<dyn std::error::Error>> {
-        match cmd {
-            Some(cmd) => {
-                thread::spawn(move || match env::var("SHELL") {
-                    Ok(s) => {
-                        match Command::new(s)
-                            .env("PIZAUTH_ACCOUNT", act_name.as_str())
-                            .env("PIZAUTH_MSG", msg)
-                            .args(["-c", &cmd])
-                            .output()
-                        {
-                            Ok(output) => {
-                                if !output.status.success() {
-                                    error!(
-                                        "{act_name:}: error when running '{cmd:}': {}",
-                                        std::str::from_utf8(&output.stdout)
-                                            .unwrap_or("<stderr not representable as UTF-8>")
-                                    );
-                                }
-                            }
-                            Err(e) => error!("{act_name:}: error when running '{cmd:}': {e:}"),
-                        }
-                    }
-                    Err(e) => error!("{e:}"),
-                });
-            }
-            None => warn!("{act_name:}: {msg:}"),
         }
         Ok(())
     }

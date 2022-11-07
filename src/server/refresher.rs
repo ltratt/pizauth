@@ -169,7 +169,6 @@ impl Refresher {
                             expiry,
                             refreshed_at,
                             last_refresh_attempt: None,
-                            last_refresh_warning: None,
                             refresh_token: Some(refresh_token),
                         },
                     );
@@ -238,49 +237,11 @@ impl Refresher {
         }
     }
 
-    /// If `act_id` has an active token, return the time when a warning about refreshing failure
-    /// should be made.
-    ///
-    /// # Panics
-    ///
-    /// If `act_id` is not valid.
-    fn warn_at(
-        &self,
-        _pstate: &AuthenticatorState,
-        ct_lk: &CTGuard,
-        act_id: AccountId,
-    ) -> Option<Instant> {
-        match ct_lk.tokenstate(act_id) {
-            TokenState::Active {
-                expiry,
-                last_refresh_warning,
-                ..
-            } => {
-                if let Some(x) = last_refresh_warning {
-                    x.checked_add(ct_lk.config().refresh_warn_interval)
-                } else {
-                    expiry.checked_add(ct_lk.config().refresh_warn_interval)
-                }
-            }
-            _ => None,
-        }
-    }
-
     fn next_wakeup(&self, pstate: &AuthenticatorState) -> Option<Instant> {
         let ct_lk = pstate.ct_lock();
         ct_lk
             .act_ids()
-            .filter_map(|act_id| {
-                match (
-                    self.refresh_at(pstate, &ct_lk, act_id),
-                    self.warn_at(pstate, &ct_lk, act_id),
-                ) {
-                    (Some(x), Some(y)) => Some(cmp::min(x, y)),
-                    (Some(x), None) => Some(x),
-                    (None, Some(y)) => Some(y),
-                    (None, None) => None,
-                }
-            })
+            .filter_map(|act_id| self.refresh_at(pstate, &ct_lk, act_id))
             .min()
     }
 

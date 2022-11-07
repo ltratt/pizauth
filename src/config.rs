@@ -25,8 +25,6 @@ const AUTH_NOTIFY_INTERVAL_DEFAULT: u64 = 15 * 60;
 const HTTP_LISTEN_DEFAULT: &str = "127.0.0.1:0";
 /// How many seconds after a refresh failed in a non-permanent way before we retry refreshing?
 const REFRESH_RETRY_DEFAULT: u64 = 40;
-/// How long after a token has expired do we warn the user that refreshing has not yet succeeded?
-const REFRESH_WARN_INTERVAL_DEFAULT: Duration = Duration::from_secs(60 * 120);
 
 #[derive(Debug)]
 pub struct Config {
@@ -36,8 +34,6 @@ pub struct Config {
     pub auth_notify_interval: Duration,
     pub expect_transient_errors_if: Option<String>,
     pub http_listen: String,
-    pub refresh_warn_cmd: Option<String>,
-    pub refresh_warn_interval: Duration,
 }
 
 impl Config {
@@ -69,8 +65,6 @@ impl Config {
         let mut auth_notify_interval = None;
         let mut expect_transient_errors_if = None;
         let mut http_listen = None;
-        let mut refresh_warn_cmd = None;
-        let mut refresh_warn_interval = None;
         match astopt {
             Some(Ok(opts)) => {
                 for opt in opts {
@@ -136,31 +130,6 @@ impl Config {
                                 http_listen,
                             )?)
                         }
-                        config_ast::TopLevel::RefreshWarnCmd(span) => {
-                            refresh_warn_cmd = Some(check_not_assigned_str(
-                                &lexer,
-                                "refresh_warn_cmd",
-                                span,
-                                refresh_warn_cmd,
-                            )?)
-                        }
-                        config_ast::TopLevel::RefreshWarnInterval(span) => {
-                            match time_str_to_duration(check_not_assigned_time(
-                                &lexer,
-                                "refresh_warn_interval",
-                                span,
-                                refresh_warn_interval,
-                            )?) {
-                                Ok(t) => refresh_warn_interval = Some(t),
-                                Err(e) => {
-                                    return Err(error_at_span(
-                                        &lexer,
-                                        span,
-                                        &format!("Invalid time: {e:}"),
-                                    ))
-                                }
-                            }
-                        }
                     }
                 }
             }
@@ -179,8 +148,6 @@ impl Config {
                 .unwrap_or_else(|| Duration::from_secs(AUTH_NOTIFY_INTERVAL_DEFAULT)),
             expect_transient_errors_if,
             http_listen: http_listen.unwrap_or_else(|| HTTP_LISTEN_DEFAULT.to_owned()),
-            refresh_warn_cmd,
-            refresh_warn_interval: refresh_warn_interval.unwrap_or(REFRESH_WARN_INTERVAL_DEFAULT),
         })
     }
 }
@@ -601,21 +568,16 @@ mod test {
             Err(s) if s.contains("Mustn't specify 'auth_notify_interval' more than once") => (),
             _ => panic!(),
         }
-        match Config::from_str(r#"expect_transient_errors_if = "a"; expect_transient_errors_if = "b";"#) {
-            Err(s) if s.contains("Mustn't specify 'expect_transient_errors_if' more than once") => (),
+        match Config::from_str(
+            r#"expect_transient_errors_if = "a"; expect_transient_errors_if = "b";"#,
+        ) {
+            Err(s) if s.contains("Mustn't specify 'expect_transient_errors_if' more than once") => {
+                ()
+            }
             _ => panic!(),
         }
         match Config::from_str(r#"http_listen = "a"; http_listen = "b";"#) {
             Err(s) if s.contains("Mustn't specify 'http_listen' more than once") => (),
-            _ => panic!(),
-        }
-        match Config::from_str(r#"refresh_warn_cmd = "a"; refresh_warn_cmd = "b";"#) {
-            Err(s) if s.contains("Mustn't specify 'refresh_warn_cmd' more than once") => (),
-            _ => panic!(),
-        }
-        match Config::from_str("refresh_warn_interval = 1s; refresh_warn_interval = 2s;") {
-            Err(s) if s.contains("Mustn't specify 'refresh_warn_interval' more than once") => (),
-            Err(e) => panic!("{e:}"),
             _ => panic!(),
         }
 

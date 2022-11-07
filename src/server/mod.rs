@@ -149,7 +149,6 @@ fn request(pstate: Arc<AuthenticatorState>, mut stream: UnixStream) -> Result<()
                     expiry,
                     refreshed_at: _,
                     last_refresh_attempt: _,
-                    last_refresh_warning: _,
                     refresh_token: _,
                 } => {
                     let response = if expiry > &Instant::now() {
