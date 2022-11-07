@@ -36,6 +36,16 @@ Optional.
 .It Sy auth_notify_interval = Em time ;
 specifies the gap between reminders to the user of authentication requests.
 Defaults to 15 minutes if not specified.
+.It Sy expect_transient_errors_if = Qo Em shell-cmd Qc ;
+specifies a shell command to be run when pizauth repeatedly encounters
+seemingly transient errors (e.g. due to networking issues) when trying to
+refresh a token. If
+.Em shell-cmd
+returns a zero exit code, pizauth assumes the transient errors are unexpected
+and invalidates the access token (i.e. requiring the user to reauthenticate).
+Defaults to
+.Ql true
+(i.e. transient errors are ignored).
 .It Sy http_listen = Qo Em bind-name Qc ;
 specifies the address for the
 .Xr pizauth 1
@@ -46,23 +56,6 @@ Defaults to
 specifies a shell command to be run via
 .Ql $SHELL -c
 when refreshing has failed for a period of at least
-.Em refresh_warn_interval .
-Two special environment variables are set:
-.Em $PIZAUTH_ACCOUNT
-is set to the account name;
-.Em $PIZAUTH_MSG
-is set to the error message.
-Defaults to both: logging to
-.Xr syslog 3 ;
-and invalidating the access token for the given account (i.e. requiring the
-user to reauthenticate).
-.It Sy refresh_warn_interval = Em time ;
-specifies the gap between an access token expiring and the user being warned
-(or rewarned) that refreshing has not yet succeeded.
-Defaults to 60 minutes if not specified.
-.It Sy account Qo ID Qc { Em account-options }
-specifies an OAuth account named
-.Em ID .
 .El
 .Pp
 An

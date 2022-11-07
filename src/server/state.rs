@@ -2,21 +2,17 @@
 //! but mostly what one is interested in are [Account]s and [TokenState]s. These are (literally)
 //! locked together: every [Account] has a [TokenState] and vice versa. However, a challenge is
 //! that we allow users to reload their config at any point: we have to be very careful about
-//! associating an [Account] with a [TokenState].
+//! associating an [Account] with a [TokenState], as we don't want to hand out credentials for an
+//! old version of an account.
 //!
-//! To that end, we don't allow any part of pizauth outside this module to directly access
-//! [Account]s or [TokenState]s: you must access it via a [CTGuard] handed to you by
-//! [AuthenticatorState::ct_lock]. From a [CTGuard] you then obtain a semi-opaque
-//! [CTGuardAccountId] instance which is in a sense a "version" of an [Account]. The API requires
-//! you to revalidate such instances whenever you drop and reacquire a [CTGuard]: if the [Account]
-//! "version" has changed, the [CTGuardAccountId] is no longer valid. This API is mildly irritating
-//! to use, but guarantees that one can't do something based on an outdated idea of what the
-//! configuration actually is.
+//! To that end, we provide an abstraction [AccountId] which is a sort-of "the current version of
+//! an [Account]". Any change to the user's configuration of an [Account] *or* a change to an
+//! [Account]'s associated [TokenState] will cause the [AccountId] to change. Every time a
+//! [CTGuard] is dropped/reacquired, or [tokenstate_replace] is called, [AccountId]s must be
+//! revalidated. Failing to do so will cause panics.
 
 use std::{
-    collections::{HashMap, HashSet},
     path::PathBuf,
-    rc::{Rc, Weak},
     sync::{Arc, Mutex, MutexGuard},
     time::Instant,
 };
@@ -80,66 +76,45 @@ impl AuthenticatorState {
 /// invariant is relied upon by a number of `unwrap` calls which assume that if a key `x` was found
 /// in one of these sets it is guaranteed to be found in the other.
 struct LockedState {
+    account_count: u128,
     config: Config,
-    account_map: HashMap<String, usize>,
-    tokenstates: Vec<TokenStateVersion>,
+    details: Vec<(String, AccountId, TokenState)>,
 }
 
 impl LockedState {
     fn new(config: Config) -> Self {
-        let mut account_map = HashMap::with_capacity(config.accounts.len());
-        let mut tokenstates = Vec::with_capacity(config.accounts.len());
+        let mut details = Vec::with_capacity(config.accounts.len());
 
+        let mut account_count = 0;
         for act_name in config.accounts.keys() {
-            account_map.insert(act_name.to_owned(), tokenstates.len());
-            tokenstates.push(TokenStateVersion {
-                version: 0,
-                tokenstate: TokenState::Empty,
-            });
+            let act_id = AccountId { id: account_count };
+            account_count += 1;
+            details.push((act_name.to_owned(), act_id, TokenState::Empty));
         }
 
         LockedState {
+            account_count,
             config,
-            account_map,
-            tokenstates,
+            details,
         }
-    }
-
-    /// Return a tokenstate for `act_name.
-    ///
-    /// # Panics
-    ///
-    /// If `act_name` is not active. See Invariant I1 above.
-    fn tokenstate_version(&self, act_name: &str) -> &TokenStateVersion {
-        &self.tokenstates[self.account_map[act_name]]
-    }
-
-    /// Return a mutable tokenstate for `act_name.
-    ///
-    /// # Panics
-    ///
-    /// If `act_name` is not active. See Invariant I1 above.
-    fn tokenstate_version_mut(&mut self, act_name: &str) -> &mut TokenStateVersion {
-        &mut self.tokenstates[self.account_map[act_name]]
     }
 
     fn update_conf(&mut self, config: Config) {
-        let mut account_map = HashMap::with_capacity(config.accounts.len());
-        let mut tokenstates = Vec::with_capacity(config.accounts.len());
+        let mut details = Vec::with_capacity(config.accounts.len());
 
         for act_name in config.accounts.keys() {
-            account_map.insert(act_name.to_owned(), tokenstates.len());
-            tokenstates.push(TokenStateVersion {
-                version: 0,
-                tokenstate: TokenState::Empty,
-            });
-        }
-
-        for act_name in account_map.keys() {
             if let Some(old_act) = self.config.accounts.get(act_name) {
                 let new_act = &config.accounts[act_name];
-                let mut ts = self.tokenstates[self.account_map[act_name]].clone();
-                if new_act != old_act {
+                if new_act == old_act {
+                    // We know that `self.details` must contain `act_name` so the unwrap is safe.
+                    details.push(
+                        self.details
+                            .iter()
+                            .find(|x| x.0 == act_name.as_str())
+                            .unwrap()
+                            .clone(),
+                    );
+                } else {
                     // The two accounts are not the same so we can't reuse the existing tokenstate,
                     // instead keeping it as Empty. However, we need to increment the version
                     // number, because there could be a very long-running thread that started
@@ -147,118 +122,79 @@ impl LockedState {
                     // update its status, even though multiple other updates have happened in the
                     // interim. Incrementing the version implicitly invalidates whatever (slow...)
                     // calculation it has performed.
-                    ts.tokenstate = TokenState::Empty;
-                    ts.version += 1;
+                    details.push((act_name.to_owned(), AccountId::new(self), TokenState::Empty));
                 }
-                tokenstates[account_map[act_name]] = ts;
+            } else {
+                details.push((act_name.to_owned(), AccountId::new(self), TokenState::Empty));
             }
         }
 
-        self.account_map = account_map;
-        self.tokenstates = tokenstates;
         self.config = config;
-
-        debug_assert_eq!(
-            HashSet::<&String>::from_iter(self.config.accounts.keys()),
-            HashSet::from_iter(self.account_map.keys()),
-        );
+        self.details = details;
     }
 }
 
 /// A lock guard around the [Config] and tokens. When this guard is dropped:
 ///
 ///   1. the config lock will be released.
-///   2. any [CTGuardAccountId] instances created from this [CTGuard] will no longer by valid
+///   2. any [AccountId] instances created from this [CTGuard] will no longer by valid
 ///      i.e. they will not be able to access [Account]s or [TokenState]s until they are
 ///      revalidated.
 pub struct CTGuard<'a> {
     guard: MutexGuard<'a, LockedState>,
-    act_rc: Rc<()>,
 }
 
 impl<'a> CTGuard<'a> {
     fn new(guard: MutexGuard<'a, LockedState>) -> CTGuard {
-        CTGuard {
-            guard,
-            act_rc: Rc::new(()),
-        }
+        CTGuard { guard }
     }
 
     pub fn config(&self) -> &Config {
         &self.guard.config
     }
 
-    /// If `act_name` references a current account, return a [CTGuardAccountId].
-    pub fn validate_act_name(&self, act_name: &str) -> Option<CTGuardAccountId> {
-        match self.guard.config.accounts.get(act_name) {
-            Some(act) => {
-                // See invariant "I1" in [LockedState] for the `unwrap` safety guarantee.
-                let tokenstate_version = self.guard.tokenstate_version(act_name).version;
-                Some(CTGuardAccountId {
-                    account: Arc::clone(act),
-                    tokenstate_version,
-                    guard_rc: Rc::downgrade(&self.act_rc),
-                })
-            }
-            None => None,
-        }
+    /// If `act_name` references a current account, return a [AccountId].
+    pub fn validate_act_name(&self, act_name: &str) -> Option<AccountId> {
+        self.guard
+            .details
+            .iter()
+            .find(|x| x.0 == act_name)
+            .map(|x| x.1)
     }
 
-    /// If `act_id` would still be a valid account under the current [CTGuard], create a new
-    /// [CTGuardAccountId] which can be used in its stead. If the input `act_id` is no longer
-    /// valid, return `None`.
-    pub fn validate_act_id(&self, act_id: CTGuardAccountId) -> Option<CTGuardAccountId> {
-        match self.guard.config.accounts.get(&act_id.account.name) {
-            // We use `Arc::ptr_eq` because it's strictly stronger than `==`: it's possible for an
-            // account X to be changed from having contents C to C' and back to C, and we don't
-            // want to assume those two `C`s are equivalent.
-            Some(act) if Arc::ptr_eq(&act_id.account, act) => {
-                // See invariant "I1" in [LockedState] for the `unwrap` safety guarantee.
-                let tokenstate_version =
-                    self.guard.tokenstate_version(&act_id.account.name).version;
-                if act_id.tokenstate_version == tokenstate_version {
-                    Some(CTGuardAccountId {
-                        account: act_id.account,
-                        tokenstate_version,
-                        guard_rc: Rc::downgrade(&self.act_rc),
-                    })
-                } else {
-                    None
-                }
-            }
-            _ => None,
-        }
+    /// Is `act_id` still a valid [AccountId]?
+    pub fn is_act_id_valid(&self, act_id: AccountId) -> bool {
+        self.guard.details.iter().any(|x| x.1 == act_id)
     }
 
-    /// An iterator that will produce one [CTGuardAccountId] for each currently active account.
-    pub fn act_ids(&self) -> impl Iterator<Item = CTGuardAccountId> + '_ {
-        self.guard.config.accounts.values().map(|act| {
-            let tokenstate_version = self.guard.tokenstate_version(&act.name).version;
-            CTGuardAccountId {
-                account: Arc::clone(act),
-                tokenstate_version,
-                guard_rc: Rc::downgrade(&self.act_rc),
-            }
-        })
+    /// An iterator that will produce one [AccountId] for each currently active account.
+    pub fn act_ids(&self) -> impl Iterator<Item = AccountId> + '_ {
+        self.guard.details.iter().map(|x| x.1)
     }
 
-    /// Return the [CTGuardAccountId] with state `state`.
-    pub fn act_id_matching_token_state(&self, state: &str) -> Option<CTGuardAccountId> {
-        self.act_ids()
-            .find(|act_id|
-                matches!(self.tokenstate(act_id), TokenState::Pending { state: s, .. } if s == state))
+    /// Return the [AccountId] with state `state`.
+    pub fn act_id_matching_token_state(&self, state: &str) -> Option<AccountId> {
+        self.guard
+            .details
+            .iter()
+            .find(|x| matches!(&x.2, TokenState::Pending { state: s, .. } if s == state))
+            .map(|x| x.1)
     }
 
     /// Return the [Account] for account `act_id`.
-    pub fn account(&self, act_id: &CTGuardAccountId) -> &Account {
-        if Weak::strong_count(&act_id.guard_rc) != 1 {
-            panic!("CTGuardAccountId has outlived its parent CTGuard.");
-        }
-        self.guard
-            .config
-            .accounts
-            .get(&act_id.account.name)
-            .unwrap()
+    ///
+    /// # Panics
+    ///
+    /// If `act_id` is not valid.
+    pub fn account(&self, act_id: AccountId) -> &Account {
+        let act_name = self
+            .guard
+            .details
+            .iter()
+            .find(|x| x.1 == act_id)
+            .map(|x| &x.0)
+            .unwrap();
+        &*self.guard.config.accounts[act_name]
     }
 
     /// Return a reference to the [TokenState] of `act_id`. The user must have validated `act_id`
@@ -266,61 +202,58 @@ impl<'a> CTGuard<'a> {
     ///
     /// # Panics
     ///
-    /// If `act_id` has outlived its parent [CTGuard].
-    pub fn tokenstate(&self, act_id: &CTGuardAccountId) -> &TokenState {
-        if Weak::strong_count(&act_id.guard_rc) != 1 {
-            panic!("CTGuardAccountId has outlived its parent CTGuard.");
-        }
-        &self
-            .guard
-            .tokenstate_version(&act_id.account.name)
-            .tokenstate
+    /// If `act_id` is not valid.
+    pub fn tokenstate(&self, act_id: AccountId) -> &TokenState {
+        self.guard
+            .details
+            .iter()
+            .find(|x| x.1 == act_id)
+            .map(|x| &x.2)
+            .unwrap()
     }
 
-    /// Update the tokenstate for `act_id` to `new_tokenstate` returning a new [CTGuardAccountId]
+    /// Update the tokenstate for `act_id` to `new_tokenstate` returning a new [AccountId]
     /// valid for the new tokenstate, updating the tokenstate version.
     ///
     /// # Panics
     ///
-    /// If `act_id` has outlived its parent [CTGuard].
+    /// If `act_id` is not valid.
     pub fn tokenstate_replace(
         &mut self,
-        mut act_id: CTGuardAccountId,
+        act_id: AccountId,
         new_tokenstate: TokenState,
-    ) -> CTGuardAccountId {
-        if Weak::strong_count(&act_id.guard_rc) != 1 {
-            panic!("CTGuardAccountId has outlived its parent CTGuard.");
-        }
-        let mut ts_ver = self.guard.tokenstate_version_mut(&act_id.account.name);
-        debug_assert_eq!(ts_ver.version, act_id.tokenstate_version);
-        ts_ver.version += 1;
-        ts_ver.tokenstate = new_tokenstate;
-        act_id.tokenstate_version = ts_ver.version;
-        act_id
+    ) -> AccountId {
+        let i = self
+            .guard
+            .details
+            .iter()
+            .position(|x| x.1 == act_id)
+            .unwrap();
+        let new_id = AccountId::new(&mut self.guard);
+        self.guard.details[i].1 = new_id;
+        self.guard.details[i].2 = new_tokenstate;
+        new_id
     }
 }
 
-/// An opaque account identifier, only fully valid while the [CTGuard] it was created from is not
-/// dropped. While the [CTGuardAccountId] is valid, it can be used to lookup [Account]s and
-/// [TokenState]s without further validity checks. After the [CTGuard] it was created from is
-/// dropped, one cannot use a `CTGuardAccountId` to query token states (etc.), but can use it to
-/// compare whether an old and a new `CTGuardAccountId` reference the same underlying [Account].
-pub struct CTGuardAccountId {
-    account: Arc<Account>,
-    // The tokenstate version may change frequently, and if it wraps, we lose correctness, so we
-    // use a ludicrously large type. On my current desktop machine a quick measurement suggests
-    // that if this was incremented at the maximum possible continuous rate, it would take about
+#[derive(Copy, Clone, Debug, Eq, Hash, PartialEq)]
+pub struct AccountId {
+    // The account ID may change frequently, and if it wraps, we lose correctness, so we use a
+    // ludicrously large type. On my current desktop machine a quick measurement suggests that if
+    // this was incremented at the maximum possible continuous rate, it would take about
     // 4,522,155,402,651,803,058,176 years before this wrapped. In contrast if we were to,
     // recklessly, use a u64 it could wrap in a blink-and-you-miss-it 245 years.
-    tokenstate_version: u128,
-    guard_rc: Weak<()>,
+    id: u128,
 }
 
-/// Track the version of a [TokenState].
-#[derive(Clone, Debug)]
-struct TokenStateVersion {
-    version: u128,
-    tokenstate: TokenState,
+impl AccountId {
+    fn new(guard: &mut LockedState) -> Self {
+        let new_id = Self {
+            id: guard.account_count,
+        };
+        guard.account_count += 1;
+        new_id
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -340,9 +273,6 @@ pub enum TokenState {
         refreshed_at: Instant,
         /// The instant in time when the last ongoing, or unsuccessful, refresh attempt was made.
         last_refresh_attempt: Option<Instant>,
-        /// The instant in time when the user was last warned that refreshing had not yet
-        /// succeeded.
-        last_refresh_warning: Option<Instant>,
         expiry: Instant,
         refresh_token: Option<String>,
     },
@@ -398,87 +328,66 @@ mod test {
         let conf = Config::from_str(conf1_str).unwrap();
         let notifier = Arc::new(Notifier::new().unwrap());
         let pstate = AuthenticatorState::new(PathBuf::new(), conf, 0, notifier, Refresher::new());
-
+        let mut old_x_id;
         {
             let ct_lk = pstate.ct_lock();
             let act_id = ct_lk.validate_act_name("x").unwrap();
-            assert!(matches!(ct_lk.tokenstate(&act_id), TokenState::Empty));
-            assert!(matches!(
-                ct_lk.guard.tokenstate_version("x"),
-                TokenStateVersion {
-                    tokenstate: TokenState::Empty,
-                    version: 0
-                }
-            ));
+            old_x_id = act_id;
+            assert_eq!(act_id, AccountId { id: 0 });
+            assert!(matches!(ct_lk.tokenstate(act_id), TokenState::Empty));
         }
 
         let conf = Config::from_str(conf2_str).unwrap();
         pstate.update_conf(conf);
         {
             let ct_lk = pstate.ct_lock();
-            assert!(matches!(
-                ct_lk.guard.tokenstate_version("x"),
-                TokenStateVersion {
-                    tokenstate: TokenState::Empty,
-                    version: 1
-                }
-            ));
+            let act_id = ct_lk.validate_act_name("x").unwrap();
+            assert_ne!(act_id, old_x_id);
+            old_x_id = act_id;
+            assert!(matches!(ct_lk.tokenstate(act_id), TokenState::Empty));
         }
 
         let conf = Config::from_str(conf2_str).unwrap();
         pstate.update_conf(conf);
         {
             let ct_lk = pstate.ct_lock();
-            assert!(matches!(
-                ct_lk.guard.tokenstate_version("x"),
-                TokenStateVersion {
-                    tokenstate: TokenState::Empty,
-                    version: 1
-                }
-            ));
+            let act_id = ct_lk.validate_act_name("x").unwrap();
+            assert_eq!(act_id, old_x_id);
+            assert!(matches!(ct_lk.tokenstate(act_id), TokenState::Empty));
         }
 
         let conf = Config::from_str(conf3_str).unwrap();
         pstate.update_conf(conf);
+        let old_y_ver;
         {
             let ct_lk = pstate.ct_lock();
-            assert!(matches!(
-                ct_lk.guard.tokenstate_version("x"),
-                TokenStateVersion {
-                    tokenstate: TokenState::Empty,
-                    version: 2
-                }
-            ));
-            assert!(ct_lk.validate_act_name("x").is_some());
-            assert!(ct_lk.validate_act_name("y").is_some());
-            assert!(matches!(
-                ct_lk.guard.tokenstate_version("y"),
-                TokenStateVersion {
-                    tokenstate: TokenState::Empty,
-                    version: 0
-                }
-            ));
+            let act_id = ct_lk.validate_act_name("x").unwrap();
+            assert_ne!(act_id, old_x_id);
+            old_x_id = act_id;
+            assert!(matches!(ct_lk.tokenstate(act_id), TokenState::Empty));
+
+            let act_id = ct_lk.validate_act_name("y").unwrap();
+            old_y_ver = act_id.id;
+            assert!(matches!(ct_lk.tokenstate(act_id), TokenState::Empty));
         }
 
         let conf = Config::from_str(conf2_str).unwrap();
         pstate.update_conf(conf);
         {
             let ct_lk = pstate.ct_lock();
-            assert!(matches!(
-                dbg!(ct_lk.guard.tokenstate_version("x")),
-                TokenStateVersion {
-                    tokenstate: TokenState::Empty,
-                    version: 3
-                }
-            ));
-            assert!(ct_lk.validate_act_name("x").is_some());
+
+            let act_id = ct_lk.validate_act_name("x").unwrap();
+            assert_ne!(act_id, old_x_id);
+            old_x_id = act_id;
+            assert!(matches!(ct_lk.tokenstate(act_id), TokenState::Empty));
+
             assert!(ct_lk.validate_act_name("y").is_none());
+            assert!(!ct_lk.is_act_id_valid(AccountId { id: old_y_ver }));
         }
 
         {
             let mut ct_lk = pstate.ct_lock();
             let act_id = ct_lk.validate_act_name("x").unwrap();
-            let act_id = ct_lk.validate_act_id(act_id).unwrap();
             let act_id = ct_lk.tokenstate_replace(
                 act_id,
                 TokenState::Pending {
@@ -488,26 +397,23 @@ mod test {
                     url: Url::parse("http://a.com/").unwrap(),
                 },
             );
+            assert_ne!(act_id, old_x_id);
+            old_x_id = act_id;
             assert!(matches!(
-                ct_lk.guard.tokenstate_version("x"),
-                TokenStateVersion {
-                    tokenstate: TokenState::Pending { .. },
-                    version: 4
-                }
+                ct_lk.tokenstate(act_id),
+                TokenState::Pending { .. }
             ));
-            assert!(ct_lk.validate_act_id(act_id).is_some());
         }
 
         let conf = Config::from_str(conf2_str).unwrap();
         pstate.update_conf(conf);
         {
             let ct_lk = pstate.ct_lock();
+            let act_id = ct_lk.validate_act_name("x").unwrap();
+            assert_eq!(act_id, old_x_id);
             assert!(matches!(
-                ct_lk.guard.tokenstate_version("x"),
-                TokenStateVersion {
-                    tokenstate: TokenState::Pending { .. },
-                    version: 4
-                }
+                ct_lk.tokenstate(act_id),
+                TokenState::Pending { .. }
             ));
         }
 
@@ -515,13 +421,9 @@ mod test {
         pstate.update_conf(conf);
         {
             let ct_lk = pstate.ct_lock();
-            assert!(matches!(
-                ct_lk.guard.tokenstate_version("x"),
-                TokenStateVersion {
-                    tokenstate: TokenState::Empty,
-                    version: 5
-                }
-            ));
+            let act_id = ct_lk.validate_act_name("x").unwrap();
+            assert_ne!(act_id, old_x_id);
+            assert!(matches!(ct_lk.tokenstate(act_id), TokenState::Empty));
         }
     }
 }

@@ -5,9 +5,8 @@ pub enum TopLevel {
     AuthErrorCmd(Span),
     AuthNotifyCmd(Span),
     AuthNotifyInterval(Span),
+    ExpectTransientErrorsIf(Span),
     HttpListen(Span),
-    RefreshWarnCmd(Span),
-    RefreshWarnInterval(Span),
 }
 
 pub enum AccountField {
