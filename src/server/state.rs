@@ -14,7 +14,6 @@
 //! configuration actually is.
 
 use std::{
-    collections::{HashMap, HashSet},
     path::PathBuf,
     sync::{Arc, Mutex, MutexGuard},
     time::Instant,
@@ -81,44 +80,41 @@ impl AuthenticatorState {
 struct LockedState {
     account_count: u128,
     config: Config,
-    account_map: HashMap<String, AccountId>,
-    tokenstates: HashMap<AccountId, TokenState>,
+    details: Vec<(String, AccountId, TokenState)>,
 }
 
 impl LockedState {
     fn new(config: Config) -> Self {
-        let mut account_map = HashMap::with_capacity(config.accounts.len());
-        let mut tokenstates = HashMap::with_capacity(config.accounts.len());
+        let mut details = Vec::with_capacity(config.accounts.len());
 
         let mut account_count = 0;
         for act_name in config.accounts.keys() {
             let act_id = AccountId { id: account_count };
             account_count += 1;
-            account_map.insert(act_name.to_owned(), act_id);
-            tokenstates.insert(act_id, TokenState::Empty);
+            details.push((act_name.to_owned(), act_id, TokenState::Empty));
         }
 
         LockedState {
             account_count,
             config,
-            account_map,
-            tokenstates,
+            details,
         }
     }
 
     fn update_conf(&mut self, config: Config) {
-        let mut account_map = HashMap::with_capacity(config.accounts.len());
-        let mut tokenstates = HashMap::with_capacity(config.accounts.len());
+        let mut details = Vec::with_capacity(config.accounts.len());
 
         for act_name in config.accounts.keys() {
             if let Some(old_act) = self.config.accounts.get(act_name) {
                 let new_act = &config.accounts[act_name];
                 if new_act == old_act {
-                    let act_id = self.account_map[act_name];
-                    account_map.insert(act_name.to_owned(), act_id);
-                    tokenstates.insert(
-                        self.account_map[act_name].clone(),
-                        self.tokenstates[&act_id].clone(),
+                    // We know that `self.details` must contain `act_name` so the unwrap is safe.
+                    details.push(
+                        self.details
+                            .iter()
+                            .find(|x| x.0 == act_name.as_str())
+                            .unwrap()
+                            .clone(),
                     );
                 } else {
                     // The two accounts are not the same so we can't reuse the existing tokenstate,
@@ -128,25 +124,15 @@ impl LockedState {
                     // update its status, even though multiple other updates have happened in the
                     // interim. Incrementing the version implicitly invalidates whatever (slow...)
                     // calculation it has performed.
-                    let act_id = AccountId::new(self);
-                    account_map.insert(act_name.to_owned(), act_id);
-                    tokenstates.insert(act_id, TokenState::Empty);
+                    details.push((act_name.to_owned(), AccountId::new(self), TokenState::Empty));
                 }
             } else {
-                let act_id = AccountId::new(self);
-                account_map.insert(act_name.to_owned(), act_id);
-                tokenstates.insert(act_id, TokenState::Empty);
+                details.push((act_name.to_owned(), AccountId::new(self), TokenState::Empty));
             }
         }
 
-        self.account_map = account_map;
-        self.tokenstates = tokenstates;
         self.config = config;
-
-        debug_assert_eq!(
-            HashSet::<&String>::from_iter(self.config.accounts.keys()),
-            HashSet::from_iter(self.account_map.keys()),
-        );
+        self.details = details;
     }
 }
 
@@ -171,26 +157,30 @@ impl<'a> CTGuard<'a> {
 
     /// If `act_name` references a current account, return a [AccountId].
     pub fn validate_act_name(&self, act_name: &str) -> Option<AccountId> {
-        self.guard.account_map.get(act_name).cloned()
+        self.guard
+            .details
+            .iter()
+            .find(|x| x.0 == act_name)
+            .map(|x| x.1)
     }
 
     /// Is `act_id` still a valid [AccountId]?
     pub fn is_act_id_valid(&self, act_id: AccountId) -> bool {
-        self.guard.tokenstates.contains_key(&act_id)
+        self.guard.details.iter().find(|x| x.1 == act_id).is_some()
     }
 
     /// An iterator that will produce one [AccountId] for each currently active account.
     pub fn act_ids(&self) -> impl Iterator<Item = AccountId> + '_ {
-        self.guard.account_map.values().cloned()
+        self.guard.details.iter().map(|x| x.1)
     }
 
     /// Return the [AccountId] with state `state`.
     pub fn act_id_matching_token_state(&self, state: &str) -> Option<AccountId> {
         self.guard
-            .tokenstates
+            .details
             .iter()
-            .find(|(_, v)| matches!(v, TokenState::Pending { state: s, .. } if s == state))
-            .map(|(act_id, _ts)| *act_id)
+            .find(|x| matches!(&x.2, TokenState::Pending { state: s, .. } if s == state))
+            .map(|x| x.1)
     }
 
     /// Return the [Account] for account `act_id`.
@@ -198,10 +188,10 @@ impl<'a> CTGuard<'a> {
         // XXX potentially unsound unwrap!
         let act_name = self
             .guard
-            .account_map
+            .details
             .iter()
-            .find(|(_k, v)| **v == act_id)
-            .map(|(k, _v)| k)
+            .find(|x| x.1 == act_id)
+            .map(|x| &x.0)
             .unwrap();
         &*self.guard.config.accounts[act_name]
     }
@@ -213,7 +203,12 @@ impl<'a> CTGuard<'a> {
     ///
     /// If `act_id` has outlived its parent [CTGuard].
     pub fn tokenstate(&self, act_id: AccountId) -> &TokenState {
-        &self.guard.tokenstates[&act_id]
+        self.guard
+            .details
+            .iter()
+            .find(|x| x.1 == act_id)
+            .map(|x| &x.2)
+            .unwrap()
     }
 
     /// Update the tokenstate for `act_id` to `new_tokenstate` returning a new [AccountId]
@@ -227,16 +222,16 @@ impl<'a> CTGuard<'a> {
         act_id: AccountId,
         new_tokenstate: TokenState,
     ) -> AccountId {
+        let i = self
+            .guard
+            .details
+            .iter()
+            .position(|x| x.1 == act_id)
+            .unwrap();
         let new_id = AccountId::new(&mut self.guard);
-        for v in self.guard.account_map.values_mut() {
-            if *v == act_id {
-                *v = new_id;
-                self.guard.tokenstates.remove(&act_id);
-                self.guard.tokenstates.insert(new_id, new_tokenstate);
-                return new_id;
-            }
-        }
-        panic!()
+        self.guard.details[i].1 = new_id;
+        self.guard.details[i].2 = new_tokenstate;
+        new_id
     }
 }
 
