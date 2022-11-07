@@ -35,16 +35,14 @@ impl Notifier {
             let mut notify_lk = self.pred.lock().unwrap();
             while !*notify_lk {
                 match next_wakeup {
-                    Some(t) => {
-                        match t.checked_duration_since(Instant::now()) {
-                            Some(d) => {
-                                #[cfg(debug_assertions)]
-                                debug!("Notifier: next wakeup {}", d.as_secs().to_string());
-                                notify_lk = self.condvar.wait_timeout(notify_lk, d).unwrap().0
-                            }
-                            None => break,
+                    Some(t) => match t.checked_duration_since(Instant::now()) {
+                        Some(d) => {
+                            #[cfg(debug_assertions)]
+                            debug!("Notifier: next wakeup {}", d.as_secs().to_string());
+                            notify_lk = self.condvar.wait_timeout(notify_lk, d).unwrap().0
                         }
-                    }
+                        None => break,
+                    },
                     None => {
                         #[cfg(debug_assertions)]
                         debug!("Notifier: next wakeup <indefinite>");

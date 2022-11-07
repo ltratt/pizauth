@@ -1,7 +1,9 @@
 use std::{
     cmp,
     collections::HashSet,
+    env,
     error::Error,
+    process::{Command, Stdio},
     sync::{Arc, Condvar, Mutex},
     thread,
     time::{Duration, Instant},
@@ -205,6 +207,19 @@ impl Refresher {
                 ..
             } => {
                 let act = &ct_lk.account(act_id);
+                if let Some(lra) = last_refresh_attempt {
+                    // There are two ways for `last_refresh_attempt` to be non-`None`:
+                    //   1. The token expired (i.e. last_refresh_attempt > expiry).
+                    //   2. The user tried manually refreshing the token but that refreshing has
+                    //      not yet succeeded (and it is possible that last_refresh_attempt <
+                    //      expiry).
+                    // If the second case occurs, we assume that the user knows that the token
+                    // really needs refreshing, and we treat the token as if it had expired.
+                    if let Some(t) = lra.checked_add(act.refresh_retry) {
+                        return Some(t.to_owned());
+                    }
+                }
+
                 if let Some(d) = act.refresh_before_expiry {
                     expiry = expiry
                         .checked_sub(d)
@@ -215,13 +230,6 @@ impl Refresher {
                     // Instant's bounds, there's nothing we can fall back on.
                     if let Some(t) = refreshed_at.checked_add(d) {
                         expiry = cmp::min(expiry, t);
-                    }
-                }
-                if let Some(lra) = last_refresh_attempt {
-                    if let Some(t) = lra.checked_add(act.refresh_retry) {
-                        if t > expiry {
-                            return Some(t.to_owned());
-                        }
                     }
                 }
                 Some(expiry.to_owned())
@@ -301,17 +309,15 @@ impl Refresher {
                 let mut refresh_lk = refresher.pred.lock().unwrap();
                 while !*refresh_lk {
                     match next_wakeup {
-                        Some(t) => {
-                            match t.checked_duration_since(Instant::now()) {
-                                Some(d) => {
-                                    #[cfg(debug_assertions)]
-                                    debug!("Refresher: next wakeup {}", d.as_secs().to_string());
-                                    refresh_lk =
-                                        refresher.condvar.wait_timeout(refresh_lk, d).unwrap().0
-                                }
-                                None => break,
+                        Some(t) => match t.checked_duration_since(Instant::now()) {
+                            Some(d) => {
+                                #[cfg(debug_assertions)]
+                                debug!("Refresher: next wakeup {}", d.as_secs().to_string());
+                                refresh_lk =
+                                    refresher.condvar.wait_timeout(refresh_lk, d).unwrap().0
                             }
-                        }
+                            None => break,
+                        },
                         None => {
                             #[cfg(debug_assertions)]
                             debug!("Refresher: next wakeup <indefinite>");
@@ -329,9 +335,7 @@ impl Refresher {
                     .act_ids()
                     .filter(
                         |act_id| match refresher.refresh_at(&pstate, &ct_lk, *act_id) {
-                            Some(t) => {
-                                t <= now
-                            }
+                            Some(t) => t <= now,
                             None => false,
                         },
                     )
@@ -340,7 +344,7 @@ impl Refresher {
 
                 for act_id in to_refresh.iter() {
                     if !recent_refreshes.contains(act_id) {
-                        refresher.try_refresh(Arc::clone(&pstate), *act_id, now);
+                        refresher.try_refresh(Arc::clone(&pstate), *act_id);
                     }
                 }
                 recent_refreshes = to_refresh;
@@ -356,12 +360,7 @@ impl Refresher {
         Ok(())
     }
 
-    fn try_refresh(
-        self: &Arc<Self>,
-        pstate: Arc<AuthenticatorState>,
-        act_id: AccountId,
-        now: Instant,
-    ) {
+    fn try_refresh(self: &Arc<Self>, pstate: Arc<AuthenticatorState>, act_id: AccountId) {
         let refresher = Arc::clone(&self);
         thread::spawn(move || {
             let ct_lk = pstate.ct_lock();
@@ -374,48 +373,40 @@ impl Refresher {
                     let refreshed_at_least_once = last_refresh_attempt.is_some();
                     match refresher.refresh(&pstate, ct_lk, act_id) {
                         RefreshKind::AccountOrTokenStateChanged | RefreshKind::Refreshed => (),
-                        RefreshKind::TransitoryError(act_id, msg) => {
-                            // Has refreshing this token not succeeded for too long a
-                            // period?
-                            let mut ct_lk = pstate.ct_lock();
-                            if ct_lk.is_act_id_valid(act_id) {
-                                // Make sure that we try refreshing at least twice.
-                                if refreshed_at_least_once {
-                                    // Note that we deliberately use `now` and not a (fresh)
-                                    // `Instant::now()` as it is a partial proxy for "the machine
-                                    // was suspended during the refreshing process so try once
-                                    // more".
-                                    if refresher.warn_at(&pstate, &ct_lk, act_id) <= Some(now) {
-                                        let mut new_ts = ct_lk.tokenstate(act_id).clone();
-                                        if let TokenState::Active {
-                                            ref mut last_refresh_warning,
-                                            ..
-                                        } = new_ts
+                        RefreshKind::TransitoryError(act_id, _msg) => {
+                            let ct_lk = pstate.ct_lock();
+                            // Make sure that we try refreshing at least twice.
+                            if refreshed_at_least_once && ct_lk.is_act_id_valid(act_id) {
+                                if let Some(ref cmd) = ct_lk.config().expect_transient_errors_if {
+                                    let cmd = cmd.to_owned();
+                                    drop(ct_lk);
+                                    match env::var("SHELL") {
+                                        Ok(s) => match Command::new(s)
+                                            .stdin(Stdio::null())
+                                            .stdout(Stdio::null())
+                                            .stderr(Stdio::null())
+                                            .args(["-c", &cmd])
+                                            .spawn()
                                         {
-                                            *last_refresh_warning = Some(Instant::now());
-                                            let act_id = ct_lk.tokenstate_replace(act_id, new_ts);
-                                            match &ct_lk.config().refresh_warn_cmd {
-                                                Some(cmd) => {
-                                                    if let Err(e) = pstate.notifier.notify_warn(
-                                                        &pstate,
-                                                        Some(cmd.to_string()),
-                                                        ct_lk.account(act_id).name.clone(),
-                                                        msg,
-                                                    ) {
-                                                        drop(ct_lk);
-                                                        error!("When running auth_warn_cmd: {e:}");
+                                            Ok(mut child) => match child.wait() {
+                                                Ok(status) => {
+                                                    if status.success() {
+                                                        let mut ct_lk = pstate.ct_lock();
+                                                        if ct_lk.is_act_id_valid(act_id) {
+                                                            ct_lk.tokenstate_replace(
+                                                                act_id,
+                                                                TokenState::Empty,
+                                                            );
+                                                        }
                                                     }
                                                 }
-                                                None => {
-                                                    ct_lk.tokenstate_replace(
-                                                        act_id,
-                                                        TokenState::Empty,
-                                                    );
-                                                    drop(ct_lk);
-                                                    error!("Token refresh failed for too long a period")
+                                                Err(e) => {
+                                                    error!("Waiting on '{cmd:}' failed: {e:}")
                                                 }
-                                            }
-                                        }
+                                            },
+                                            Err(e) => error!("Couldn't execute '{cmd:}': {e:}"),
+                                        },
+                                        Err(e) => error!("{e:}"),
                                     }
                                 }
                             }

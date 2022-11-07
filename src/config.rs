@@ -34,6 +34,7 @@ pub struct Config {
     pub auth_error_cmd: Option<String>,
     pub auth_notify_cmd: Option<String>,
     pub auth_notify_interval: Duration,
+    pub expect_transient_errors_if: Option<String>,
     pub http_listen: String,
     pub refresh_warn_cmd: Option<String>,
     pub refresh_warn_interval: Duration,
@@ -66,6 +67,7 @@ impl Config {
         let mut auth_error_cmd = None;
         let mut auth_notify_cmd = None;
         let mut auth_notify_interval = None;
+        let mut expect_transient_errors_if = None;
         let mut http_listen = None;
         let mut refresh_warn_cmd = None;
         let mut refresh_warn_interval = None;
@@ -118,6 +120,14 @@ impl Config {
                                 }
                             }
                         }
+                        config_ast::TopLevel::ExpectTransientErrorsIf(span) => {
+                            expect_transient_errors_if = Some(check_not_assigned_str(
+                                &lexer,
+                                "expect_transient_errors_if",
+                                span,
+                                expect_transient_errors_if,
+                            )?)
+                        }
                         config_ast::TopLevel::HttpListen(span) => {
                             http_listen = Some(check_not_assigned_str(
                                 &lexer,
@@ -167,6 +177,7 @@ impl Config {
             auth_notify_cmd,
             auth_notify_interval: auth_notify_interval
                 .unwrap_or_else(|| Duration::from_secs(AUTH_NOTIFY_INTERVAL_DEFAULT)),
+            expect_transient_errors_if,
             http_listen: http_listen.unwrap_or_else(|| HTTP_LISTEN_DEFAULT.to_owned()),
             refresh_warn_cmd,
             refresh_warn_interval: refresh_warn_interval.unwrap_or(REFRESH_WARN_INTERVAL_DEFAULT),
@@ -522,6 +533,7 @@ mod test {
             auth_error_cmd = "j";
             auth_notify_cmd = "g";
             auth_notify_interval = 88m;
+            expect_transient_errors_if = "k";
             http_listen = "127.0.0.1:56789";
             account "x" {
                 // Mandatory fields
@@ -543,6 +555,7 @@ mod test {
         assert_eq!(c.auth_error_cmd, Some("j".to_owned()));
         assert_eq!(c.auth_notify_cmd, Some("g".to_owned()));
         assert_eq!(c.auth_notify_interval, Duration::from_secs(88 * 60));
+        assert_eq!(c.expect_transient_errors_if, Some("k".to_owned()));
         assert_eq!(c.http_listen, "127.0.0.1:56789".to_owned());
 
         let act = &c.accounts["x"];
@@ -586,6 +599,10 @@ mod test {
         }
         match Config::from_str("auth_notify_interval = 1s; auth_notify_interval = 2s;") {
             Err(s) if s.contains("Mustn't specify 'auth_notify_interval' more than once") => (),
+            _ => panic!(),
+        }
+        match Config::from_str(r#"expect_transient_errors_if = "a"; expect_transient_errors_if = "b";"#) {
+            Err(s) if s.contains("Mustn't specify 'expect_transient_errors_if' more than once") => (),
             _ => panic!(),
         }
         match Config::from_str(r#"http_listen = "a"; http_listen = "b";"#) {
