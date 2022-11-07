@@ -135,7 +135,6 @@ impl Refresher {
                 if ct_lk.is_act_id_valid(act_id) {
                     let act_id = ct_lk.tokenstate_replace(act_id, TokenState::Empty);
                     let msg = format!("Refreshing {} failed", ct_lk.account(act_id).name);
-                    drop(ct_lk);
                     return RefreshKind::PermanentError(msg);
                 } else {
                     return RefreshKind::AccountOrTokenStateChanged;
@@ -157,7 +156,6 @@ impl Refresher {
                         Ok(x) => x,
                         Err(e) => {
                             ct_lk.tokenstate_replace(act_id, TokenState::Empty);
-                            drop(ct_lk);
                             return RefreshKind::PermanentError(format!("{e}"));
                         }
                     };
