@@ -321,7 +321,12 @@ impl Refresher {
             let now = Instant::now();
             let to_refresh = ct_lk
                 .act_ids()
-                .filter(|act_id| self.refresh_at(&pstate, &ct_lk, *act_id) <= Some(now))
+                .filter(
+                    |act_id| match refresher.refresh_at(&pstate, &ct_lk, *act_id) {
+                        Some(t) => t <= now,
+                        None => false,
+                    },
+                )
                 .collect::<Vec<_>>();
             drop(ct_lk);
 
