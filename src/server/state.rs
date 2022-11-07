@@ -2,16 +2,14 @@
 //! but mostly what one is interested in are [Account]s and [TokenState]s. These are (literally)
 //! locked together: every [Account] has a [TokenState] and vice versa. However, a challenge is
 //! that we allow users to reload their config at any point: we have to be very careful about
-//! associating an [Account] with a [TokenState].
+//! associating an [Account] with a [TokenState], as we don't want to hand out credentials for an
+//! old version of an account.
 //!
-//! To that end, we don't allow any part of pizauth outside this module to directly access
-//! [Account]s or [TokenState]s: you must access it via a [CTGuard] handed to you by
-//! [AuthenticatorState::ct_lock]. From a [CTGuard] you then obtain a semi-opaque
-//! [AccountId] instance which is in a sense a "version" of an [Account]. The API requires
-//! you to revalidate such instances whenever you drop and reacquire a [CTGuard]: if the [Account]
-//! "version" has changed, the [AccountId] is no longer valid. This API is mildly irritating
-//! to use, but guarantees that one can't do something based on an outdated idea of what the
-//! configuration actually is.
+//! To that end, we provide an abstraction [AccountId] which is a sort-of "the current version of
+//! an [Account]". Any change to the user's configuration of an [Account] *or* a change to an
+//! [Account]'s associated [TokenState] will cause the [AccountId] to change. Every time a
+//! [CTGuard] is dropped/reacquired, or [tokenstate_replace] is called, [AccountId]s must be
+//! revalidated. Failing to do so will cause panics.
 
 use std::{
     path::PathBuf,
@@ -184,8 +182,11 @@ impl<'a> CTGuard<'a> {
     }
 
     /// Return the [Account] for account `act_id`.
+    ///
+    /// # Panics
+    ///
+    /// If `act_id` is not valid.
     pub fn account(&self, act_id: AccountId) -> &Account {
-        // XXX potentially unsound unwrap!
         let act_name = self
             .guard
             .details
@@ -201,7 +202,7 @@ impl<'a> CTGuard<'a> {
     ///
     /// # Panics
     ///
-    /// If `act_id` has outlived its parent [CTGuard].
+    /// If `act_id` is not valid.
     pub fn tokenstate(&self, act_id: AccountId) -> &TokenState {
         self.guard
             .details
@@ -216,7 +217,7 @@ impl<'a> CTGuard<'a> {
     ///
     /// # Panics
     ///
-    /// If `act_id` has outlived its parent [CTGuard].
+    /// If `act_id` is not valid.
     pub fn tokenstate_replace(
         &mut self,
         act_id: AccountId,
