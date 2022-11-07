@@ -34,29 +34,22 @@ impl Notifier {
             let next_wakeup = self.next_wakeup(&pstate);
             let mut notify_lk = self.pred.lock().unwrap();
             while !*notify_lk {
-                #[cfg(debug_assertions)]
-                debug!(
-                    "Notifier: next wakeup {}",
-                    next_wakeup
-                        .map(|x| x
-                            .checked_duration_since(Instant::now())
-                            .map(|x| x.as_secs().to_string())
-                            .unwrap_or_else(|| "<none>".to_owned()))
-                        .unwrap_or_else(|| "<none>".to_owned())
-                );
                 match next_wakeup {
                     Some(t) => {
-                        if Instant::now() >= t {
-                            break;
-                        }
                         match t.checked_duration_since(Instant::now()) {
                             Some(d) => {
+                                #[cfg(debug_assertions)]
+                                debug!("Notifier: next wakeup {}", d.as_secs().to_string());
                                 notify_lk = self.condvar.wait_timeout(notify_lk, d).unwrap().0
                             }
                             None => break,
                         }
                     }
-                    None => notify_lk = self.condvar.wait(notify_lk).unwrap(),
+                    None => {
+                        #[cfg(debug_assertions)]
+                        debug!("Notifier: next wakeup <indefinite>");
+                        notify_lk = self.condvar.wait(notify_lk).unwrap();
+                    }
                 }
             }
             *notify_lk = false;

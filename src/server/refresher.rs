@@ -300,30 +300,23 @@ impl Refresher {
                 let next_wakeup = refresher.next_wakeup(&pstate);
                 let mut refresh_lk = refresher.pred.lock().unwrap();
                 while !*refresh_lk {
-                    #[cfg(debug_assertions)]
-                    debug!(
-                        "Refresher: next wakeup {}",
-                        next_wakeup
-                            .map(|x| x
-                                .checked_duration_since(Instant::now())
-                                .map(|x| x.as_secs().to_string())
-                                .unwrap_or_else(|| "<none>".to_owned()))
-                            .unwrap_or_else(|| "<none>".to_owned())
-                    );
                     match next_wakeup {
                         Some(t) => {
-                            if Instant::now() >= t {
-                                break;
-                            }
                             match t.checked_duration_since(Instant::now()) {
                                 Some(d) => {
+                                    #[cfg(debug_assertions)]
+                                    debug!("Refresher: next wakeup {}", d.as_secs().to_string());
                                     refresh_lk =
                                         refresher.condvar.wait_timeout(refresh_lk, d).unwrap().0
                                 }
                                 None => break,
                             }
                         }
-                        None => refresh_lk = refresher.condvar.wait(refresh_lk).unwrap(),
+                        None => {
+                            #[cfg(debug_assertions)]
+                            debug!("Refresher: next wakeup <indefinite>");
+                            refresh_lk = refresher.condvar.wait(refresh_lk).unwrap();
+                        }
                     }
                 }
 
