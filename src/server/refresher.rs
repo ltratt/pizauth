@@ -322,7 +322,7 @@ impl Refresher {
     }
 
     fn try_refresh(self: &Arc<Self>, pstate: Arc<AuthenticatorState>, act_id: AccountId) {
-        let refresher = Arc::clone(&self);
+        let refresher = Arc::clone(self);
         thread::spawn(move || {
             // We abuse a `for` loop here to cope with the case where:
             //   1. The user specifies `expect_transient_error_if`,

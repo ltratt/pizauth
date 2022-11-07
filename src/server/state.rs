@@ -164,7 +164,7 @@ impl<'a> CTGuard<'a> {
 
     /// Is `act_id` still a valid [AccountId]?
     pub fn is_act_id_valid(&self, act_id: AccountId) -> bool {
-        self.guard.details.iter().find(|x| x.1 == act_id).is_some()
+        self.guard.details.iter().any(|x| x.1 == act_id)
     }
 
     /// An iterator that will produce one [AccountId] for each currently active account.

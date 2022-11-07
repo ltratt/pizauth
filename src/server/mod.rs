@@ -62,7 +62,7 @@ pub fn expiry_instant(
                     .unwrap_or(FALLBACK_EXPIRY_DURATION),
             )
         })
-        .ok_or("Can't represent expiry".into())
+        .ok_or_else(|| "Can't represent expiry".into())
 }
 
 fn request(pstate: Arc<AuthenticatorState>, mut stream: UnixStream) -> Result<(), Box<dyn Error>> {
