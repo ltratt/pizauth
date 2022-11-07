@@ -128,18 +128,12 @@ impl LockedState {
                     // update its status, even though multiple other updates have happened in the
                     // interim. Incrementing the version implicitly invalidates whatever (slow...)
                     // calculation it has performed.
-                    let act_id = AccountId {
-                        id: self.account_count,
-                    };
-                    self.account_count += 1;
+                    let act_id = AccountId::new(self);
                     account_map.insert(act_name.to_owned(), act_id);
                     tokenstates.insert(act_id, TokenState::Empty);
                 }
             } else {
-                let act_id = AccountId {
-                    id: self.account_count,
-                };
-                self.account_count += 1;
+                let act_id = AccountId::new(self);
                 account_map.insert(act_name.to_owned(), act_id);
                 tokenstates.insert(act_id, TokenState::Empty);
             }
@@ -233,10 +227,7 @@ impl<'a> CTGuard<'a> {
         act_id: AccountId,
         new_tokenstate: TokenState,
     ) -> AccountId {
-        let new_id = AccountId {
-            id: self.guard.account_count,
-        };
-        self.guard.account_count += 1;
+        let new_id = AccountId::new(&mut self.guard);
         for v in self.guard.account_map.values_mut() {
             if *v == act_id {
                 *v = new_id;
@@ -257,6 +248,16 @@ pub struct AccountId {
     // 4,522,155,402,651,803,058,176 years before this wrapped. In contrast if we were to,
     // recklessly, use a u64 it could wrap in a blink-and-you-miss-it 245 years.
     id: u128,
+}
+
+impl AccountId {
+    fn new(guard: &mut LockedState) -> Self {
+        let new_id = Self {
+            id: guard.account_count,
+        };
+        guard.account_count += 1;
+        new_id
+    }
 }
 
 #[derive(Clone, Debug)]
