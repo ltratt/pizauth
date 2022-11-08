@@ -43,19 +43,13 @@ refresh a token. If
 .Em shell-cmd
 returns a zero exit code, pizauth assumes the transient errors are unexpected
 and invalidates the access token (i.e. requiring the user to reauthenticate).
-Defaults to
-.Ql true
-(i.e. transient errors are ignored).
+Defaults to ignoring transient errors if not specified.
 .It Sy http_listen = Qo Em bind-name Qc ;
 specifies the address for the
 .Xr pizauth 1
 HTTP server to listen on.
 Defaults to
 .Qq 127.0.0.1:0 .
-.It Sy refresh_warn_cmd = Qo Em shell-cmd Qc ;
-specifies a shell command to be run via
-.Ql $SHELL -c
-when refreshing has failed for a period of at least
 .El
 .Pp
 An
