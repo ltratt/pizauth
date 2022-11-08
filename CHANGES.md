@@ -1,4 +1,14 @@
-# pizauth 0.1.0 (2022-09-29)
+# pizauth 0.2.0 (XXXX-XX-XX)
+
+## Breaking changes
+
+* `auth_error_cmd` has been renamed to `error_notify_cmd`. pizauth detects the
+  (now) incorrect usage and informs the user.
+
+* `refresh_retry_interval` has moved from a global to a per-account option.
+
+
+# pizauth 0.1.1 (2022-10-20)
 
 Second alpha release.
 

@@ -132,7 +132,7 @@ impl Notifier {
         act_name: String,
         msg: String,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        match pstate.ct_lock().config().auth_error_cmd.clone() {
+        match pstate.ct_lock().config().error_notify_cmd.clone() {
             Some(cmd) => {
                 thread::spawn(move || match env::var("SHELL") {
                     Ok(s) => {

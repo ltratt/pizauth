@@ -141,13 +141,13 @@ minutes).
 ### Error notifications
 
 pizauth reports authentication errors via syslog by default. To override this
-you can set the global `auth_error_cmd` setting e.g.:
+you can set the global `error_notify_cmd` setting e.g.:
 
 ```
-auth_error_cmd = "notify-send -t 90000 \"pizauth error for $PIZAUTH_ACCOUNT\" \"$PIZAUTH_MSG\"";
+error_notify_cmd = "notify-send -t 90000 \"pizauth error for $PIZAUTH_ACCOUNT\" \"$PIZAUTH_MSG\"";
 ```
 
-`auth_error_cmd` is run with two environment variables set:
+`error_notify_cmd` is run with two environment variables set:
 
   * `PIZAUTH_ACCOUNT` is set to the account name to be authorised.
   * `PIZAUTH_MSG` is set to the error message.

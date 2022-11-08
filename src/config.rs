@@ -29,9 +29,9 @@ const REFRESH_RETRY_DEFAULT: u64 = 40;
 #[derive(Debug)]
 pub struct Config {
     pub accounts: HashMap<String, Arc<Account>>,
-    pub auth_error_cmd: Option<String>,
     pub auth_notify_cmd: Option<String>,
     pub auth_notify_interval: Duration,
+    pub error_notify_cmd: Option<String>,
     pub expect_transient_errors_if: Option<String>,
     pub http_listen: String,
 }
@@ -60,9 +60,9 @@ impl Config {
         }
 
         let mut accounts = HashMap::new();
-        let mut auth_error_cmd = None;
         let mut auth_notify_cmd = None;
         let mut auth_notify_interval = None;
+        let mut error_notify_cmd = None;
         let mut expect_transient_errors_if = None;
         let mut http_listen = None;
         match astopt {
@@ -82,12 +82,11 @@ impl Config {
                             );
                         }
                         config_ast::TopLevel::AuthErrorCmd(span) => {
-                            auth_error_cmd = Some(check_not_assigned_str(
+                            return Err(error_at_span(
                                 &lexer,
-                                "auth_error_cmd",
                                 span,
-                                auth_error_cmd,
-                            )?)
+                                "'auth_error_cmd' has been renamed to 'error_notify_cmd'".into(),
+                            ));
                         }
                         config_ast::TopLevel::AuthNotifyCmd(span) => {
                             auth_notify_cmd = Some(check_not_assigned_str(
@@ -113,6 +112,14 @@ impl Config {
                                     ))
                                 }
                             }
+                        }
+                        config_ast::TopLevel::ErrorNotifyCmd(span) => {
+                            error_notify_cmd = Some(check_not_assigned_str(
+                                &lexer,
+                                "error_notify_cmd",
+                                span,
+                                error_notify_cmd,
+                            )?)
                         }
                         config_ast::TopLevel::ExpectTransientErrorsIf(span) => {
                             expect_transient_errors_if = Some(check_not_assigned_str(
@@ -142,10 +149,10 @@ impl Config {
 
         Ok(Config {
             accounts,
-            auth_error_cmd,
             auth_notify_cmd,
             auth_notify_interval: auth_notify_interval
                 .unwrap_or_else(|| Duration::from_secs(AUTH_NOTIFY_INTERVAL_DEFAULT)),
+            error_notify_cmd,
             expect_transient_errors_if,
             http_listen: http_listen.unwrap_or_else(|| HTTP_LISTEN_DEFAULT.to_owned()),
         })
@@ -497,9 +504,9 @@ mod test {
     fn valid_config() {
         let c = Config::from_str(
             r#"
-            auth_error_cmd = "j";
             auth_notify_cmd = "g";
             auth_notify_interval = 88m;
+            error_notify_cmd = "j";
             expect_transient_errors_if = "k";
             http_listen = "127.0.0.1:56789";
             account "x" {
@@ -519,7 +526,7 @@ mod test {
         "#,
         )
         .unwrap();
-        assert_eq!(c.auth_error_cmd, Some("j".to_owned()));
+        assert_eq!(c.error_notify_cmd, Some("j".to_owned()));
         assert_eq!(c.auth_notify_cmd, Some("g".to_owned()));
         assert_eq!(c.auth_notify_interval, Duration::from_secs(88 * 60));
         assert_eq!(c.expect_transient_errors_if, Some("k".to_owned()));
@@ -556,16 +563,16 @@ mod test {
 
     #[test]
     fn dup_fields() {
-        match Config::from_str(r#"auth_error_cmd = "a"; auth_error_cmd = "a";"#) {
-            Err(s) if s.contains("Mustn't specify 'auth_error_cmd' more than once") => (),
-            _ => panic!(),
-        }
         match Config::from_str(r#"auth_notify_cmd = "a"; auth_notify_cmd = "a";"#) {
             Err(s) if s.contains("Mustn't specify 'auth_notify_cmd' more than once") => (),
             _ => panic!(),
         }
         match Config::from_str("auth_notify_interval = 1s; auth_notify_interval = 2s;") {
             Err(s) if s.contains("Mustn't specify 'auth_notify_interval' more than once") => (),
+            _ => panic!(),
+        }
+        match Config::from_str(r#"error_notify_cmd = "a"; error_notify_cmd = "a";"#) {
+            Err(s) if s.contains("Mustn't specify 'error_notify_cmd' more than once") => (),
             _ => panic!(),
         }
         match Config::from_str(
