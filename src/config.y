@@ -10,8 +10,8 @@ TopLevels -> Result<Vec<TopLevel>, ()>:
   ;
 
 TopLevel -> Result<TopLevel, ()>:
-    "ACCOUNT" "STRING" "{" AccountFields "}" { Ok(TopLevel::Account(overall_span($1, $5), map_err($2)?, $4?)) }
-  | "AUTH_ERROR_CMD" "=" "STRING" ";" { Ok(TopLevel::AuthErrorCmd(map_err($3)?)) }
+    "ACCOUNT" "STRING" "{" AccountFields "}" { Ok(TopLevel::Account($span, map_err($2)?, $4?)) }
+  | "AUTH_ERROR_CMD" "=" "STRING" ";" { Ok(TopLevel::AuthErrorCmd($span)) }
   | "AUTH_NOTIFY_CMD" "=" "STRING" ";" { Ok(TopLevel::AuthNotifyCmd(map_err($3)?)) }
   | "AUTH_NOTIFY_INTERVAL" "=" "TIME" ";" { Ok(TopLevel::AuthNotifyInterval(map_err($3)?)) }
   | "ERROR_NOTIFY_CMD" "=" "STRING" ";" { Ok(TopLevel::ErrorNotifyCmd(map_err($3)?)) }
@@ -65,15 +65,6 @@ fn map_err(r: Result<DefaultLexeme<StorageT>, DefaultLexeme<StorageT>>)
     -> Result<Span, ()>
 {
     r.map(|x| x.span()).map_err(|_| ())
-}
-
-fn overall_span(
-  from: Result<DefaultLexeme<StorageT>, DefaultLexeme<StorageT>>,
-  to: Result<DefaultLexeme<StorageT>, DefaultLexeme<StorageT>>
-) -> Span {
-    let from = from.unwrap_or_else(|x| x).span();
-    let to = to.unwrap_or_else(|x| x).span();
-    Span::new(from.start(), to.end())
 }
 
 /// Flatten `rhs` into `lhs`.
