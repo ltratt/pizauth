@@ -13,7 +13,14 @@ persisted to disk.
 
 pizauth's configuration file is `~/.config/pizauth.conf`. You need to specify
 at least one `account`, which tells pizauth how to authenticate against a
-particular OAuth2 setup. At a minimum you need to find out from your provider:
+particular OAuth2 setup. Most sers will also want to receive asynchronous
+notifications of authorisation requests and errors, which requires setting
+`auth_notify_cmd` and `error_notify_cmd`.
+
+
+### Account setup
+
+At a minimum you need to find out from your provider:
 
   * The authorisation URI.
   * The token URI.
@@ -54,7 +61,37 @@ account "officesmtp" {
 }
 ```
 
-You then need to run the pizauth server:
+### Notifications
+
+As standard, pizauth displays authorisation URLs and errors on stderr. If you
+want to use pizauth in the background, it is easy to miss such output.
+Fortunately, pizauth can run arbitrary commands to alert you that you need to
+authorise a new token, in essence giving you the ability to asynchronously
+display notifications. There are two main settings:
+
+  * `auth_notify_cmd` notifies users that an account needs authenticating. The
+    command is run with two environment variables set:
+      * `PIZAUTH_ACCOUNT` is set to the account name to be authorised.
+      * `PIZAUTH_URL` is set to the authorisation URL.
+  * `error_notify_cmd` notifies users of errors.  The command is run with two
+    environment variables set:
+      * `PIZAUTH_ACCOUNT` is set to the account name to be authorised.
+      * `PIZAUTH_MSG` is set to the error message.
+
+For example to use pizauth with `notify-send` on XFCE:
+
+```
+auth_notify_cmd = "notify-send -t 30000 'pizauth authentication' \"<a href=\\\"`echo $PIZAUTH_URL | sed 's/&/&amp;/g'`\\\">$PIZAUTH_ACCOUNT</a>\"";
+error_notify_cmd = "notify-send -t 90000 \"pizauth error for $PIZAUTH_ACCOUNT\" \"$PIZAUTH_MSG\"";
+```
+
+In this example, `auth_notify_cmd` escapes `&` characters, as
+XFCE's notification daemon otherwise does not parse URLs correctly.
+
+
+### Running pizauth
+
+You need to start the pizauth server:
 
 ```sh
 $ pizauth server
@@ -62,7 +99,8 @@ $ pizauth server
 
 and configure software to request OAuth2 tokens with `pizauth show officesmtp`.
 The first time that `pizauth show officesmtp` is executed, it will print an
-error to stderr that includes an authorisation URL:
+error to stderr that includes an authorisation URL (and, if `auth_notify_cmd`
+is set, it will also execute that command):
 
 ```
 $ pizauth show officesmtp
@@ -87,111 +125,6 @@ Note that:
      eventually become invalid. There will be a delay between the token
      becoming invalid and pizauth realising that has happened and notifying you
      to request a new token.
-
-
-## Notifications
-
-### Authorisation notifications
-
-By default, `pizauth show` displays authorisation URLs on stdout. Depending on
-how and where you use pizauth, you might not notice this output. Fortunately,
-pizauth can run arbitrary commands to alert you that you need to authorise a
-new token, in essence giving you the ability to asynchronously display
-notifications. You will first probably want to use `show -u` to suppress
-display of authorisation URLs:
-
-```
-$ pizauth show -u officesmtp
-ERROR - Token unavailable until authorised with URL
-```
-
-You can then specify the global `auth_notify_cmd` setting e.g.:
-
-```
-auth_notify_cmd = "notify-send -t 30000 'pizauth authentication' \"<a href=\\\"`echo $PIZAUTH_URL | sed 's/&/&amp;/g'`\\\">$PIZAUTH_ACCOUNT</a>\"";
-```
-
-When `refresh` or `show` initiate a new token request, `auth_notify_cmd` is run
-with two environment variables set:
-
-  * `PIZAUTH_ACCOUNT` is set to the account name to be authorised.
-  * `PIZAUTH_URL` is set to the authorisation URL.
-
-In the example above, `notify-send` is invoked, escaping `&` characters, as
-XFCE's notification daemon otherwise does not parse URLs correctly. As this
-suggests, users have complete flexibility within `auth_notify_cmd` to run
-arbitrary shell commands.
-
-If `auth_notify_cmd` is specified, then pizauth will periodically run
-`auth_notify_cmd` for a given account until authorisation concludes
-(successfully or not). The period between notifications is controlled by the
-global `auth_notify_interval = <time>;` setting which defaults to `15m` (15
-minutes).
-
-`<time>` is an integer followed by one of:
-
-| Suffix | Value   |
-|--------|---------|
-| `s`    | seconds |
-| `m`    | minutes |
-| `h`    | hours   |
-| `d`    | days    |
-
-
-### Error notifications
-
-pizauth reports authentication errors via syslog by default. To override this
-you can set the global `error_notify_cmd` setting e.g.:
-
-```
-error_notify_cmd = "notify-send -t 90000 \"pizauth error for $PIZAUTH_ACCOUNT\" \"$PIZAUTH_MSG\"";
-```
-
-`error_notify_cmd` is run with two environment variables set:
-
-  * `PIZAUTH_ACCOUNT` is set to the account name to be authorised.
-  * `PIZAUTH_MSG` is set to the error message.
-
-
-## Token refresh
-
-OAuth2 "tokens" are actually two separate things: an "access token" which
-allows you to utilise a resource (e.g. to read/send email); and a "refresh
-token" which allows you to request new access tokens. `pizauth show` prints
-access tokens; pizauth stores refresh tokens internally but never displays
-them. Access tokens typically have a short lifetime (e.g. 1 hour) while refresh
-tokens have a long lifetime (e.g. 1 week or more). By default, pizauth uses
-refresh tokens to preemptively update access tokens, giving users the illusion
-of continuously usable access tokens.
-
-Each `account` has two settings relating to token refresh:
-
-  * `refresh_at_least = <time>;` tells pizauth to refresh an access token a
-    unit of time after it was obtained, even if the access token is not due to
-    expire. The default is `90m` (90 minutes).
-  * `refresh_before_expiry = <time>;` tells pizauth to refresh an access token
-    a unit of time before it is due to expire. The default is `90s` (90
-    seconds).
-
-`refresh_at_least` is a backstop which guarantees that pizauth will notice that
-an access and refresh token are no longer valid in a sensible period of time.
-
-Refreshing can fail for temporary reasons (e.g. lack of network connectivity).
-When a refresh fails for temporary reasons, pizauth will regularly retry
-refreshing, controlled by the `refresh_retry` setting which defaults to 40
-seconds.
-
-You can set these values explicitly as follows:
-
-```
-
-account "officesmtp" {
-    // Other settings as above
-    refresh_at_least = 90m;
-    refresh_before_expiry = 90s;
-    refresh_retry = 40s;
-}
-```
 
 
 ## Command-line interface
