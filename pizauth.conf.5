@@ -36,20 +36,22 @@ is set to the error message.
 Defaults to logging via
 .Xr syslog 3
 if not specified.
-.It Sy expect_transient_errors_if = Qo Em shell-cmd Qc ;
-specifies a shell command to be run when pizauth repeatedly encounters
-seemingly transient errors (e.g. due to networking issues) when trying to
-refresh a token. If
-.Em shell-cmd
-returns a zero exit code, pizauth assumes the transient errors are unexpected
-and invalidates the access token (i.e. requiring the user to reauthenticate).
-Defaults to ignoring transient errors if not specified.
 .It Sy http_listen = Qo Em bind-name Qc ;
 specifies the address for the
 .Xr pizauth 1
 HTTP server to listen on.
 Defaults to
 .Qq 127.0.0.1:0 .
+.It Sy not_transient_error_if = Qo Em shell-cmd Qc ;
+specifies a shell command to be run when pizauth repeatedly encounters
+seemingly transient errors (e.g. due to networking issues) when trying to
+refresh a token.
+If
+.Em shell-cmd
+returns a non-zero exit code, pizauth assumes the transient errors are
+unexpected and invalidates the access token (i.e. requiring the user to
+reauthenticate).
+Defaults to ignoring transient errors if not specified.
 .El
 .Pp
 An

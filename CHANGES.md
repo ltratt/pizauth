@@ -16,10 +16,10 @@
   arbitrarily long for transitory errors to resolve.
 
   Users who wish to check that transitory errors really are transitory can set
-  the `expect_transitory_errors_if` setting. This is a shell command that, if
-  it returns a zero exit code, signifies that transitory errors are permanent
-  and that an access token should be invalidated. If available, `nc -z
-  <website> <port>` is a good setting. `expect_transitory_errors_if` is
+  `not_transitory_error_if` setting. This is a shell command that, if
+  it returns a non-zero exit code, signifies that transitory errors are
+  permanent and that an access token should be invalidated. `nc -z <website>
+  <port>` is an example of a reasonable setting. `not_transitory_error_if` is
   designed to be fail-safe in that if the shell command fails unnecessarily
   (e.g. if you specify `ping` on a network that prevents ping traffic), pizauth
   will invalidate the access token.

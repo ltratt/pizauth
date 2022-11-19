@@ -325,13 +325,13 @@ impl Refresher {
         let refresher = Arc::clone(self);
         thread::spawn(move || {
             // We abuse a `for` loop here to cope with the case where:
-            //   1. The user specifies `expect_transient_error_if`,
+            //   1. The user specifies `not_transient_error_if`,
             //   2. Refreshing fails due to a transient error e.g. due to a network error.
-            //   3. `expect_transient_error_if` succeeds because the source of the transient error
+            //   3. `not_transient_error_if` succeeds because the source of the transient error
             //      has disappeared.
-            // In other words, if `expect_transient_error_if` succeeds, we really want to try
-            // refreshing once, because it might now succeed: it's only if
-            // `expect_transient_error_if` succeeds twice in a row that we set the tokenstate to
+            // In other words, if `not_transient_error_if` succeeds, we really want to try
+            // refreshing once more, because it might now succeed: it's only if
+            // `not_transient_error_if` succeeds twice in a row that we set the tokenstate to
             // `Empty`.
             for i in 0..2 {
                 let ct_lk = pstate.ct_lock();
@@ -348,8 +348,7 @@ impl Refresher {
                                 let ct_lk = pstate.ct_lock();
                                 // Make sure that we try refreshing at least twice.
                                 if refreshed_at_least_once && ct_lk.is_act_id_valid(act_id) {
-                                    if let Some(ref cmd) = ct_lk.config().expect_transient_errors_if
-                                    {
+                                    if let Some(ref cmd) = ct_lk.config().not_transient_error_if {
                                         let cmd = cmd.to_owned();
                                         drop(ct_lk);
                                         match env::var("SHELL") {
