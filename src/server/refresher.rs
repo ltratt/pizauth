@@ -336,13 +336,15 @@ impl Refresher {
             // refreshing once more, because it might now succeed: it's only if
             // `not_transient_error_if` succeeds twice in a row that we set the tokenstate to
             // `Empty`.
+            let mut act_id = act_id;
             for i in 0..2 {
                 let ct_lk = pstate.ct_lock();
                 if ct_lk.is_act_id_valid(act_id) {
                     if let TokenState::Active { .. } = ct_lk.tokenstate(act_id) {
                         match refresher.refresh(&pstate, ct_lk, act_id) {
                             RefreshKind::AccountOrTokenStateChanged | RefreshKind::Refreshed => (),
-                            RefreshKind::TransitoryError(act_id, _msg) => {
+                            RefreshKind::TransitoryError(new_act_id, _msg) => {
+                                act_id = new_act_id;
                                 let ct_lk = pstate.ct_lock();
                                 if ct_lk.is_act_id_valid(act_id) {
                                     if let Some(ref cmd) = ct_lk.config().not_transient_error_if {
