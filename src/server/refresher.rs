@@ -262,63 +262,45 @@ impl Refresher {
         pstate: Arc<AuthenticatorState>,
     ) -> Result<(), Box<dyn Error>> {
         let refresher = Arc::clone(&self);
-        thread::spawn(move || {
-            // There is a potential race where we start a new thread refreshing but before it has
-            // updated `TokenState::last_refresh_time` we read the "old" value and assume we need
-            // to try refreshing again. `recent_refreshes` stops us starting two threads for the
-            // same [AccountId].
-            let mut recent_refreshes = HashSet::new();
-            loop {
-                let next_wakeup = refresher.next_wakeup(&pstate);
-                let mut refresh_lk = refresher.pred.lock().unwrap();
-                while !*refresh_lk {
-                    match next_wakeup {
-                        Some(t) => match t.checked_duration_since(Instant::now()) {
-                            Some(d) => {
-                                #[cfg(debug_assertions)]
-                                debug!("Refresher: next wakeup {}", d.as_secs().to_string());
-                                refresh_lk =
-                                    refresher.condvar.wait_timeout(refresh_lk, d).unwrap().0
-                            }
-                            None => break,
-                        },
-                        None => {
+        thread::spawn(move || loop {
+            let next_wakeup = refresher.next_wakeup(&pstate);
+            let mut refresh_lk = refresher.pred.lock().unwrap();
+            while !*refresh_lk {
+                match next_wakeup {
+                    Some(t) => match t.checked_duration_since(Instant::now()) {
+                        Some(d) => {
                             #[cfg(debug_assertions)]
-                            debug!("Refresher: next wakeup <indefinite>");
-                            refresh_lk = refresher.condvar.wait(refresh_lk).unwrap();
+                            debug!("Refresher: next wakeup {}", d.as_secs().to_string());
+                            refresh_lk = refresher.condvar.wait_timeout(refresh_lk, d).unwrap().0
                         }
+                        None => break,
+                    },
+                    None => {
+                        #[cfg(debug_assertions)]
+                        debug!("Refresher: next wakeup <indefinite>");
+                        refresh_lk = refresher.condvar.wait(refresh_lk).unwrap();
                     }
                 }
+            }
 
-                *refresh_lk = false;
-                drop(refresh_lk);
+            *refresh_lk = false;
+            drop(refresh_lk);
 
-                let ct_lk = pstate.ct_lock();
-                let now = Instant::now();
-                let to_refresh = ct_lk
-                    .act_ids()
-                    .filter(
-                        |act_id| match refresher.refresh_at(&pstate, &ct_lk, *act_id) {
-                            Some(t) => t <= now,
-                            None => false,
-                        },
-                    )
-                    .collect::<HashSet<_>>();
-                drop(ct_lk);
+            let ct_lk = pstate.ct_lock();
+            let now = Instant::now();
+            let to_refresh = ct_lk
+                .act_ids()
+                .filter(
+                    |act_id| match refresher.refresh_at(&pstate, &ct_lk, *act_id) {
+                        Some(t) => t <= now,
+                        None => false,
+                    },
+                )
+                .collect::<HashSet<_>>();
+            drop(ct_lk);
 
-                for act_id in to_refresh.iter() {
-                    if !recent_refreshes.contains(act_id) {
-                        refresher.try_refresh(Arc::clone(&pstate), *act_id);
-                    }
-                }
-                recent_refreshes = to_refresh;
-                // It's safe for us to immediately recheck whether there's anything to refresh
-                // since `recent_refreshes` stops us trying to endlessly refresh the same
-                // [AccountId]. However, the chances are that if we go around the loop immediately
-                // then none of the refresh threads will have started, and we'll spin pointlessly.
-                // This sleep is intended to largely stop that spinning without unduly pausing the
-                // main refresher thread.
-                thread::sleep(Duration::from_micros(250));
+            for act_id in to_refresh.iter() {
+                refresher.try_refresh(Arc::clone(&pstate), *act_id);
             }
         });
         Ok(())
