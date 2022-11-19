@@ -16,7 +16,10 @@ use wait_timeout::ChildExt;
 
 use super::{expiry_instant, AccountId, AuthenticatorState, CTGuard, TokenState, UREQ_TIMEOUT};
 
+/// How long to run `not_transient_error_if` commands before killing them?
 const NOT_TRANSIENT_ERROR_IF_TIMEOUT: Duration = Duration::from_secs(30);
+/// How long to pause after an unsuccessful `not_transient_error_if` command?
+const NOT_TRANSIENT_ERROR_IF_PAUSE: Duration = Duration::from_secs(3);
 
 /// The outcome of an attempted refresh.
 pub enum RefreshKind {
@@ -346,6 +349,9 @@ impl Refresher {
                                                     Ok(Some(status)) => {
                                                         if status.success() {
                                                             if i == 0 {
+                                                                thread::sleep(
+                                                                    NOT_TRANSIENT_ERROR_IF_PAUSE,
+                                                                );
                                                                 continue;
                                                             }
                                                             let mut ct_lk = pstate.ct_lock();
