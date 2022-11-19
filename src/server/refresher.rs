@@ -12,8 +12,11 @@ use std::{
 #[cfg(debug_assertions)]
 use log::debug;
 use log::error;
+use wait_timeout::ChildExt;
 
 use super::{expiry_instant, AccountId, AuthenticatorState, CTGuard, TokenState, UREQ_TIMEOUT};
+
+const NOT_TRANSIENT_ERROR_IF_TIMEOUT: Duration = Duration::from_secs(30);
 
 /// The outcome of an attempted refresh.
 pub enum RefreshKind {
@@ -353,8 +356,10 @@ impl Refresher {
                                                 .args(["-c", &cmd])
                                                 .spawn()
                                             {
-                                                Ok(mut child) => match child.wait() {
-                                                    Ok(status) => {
+                                                Ok(mut child) => match child
+                                                    .wait_timeout(NOT_TRANSIENT_ERROR_IF_TIMEOUT)
+                                                {
+                                                    Ok(Some(status)) => {
                                                         if status.success() {
                                                             if i == 0 {
                                                                 continue;
@@ -367,6 +372,11 @@ impl Refresher {
                                                                 );
                                                             }
                                                         }
+                                                    }
+                                                    Ok(None) => {
+                                                        child.kill().ok();
+                                                        child.wait().ok();
+                                                        error!("'{cmd:}' exceeded timeout");
                                                     }
                                                     Err(e) => {
                                                         error!("Waiting on '{cmd:}' failed: {e:}")

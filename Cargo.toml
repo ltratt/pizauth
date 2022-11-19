@@ -33,6 +33,7 @@ syslog = "6"
 ureq = "2"
 url = "2"
 urlencoding = "2"
+wait-timeout = "0.2"
 
 [target.'cfg(target_os="openbsd")'.dependencies]
 pledge = "0.4"
