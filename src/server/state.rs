@@ -212,6 +212,38 @@ impl<'a> CTGuard<'a> {
             .unwrap()
     }
 
+    /// If `act_id` is `Active`, set `ongoing_refresh` to `new_ongoing_refresh` and return the new
+    /// `AccountId`.
+    ///
+    /// # Panics
+    ///
+    /// If `act_id` is not valid or is not `Active`.
+    pub fn tokenstate_set_ongoing_refresh(
+        &mut self,
+        act_id: AccountId,
+        new_ongoing_refresh: bool,
+    ) -> AccountId {
+        let i = self
+            .guard
+            .details
+            .iter()
+            .position(|x| x.1 == act_id)
+            .unwrap();
+
+        let new_id = AccountId::new(&mut self.guard);
+        let ts = &mut self.guard.details[i];
+        if let TokenState::Active {
+            ref mut ongoing_refresh,
+            ..
+        } = ts.2
+        {
+            ts.1 = new_id;
+            *ongoing_refresh = new_ongoing_refresh;
+            return new_id;
+        }
+        unreachable!();
+    }
+
     /// Update the tokenstate for `act_id` to `new_tokenstate` returning a new [AccountId]
     /// valid for the new tokenstate, updating the tokenstate version.
     ///
@@ -270,6 +302,8 @@ pub enum TokenState {
     /// There is an active token (and, possibly, also an active refresh token).
     Active {
         access_token: String,
+        /// Is the refresher currently trying to refresh this token?
+        ongoing_refresh: bool,
         refreshed_at: Instant,
         /// The instant in time when the last ongoing, or unsuccessful, refresh attempt was made.
         last_refresh_attempt: Option<Instant>,
