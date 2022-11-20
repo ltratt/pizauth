@@ -112,7 +112,7 @@ impl Notifier {
         Ok(())
     }
 
-    pub fn notify_new(&self, _pstate: Arc<AuthenticatorState>) {
+    pub fn notify_changes(&self) {
         let mut notify_lk = self.pred.lock().unwrap();
         *notify_lk = true;
         self.condvar.notify_one();

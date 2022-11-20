@@ -66,8 +66,12 @@ impl AuthenticatorState {
     /// guarantee that by the time this function calls the configuration is still the same as
     /// `new_conf` since another thread(s) may also have called this function.
     pub fn update_conf(&self, new_conf: Config) {
-        let mut lk = self.locked_state.lock().unwrap();
-        lk.update_conf(new_conf);
+        {
+            let mut lk = self.locked_state.lock().unwrap();
+            lk.update_conf(new_conf);
+        }
+        self.notifier.notify_changes();
+        self.refresher.notify_changes();
     }
 }
 

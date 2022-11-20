@@ -65,6 +65,6 @@ pub fn request_token(
         },
     );
     drop(ct_lk);
-    pstate.notifier.notify_new(Arc::clone(&pstate));
+    pstate.notifier.notify_changes();
     Ok(url)
 }
