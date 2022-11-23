@@ -18,7 +18,7 @@ be used by other programs to show the OAuth2 token for a current account.
 The top-level commands are:
 .Bl -tag -width Ds
 .It Sy refresh Oo Fl u Oc Ar account
-Attempt to refresh the access token for
+Request a refresh of the access token for
 .Em account .
 Exits with 0 upon success.
 If there is not currently a valid access or refresh token,
@@ -26,6 +26,8 @@ reports an error to stderr, initiates a new token request, and exits with 1.
 Unless
 .Fl u
 is specified, the error will include an authorization URL.
+Note that this command does not block and will not start a new refresh if one
+is ongoing.
 .It Sy reload
 Reload the server's configuration.
 Exits with 0 upon success or 1 if there is a problem in the configuration.

@@ -21,10 +21,10 @@ pub fn refresh(cache_path: &Path, account: &str, with_url: bool) -> Result<(), B
     let mut rtn = String::new();
     stream.read_to_string(&mut rtn)?;
     match rtn.splitn(2, ':').collect::<Vec<_>>()[..] {
-        ["ok", ""] => Ok(()),
         ["pending", url] => {
             Err(format!("Access token unavailable until authorised with URL {url:}").into())
         }
+        ["scheduled", ""] => Ok(()),
         ["error", cause] => Err(cause.into()),
         _ => Err(format!("Malformed response '{rtn:}'").into()),
     }

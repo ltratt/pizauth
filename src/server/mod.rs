@@ -22,7 +22,7 @@ use unveil::unveil;
 
 use crate::{config::Config, PIZAUTH_CACHE_SOCK_LEAF};
 use notifier::Notifier;
-use refresher::{RefreshKind, Refresher};
+use refresher::Refresher;
 use request_token::request_token;
 use state::{AccountId, AuthenticatorState, CTGuard, TokenState};
 
@@ -100,16 +100,9 @@ fn request(pstate: Arc<AuthenticatorState>, mut stream: UnixStream) -> Result<()
                     }
                 }
                 TokenState::Active { .. } => {
-                    match pstate.refresher.refresh(&pstate, ct_lk, act_id) {
-                        RefreshKind::AccountOrTokenStateChanged => stream.write_all(b"error:")?,
-                        RefreshKind::PermanentError(msg) => {
-                            stream.write_all(format!("error:{msg:}").as_bytes())?
-                        }
-                        RefreshKind::Refreshed => stream.write_all(b"ok:")?,
-                        RefreshKind::TransitoryError(_, msg) => {
-                            stream.write_all(format!("error:{msg:}").as_bytes())?
-                        }
-                    }
+                    drop(ct_lk);
+                    pstate.refresher.sched_refresh(Arc::clone(&pstate), act_id);
+                    stream.write_all(b"scheduled:")?;
                 }
             }
             Ok(())
