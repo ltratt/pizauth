@@ -16,7 +16,7 @@ use wait_timeout::ChildExt;
 use super::{expiry_instant, AccountId, AuthenticatorState, CTGuard, TokenState, UREQ_TIMEOUT};
 
 /// How long to run `not_transient_error_if` commands before killing them?
-const NOT_TRANSIENT_ERROR_IF_TIMEOUT: Duration = Duration::from_secs(90);
+const NOT_TRANSIENT_ERROR_IF_TIMEOUT: Duration = Duration::from_secs(3 * 60);
 
 /// The outcome of an attempted refresh.
 enum RefreshKind {

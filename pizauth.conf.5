@@ -51,6 +51,9 @@ If
 returns a non-zero exit code, pizauth assumes the transient errors are
 unexpected and invalidates the access token (i.e. requiring the user to
 reauthenticate).
+If
+.Em shell-cmd
+exceeds the timeout of 3 minutes, it is assumed to have failed.
 Defaults to ignoring transient errors if not specified.
 .El
 .Pp
