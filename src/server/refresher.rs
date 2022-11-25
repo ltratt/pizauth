@@ -22,6 +22,8 @@ const NOT_TRANSIENT_ERROR_IF_TIMEOUT: Duration = Duration::from_secs(3 * 60);
 enum RefreshKind {
     /// Refreshing terminated because the config or tokenstate changed.
     AccountOrTokenStateChanged,
+    /// There is no refresh token so refreshing cannot succeed.
+    NoRefreshToken,
     /// Refreshing failed in a way that is likely to repeat if retried.
     PermanentError(String),
     /// The token was refreshed.
@@ -62,6 +64,7 @@ impl Refresher {
                         let act_name = ct_lk.account(act_id).name.clone();
                         match refresher.inner_refresh(&pstate, ct_lk, act_id) {
                             RefreshKind::AccountOrTokenStateChanged => {}
+                            RefreshKind::NoRefreshToken => {}
                             RefreshKind::PermanentError(msg) => {
                                 pstate
                                     .notifier
@@ -180,15 +183,21 @@ impl Refresher {
         let mut new_ts = ct_lk.tokenstate(act_id).clone();
         let refresh_token = match new_ts {
             TokenState::Active {
-                refresh_token: Some(ref refresh_token),
+                ref refresh_token,
                 ref mut last_refresh_attempt,
                 ..
-            } => {
-                *last_refresh_attempt = Some(Instant::now());
-                let refresh_token = refresh_token.to_owned();
-                act_id = ct_lk.tokenstate_replace(act_id, new_ts);
-                refresh_token
-            }
+            } => match refresh_token {
+                Some(r) => {
+                    *last_refresh_attempt = Some(Instant::now());
+                    let r = r.to_owned();
+                    act_id = ct_lk.tokenstate_replace(act_id, new_ts);
+                    r
+                }
+                None => {
+                    ct_lk.tokenstate_replace(act_id, TokenState::Empty);
+                    return RefreshKind::NoRefreshToken;
+                }
+            },
             _ => unreachable!("tokenstate is not TokenState::Active"),
         };
 
