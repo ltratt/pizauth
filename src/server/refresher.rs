@@ -177,23 +177,20 @@ impl Refresher {
         mut ct_lk: CTGuard,
         mut act_id: AccountId,
     ) -> RefreshKind {
-        let refresh_token = match ct_lk.tokenstate(act_id) {
+        let mut new_ts = ct_lk.tokenstate(act_id).clone();
+        let refresh_token = match new_ts {
             TokenState::Active {
-                refresh_token: Some(refresh_token),
+                refresh_token: Some(ref refresh_token),
+                ref mut last_refresh_attempt,
                 ..
-            } => refresh_token.to_owned(),
+            } => {
+                *last_refresh_attempt = Some(Instant::now());
+                let refresh_token = refresh_token.to_owned();
+                act_id = ct_lk.tokenstate_replace(act_id, new_ts);
+                refresh_token
+            }
             _ => unreachable!("tokenstate is not TokenState::Active"),
         };
-
-        let mut new_ts = ct_lk.tokenstate(act_id).clone();
-        if let TokenState::Active {
-            ref mut last_refresh_attempt,
-            ..
-        } = new_ts
-        {
-            *last_refresh_attempt = Some(Instant::now());
-            act_id = ct_lk.tokenstate_replace(act_id, new_ts);
-        }
 
         let act = ct_lk.account(act_id);
         let token_uri = act.token_uri.clone();
