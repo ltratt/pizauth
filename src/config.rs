@@ -446,7 +446,7 @@ fn unescape_str(us: &str) -> String {
 
 /// Return an error message pinpointing `span` as the culprit.
 fn error_at_span(
-    lexer: &dyn NonStreamingLexer<DefaultLexeme<StorageT>, StorageT>,
+    lexer: &LRNonStreamingLexer<DefaultLexeme<StorageT>, StorageT>,
     span: Span,
     msg: &str,
 ) -> String {
