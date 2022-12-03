@@ -140,10 +140,7 @@ fn request(pstate: Arc<AuthenticatorState>, mut stream: UnixStream) -> Result<()
                 TokenState::Active {
                     access_token,
                     expiry,
-                    ongoing_refresh: _,
-                    refreshed_at: _,
-                    last_refresh_attempt: _,
-                    refresh_token: _,
+                    ..
                 } => {
                     let response = if expiry > &Instant::now() {
                         format!("access_token:{access_token:}")

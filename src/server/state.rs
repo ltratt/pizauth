@@ -308,6 +308,9 @@ pub enum TokenState {
         access_token: String,
         /// Is the refresher currently trying to refresh this token?
         ongoing_refresh: bool,
+        /// How many times in a row has refreshing failed? This will be reset to zero when
+        /// refreshing succeeds.
+        consecutive_refresh_fails: u64,
         refreshed_at: Instant,
         /// The instant in time when the last ongoing, or unsuccessful, refresh attempt was made.
         last_refresh_attempt: Option<Instant>,
