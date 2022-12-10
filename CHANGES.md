@@ -12,17 +12,17 @@
 
 * Tease out transitory / permanent refresh errors. Transitory errors are likely
   to be the result of temporary network problems and simply waiting for them to
-  resolve is normally the best thing to do. By default, pizauth will wait
-  arbitrarily long for transitory errors to resolve.
+  resolve is normally the best thing to do. By default, pizauth thus simply
+  ignores transitory errors.
 
   Users who wish to check that transitory errors really are transitory can set
   `not_transitory_error_if` setting. This is a shell command that, if
   it returns a non-zero exit code, signifies that transitory errors are
   permanent and that an access token should be invalidated. `nc -z <website>
   <port>` is an example of a reasonable setting. `not_transitory_error_if` is
-  designed to be fail-safe in that if the shell command fails unnecessarily
-  (e.g. if you specify `ping` on a network that prevents ping traffic), pizauth
-  will invalidate the access token.
+  fail-safe in that if the shell command fails unnecessarily (e.g. if you
+  specify `ping` on a network that prevents ping traffic), pizauth will
+  invalidate the access token.
 
 * Each refresh of an account now happens in a separate thread, so stalled
   refreshing cannot affect other accounts.
