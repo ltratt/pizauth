@@ -44,19 +44,16 @@ Defaults to
 .Qq 127.0.0.1:0 .
 .It Sy not_transient_error_if = Qo Em shell-cmd Qc ;
 specifies a shell command to be run when pizauth repeatedly encounters
-non-fatal errors when trying to refresh a token.
+seemingly transient errors (e.g. due to network errors) when trying to refresh
+a token.
 If
 .Em shell-cmd
-returns a zero exit code, pizauth assumes the non-fatal errors
-should be treated as if they were a fatal error: the access token is
-invalidated and the user will have to reauthenicate.
+returns a zero exit code, or exceeds a 3 minute timeout, pizauth treats
+the errors as permanent: the access token is invalidated (forcing the user
+to later reauthenicate).
 If
 .Em shell-cmd
-returns a non-zero exit code, the non-fatal errors are ignored.
-If
-.Em shell-cmd
-exceeds the timeout of 3 minutes, it is treated as it returned a zero
-exit code.
+returns a non-zero exit code, the transient errors are ignored.
 Defaults to ignoring non-fatal errors if not specified.
 .El
 .Pp
