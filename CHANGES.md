@@ -1,4 +1,4 @@
-# pizauth 0.2.0 (XXXX-XX-XX)
+# pizauth 0.2.0 (2022-12-14)
 
 ## Breaking changes
 
