@@ -17,7 +17,7 @@
 
   Users who wish to check that transitory errors really are transitory can set
   `not_transitory_error_if` setting. This is a shell command that, if
-  it returns a non-zero exit code, signifies that transitory errors are
+  it returns a zero exit code, signifies that transitory errors are
   permanent and that an access token should be invalidated. `nc -z <website>
   <port>` is an example of a reasonable setting. `not_transitory_error_if` is
   fail-safe in that if the shell command fails unnecessarily (e.g. if you
