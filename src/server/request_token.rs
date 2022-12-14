@@ -22,7 +22,7 @@ pub fn request_token(
     let mut state = [0u8; STATE_LEN];
     thread_rng().fill_bytes(&mut state);
     let state = base64::encode_config(
-        &state,
+        state,
         base64::Config::new(base64::CharacterSet::UrlSafe, false),
     );
 

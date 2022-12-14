@@ -121,7 +121,7 @@ impl Refresher {
                                                         pstate
                                                             .notifier
                                                             .notify_error(
-                                                                &*pstate,
+                                                                &pstate,
                                                                 act_name,
                                                                 format!(
                                                                     "Permanent refresh error: {e:}"
@@ -136,7 +136,7 @@ impl Refresher {
                                                 pstate
                                                     .notifier
                                                     .notify_error(
-                                                        &*pstate,
+                                                        &pstate,
                                                         act_name,
                                                         format!(
                                                             "Transitory token refresh error: {msg:}"
