@@ -33,7 +33,7 @@ pub struct Config {
     pub auth_notify_interval: Duration,
     pub error_notify_cmd: Option<String>,
     pub http_listen: String,
-    pub not_transient_error_if: Option<String>,
+    not_transient_error_if: Option<String>,
 }
 
 impl Config {
@@ -237,6 +237,7 @@ pub struct Account {
     pub client_secret: Option<String>,
     pub login_hint: Option<String>,
     redirect_uri: String,
+    not_transient_error_if: Option<String>,
     pub refresh_at_least: Option<Duration>,
     pub refresh_before_expiry: Option<Duration>,
     pub refresh_retry: Duration,
@@ -255,6 +256,7 @@ impl Account {
         let mut client_id = None;
         let mut client_secret = None;
         let mut login_hint = None;
+        let mut not_transient_error_if = None;
         let mut redirect_uri = None;
         let mut refresh_at_least = None;
         let mut refresh_before_expiry = None;
@@ -284,6 +286,14 @@ impl Account {
                         "login_hint",
                         span,
                         login_hint,
+                    )?)
+                }
+                config_ast::AccountField::NotTransientErrorIf(span) => {
+                    not_transient_error_if = Some(check_not_assigned_str(
+                        lexer,
+                        "not_transient_error_if",
+                        span,
+                        not_transient_error_if,
                     )?)
                 }
                 config_ast::AccountField::RedirectUri(span) => {
@@ -373,6 +383,7 @@ impl Account {
             client_id,
             client_secret,
             login_hint,
+            not_transient_error_if,
             redirect_uri: redirect_uri.unwrap_or_else(|| "http://localhost/".to_owned()),
             refresh_at_least: refresh_at_least
                 .or_else(|| Some(Duration::from_secs(REFRESH_AT_LEAST_DEFAULT))),
@@ -390,6 +401,12 @@ impl Account {
         url.set_port(Some(http_port))
             .map_err(|_| "Cannot set port")?;
         Ok(url)
+    }
+
+    pub fn not_transient_error_if(&self, config: &Config) -> Option<String> {
+        self.not_transient_error_if
+            .clone()
+            .or_else(|| config.not_transient_error_if.clone())
     }
 }
 
@@ -666,5 +683,64 @@ mod test {
                 _ => panic!(),
             }
         }
+    }
+
+    #[test]
+    fn local_overrides() {
+        // Global only
+        let c = Config::from_str(
+            r#"
+            not_transient_error_if = "e";
+            account "x" {
+                auth_uri = "http://a.com";
+                client_id = "b";
+                scopes = ["c"];
+                token_uri = "http://d.com";
+            }
+        "#,
+        )
+        .unwrap();
+        assert_eq!(c.not_transient_error_if, Some("e".to_owned()));
+
+        let act = &c.accounts["x"];
+        assert_eq!(act.not_transient_error_if(&c), Some("e".to_owned()));
+
+        // Local only
+        let c = Config::from_str(
+            r#"
+            account "x" {
+                auth_uri = "http://a.com";
+                client_id = "b";
+                scopes = ["c"];
+                token_uri = "http://d.com";
+                not_transient_error_if = "f";
+            }
+        "#,
+        )
+        .unwrap();
+
+        let act = &c.accounts["x"];
+        assert_eq!(act.not_transient_error_if, Some("f".to_owned()));
+        assert_eq!(act.not_transient_error_if(&c), Some("f".to_owned()));
+
+        // Local overrides global
+        let c = Config::from_str(
+            r#"
+            not_transient_error_if = "e";
+            account "x" {
+                auth_uri = "http://a.com";
+                client_id = "b";
+                scopes = ["c"];
+                token_uri = "http://d.com";
+                not_transient_error_if = "f";
+            }
+        "#,
+        )
+        .unwrap();
+        assert_eq!(c.not_transient_error_if, Some("e".to_owned()));
+
+        let act = &c.accounts["x"];
+        assert_eq!(act.not_transient_error_if, Some("f".to_owned()));
+        assert_eq!(act.not_transient_error_if(&c), Some("f".to_owned()));
     }
 }
