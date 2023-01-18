@@ -85,7 +85,7 @@ impl Config {
                             return Err(error_at_span(
                                 &lexer,
                                 span,
-                                "'auth_error_cmd' has been renamed to 'error_notify_cmd'".into(),
+                                "'auth_error_cmd' has been renamed to 'error_notify_cmd'",
                             ));
                         }
                         config_ast::TopLevel::AuthNotifyCmd(span) => {

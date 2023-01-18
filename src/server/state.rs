@@ -198,7 +198,7 @@ impl<'a> CTGuard<'a> {
             .find(|x| x.1 == act_id)
             .map(|x| &x.0)
             .unwrap();
-        &*self.guard.config.accounts[act_name]
+        &self.guard.config.accounts[act_name]
     }
 
     /// Return a reference to the [TokenState] of `act_id`. The user must have validated `act_id`

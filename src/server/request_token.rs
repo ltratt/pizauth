@@ -29,7 +29,7 @@ pub fn request_token(
     let mut code_verifier = [0u8; CODE_VERIFIER_LEN];
     thread_rng().fill_bytes(&mut code_verifier);
     let code_verifier = base64::encode_config(
-        &code_verifier,
+        code_verifier,
         base64::Config::new(base64::CharacterSet::UrlSafe, false),
     );
     let mut hasher = Sha256::new();
