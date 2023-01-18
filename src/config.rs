@@ -97,21 +97,13 @@ impl Config {
                             )?)
                         }
                         config_ast::TopLevel::AuthNotifyInterval(span) => {
-                            match time_str_to_duration(check_not_assigned_time(
-                                &lexer,
-                                "auth_notify_interval",
-                                span,
-                                auth_notify_interval,
-                            )?) {
-                                Ok(t) => auth_notify_interval = Some(t),
-                                Err(e) => {
-                                    return Err(error_at_span(
-                                        &lexer,
-                                        span,
-                                        &format!("Invalid time: {e:}"),
-                                    ))
-                                }
-                            }
+                            auth_notify_interval =
+                                Some(time_str_to_duration(check_not_assigned_time(
+                                    &lexer,
+                                    "auth_notify_interval",
+                                    span,
+                                    auth_notify_interval,
+                                )?)?)
                         }
                         config_ast::TopLevel::ErrorNotifyCmd(span) => {
                             error_notify_cmd = Some(check_not_assigned_str(
@@ -305,43 +297,28 @@ impl Account {
                     )?)
                 }
                 config_ast::AccountField::RefreshAtLeast(span) => {
-                    match time_str_to_duration(check_not_assigned_time(
+                    refresh_at_least = Some(time_str_to_duration(check_not_assigned_time(
                         lexer,
                         "refresh_at_least",
                         span,
                         refresh_at_least,
-                    )?) {
-                        Ok(t) => refresh_at_least = Some(t),
-                        Err(e) => {
-                            return Err(error_at_span(lexer, span, &format!("Invalid time: {e:}")))
-                        }
-                    }
+                    )?)?)
                 }
                 config_ast::AccountField::RefreshBeforeExpiry(span) => {
-                    match time_str_to_duration(check_not_assigned_time(
+                    refresh_before_expiry = Some(time_str_to_duration(check_not_assigned_time(
                         lexer,
                         "refresh_before_expiry",
                         span,
                         refresh_before_expiry,
-                    )?) {
-                        Ok(t) => refresh_before_expiry = Some(t),
-                        Err(e) => {
-                            return Err(error_at_span(lexer, span, &format!("Invalid time: {e:}")))
-                        }
-                    }
+                    )?)?)
                 }
                 config_ast::AccountField::RefreshRetry(span) => {
-                    match time_str_to_duration(check_not_assigned_time(
+                    refresh_retry = Some(time_str_to_duration(check_not_assigned_time(
                         lexer,
                         "refresh_retry",
                         span,
                         refresh_retry,
-                    )?) {
-                        Ok(t) => refresh_retry = Some(t),
-                        Err(e) => {
-                            return Err(error_at_span(lexer, span, &format!("Invalid time: {e:}")))
-                        }
-                    }
+                    )?)?)
                 }
                 config_ast::AccountField::Scopes(span, spans) => {
                     if scopes.is_some() {
@@ -415,22 +392,25 @@ impl Account {
 /// # Panics
 ///
 /// If `t` is not in the format `[0-9]+[dhms]`.
-fn time_str_to_duration(t: &str) -> Result<Duration, Box<dyn Error>> {
-    let last_char_idx = t
-        .chars()
-        .filter(|c| c.is_numeric())
-        .map(|c| c.len_utf8())
-        .sum();
-    debug_assert!(last_char_idx < t.len());
-    let num = t[..last_char_idx].parse::<u64>()?;
-    let secs = match t.chars().last().unwrap() {
-        'd' => num.checked_mul(86400).ok_or("Number too big")?,
-        'h' => num.checked_mul(3600).ok_or("Number too big")?,
-        'm' => num.checked_mul(60).ok_or("Number too big")?,
-        's' => num,
-        _ => unreachable!(),
-    };
-    Ok(Duration::from_secs(secs))
+fn time_str_to_duration(t: &str) -> Result<Duration, String> {
+    fn inner(t: &str) -> Result<Duration, Box<dyn Error>> {
+        let last_char_idx = t
+            .chars()
+            .filter(|c| c.is_numeric())
+            .map(|c| c.len_utf8())
+            .sum();
+        debug_assert!(last_char_idx < t.len());
+        let num = t[..last_char_idx].parse::<u64>()?;
+        let secs = match t.chars().last().unwrap() {
+            'd' => num.checked_mul(86400).ok_or("Number too big")?,
+            'h' => num.checked_mul(3600).ok_or("Number too big")?,
+            'm' => num.checked_mul(60).ok_or("Number too big")?,
+            's' => num,
+            _ => unreachable!(),
+        };
+        Ok(Duration::from_secs(secs))
+    }
+    inner(t).map_err(|e| format!("Invalid time: {e}"))
 }
 
 /// Take a quoted string from the config file and unescape it (i.e. strip the start and end quote
