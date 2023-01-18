@@ -117,10 +117,7 @@ means 5 minutes.
 .Sh EXAMPLES
 An example
 .Nm
-file for accessing IMAP and SMTP services in Office365, notifying the user of
-authorisation requests via
-.Xr pizauth 1
-(and escaping '&' characters which XFCE's notification daemon fails to parse)
+file for accessing IMAP and SMTP services in Office365
 is as follows:
 .Bd -literal -offset 4n
 account "officesmtp" {
@@ -138,6 +135,12 @@ account "officesmtp" {
     login_hint = "email@example.com";
 }
 .Ed
+.Pp
+Note that Office365 requires the non-standard
+.Qq offline_access
+scope to be specified in order for
+.Xr pizauth 1
+to be able to operate successfully.
 .Sh SEE ALSO
 .Xr pizauth 1
 .Pp
