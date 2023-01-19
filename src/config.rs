@@ -14,17 +14,17 @@ lrpar_mod!("config.y");
 type StorageT = u8;
 
 /// How many seconds before an access token's expiry do we try refreshing it?
-const REFRESH_BEFORE_EXPIRY_DEFAULT: u64 = 90;
+const REFRESH_BEFORE_EXPIRY_DEFAULT: Duration = Duration::from_secs(90);
 /// How many seconds before we forcibly try refreshing an access token, even if it's not yet
 /// expired?
-const REFRESH_AT_LEAST_DEFAULT: u64 = 90 * 60;
+const REFRESH_AT_LEAST_DEFAULT: Duration = Duration::from_secs(90 * 60);
+/// How many seconds after a refresh failed in a non-permanent way before we retry refreshing?
+const REFRESH_RETRY_DEFAULT: Duration = Duration::from_secs(40);
 /// How many seconds do we raise a notification if it only contains authorisations that have been
 /// shown before?
 const AUTH_NOTIFY_INTERVAL_DEFAULT: u64 = 15 * 60;
 /// What is the default bind() address for the HTTP server?
 const HTTP_LISTEN_DEFAULT: &str = "127.0.0.1:0";
-/// How many seconds after a refresh failed in a non-permanent way before we retry refreshing?
-const REFRESH_RETRY_DEFAULT: u64 = 40;
 
 #[derive(Debug)]
 pub struct Config {
@@ -34,6 +34,9 @@ pub struct Config {
     pub error_notify_cmd: Option<String>,
     pub http_listen: String,
     not_transient_error_if: Option<String>,
+    refresh_at_least: Option<Duration>,
+    refresh_before_expiry: Option<Duration>,
+    refresh_retry: Option<Duration>,
 }
 
 impl Config {
@@ -65,6 +68,9 @@ impl Config {
         let mut error_notify_cmd = None;
         let mut http_listen = None;
         let mut not_transient_error_if = None;
+        let mut refresh_at_least = None;
+        let mut refresh_before_expiry = None;
+        let mut refresh_retry = None;
         match astopt {
             Some(Ok(opts)) => {
                 for opt in opts {
@@ -129,6 +135,31 @@ impl Config {
                                 not_transient_error_if,
                             )?)
                         }
+                        config_ast::TopLevel::RefreshAtLeast(span) => {
+                            refresh_at_least = Some(time_str_to_duration(check_not_assigned_time(
+                                &lexer,
+                                "refresh_at_least",
+                                span,
+                                refresh_at_least,
+                            )?)?)
+                        }
+                        config_ast::TopLevel::RefreshBeforeExpiry(span) => {
+                            refresh_before_expiry =
+                                Some(time_str_to_duration(check_not_assigned_time(
+                                    &lexer,
+                                    "refresh_before_expiry",
+                                    span,
+                                    refresh_before_expiry,
+                                )?)?)
+                        }
+                        config_ast::TopLevel::RefreshRetry(span) => {
+                            refresh_retry = Some(time_str_to_duration(check_not_assigned_time(
+                                &lexer,
+                                "refresh_retry",
+                                span,
+                                refresh_retry,
+                            )?)?)
+                        }
                     }
                 }
             }
@@ -147,6 +178,9 @@ impl Config {
             error_notify_cmd,
             http_listen: http_listen.unwrap_or_else(|| HTTP_LISTEN_DEFAULT.to_owned()),
             not_transient_error_if,
+            refresh_at_least,
+            refresh_before_expiry,
+            refresh_retry,
         })
     }
 }
@@ -230,9 +264,9 @@ pub struct Account {
     pub login_hint: Option<String>,
     redirect_uri: String,
     not_transient_error_if: Option<String>,
-    pub refresh_at_least: Option<Duration>,
-    pub refresh_before_expiry: Option<Duration>,
-    pub refresh_retry: Duration,
+    refresh_at_least: Option<Duration>,
+    refresh_before_expiry: Option<Duration>,
+    refresh_retry: Option<Duration>,
     pub scopes: Vec<String>,
     pub token_uri: String,
 }
@@ -362,12 +396,9 @@ impl Account {
             login_hint,
             not_transient_error_if,
             redirect_uri: redirect_uri.unwrap_or_else(|| "http://localhost/".to_owned()),
-            refresh_at_least: refresh_at_least
-                .or_else(|| Some(Duration::from_secs(REFRESH_AT_LEAST_DEFAULT))),
-            refresh_before_expiry: refresh_before_expiry
-                .or_else(|| Some(Duration::from_secs(REFRESH_BEFORE_EXPIRY_DEFAULT))),
-            refresh_retry: refresh_retry
-                .unwrap_or_else(|| Duration::from_secs(REFRESH_RETRY_DEFAULT)),
+            refresh_at_least,
+            refresh_before_expiry,
+            refresh_retry,
             scopes,
             token_uri,
         })
@@ -384,6 +415,24 @@ impl Account {
         self.not_transient_error_if
             .clone()
             .or_else(|| config.not_transient_error_if.clone())
+    }
+
+    pub fn refresh_at_least(&self, config: &Config) -> Duration {
+        self.refresh_at_least
+            .or(config.refresh_at_least)
+            .unwrap_or(REFRESH_AT_LEAST_DEFAULT)
+    }
+
+    pub fn refresh_before_expiry(&self, config: &Config) -> Duration {
+        self.refresh_before_expiry
+            .or(config.refresh_before_expiry)
+            .unwrap_or(REFRESH_BEFORE_EXPIRY_DEFAULT)
+    }
+
+    pub fn refresh_retry(&self, config: &Config) -> Duration {
+        self.refresh_retry
+            .or(config.refresh_retry)
+            .unwrap_or(REFRESH_RETRY_DEFAULT)
     }
 }
 
@@ -539,7 +588,7 @@ mod test {
         assert_eq!(act.login_hint, Some("i".to_owned()));
         assert_eq!(act.refresh_at_least, Some(Duration::from_secs(43 * 60)));
         assert_eq!(act.refresh_before_expiry, Some(Duration::from_secs(42)));
-        assert_eq!(act.refresh_retry, Duration::from_secs(33));
+        assert_eq!(act.refresh_retry(&c), Duration::from_secs(33));
     }
 
     #[test]
@@ -667,10 +716,36 @@ mod test {
 
     #[test]
     fn local_overrides() {
+        // Defaults only
+        let c = Config::from_str(
+            r#"
+            account "x" {
+                auth_uri = "http://a.com";
+                client_id = "b";
+                scopes = ["c"];
+                token_uri = "http://d.com";
+            }
+        "#,
+        )
+        .unwrap();
+        assert_eq!(c.not_transient_error_if, None);
+        assert_eq!(c.refresh_at_least, None);
+        assert_eq!(c.refresh_before_expiry, None);
+        assert_eq!(c.refresh_retry, None);
+
+        let act = &c.accounts["x"];
+        assert_eq!(act.not_transient_error_if(&c), None);
+        assert_eq!(act.refresh_at_least(&c), REFRESH_AT_LEAST_DEFAULT);
+        assert_eq!(act.refresh_before_expiry(&c), REFRESH_BEFORE_EXPIRY_DEFAULT);
+        assert_eq!(act.refresh_retry(&c), REFRESH_RETRY_DEFAULT);
+
         // Global only
         let c = Config::from_str(
             r#"
             not_transient_error_if = "e";
+            refresh_at_least = 1s;
+            refresh_before_expiry = 2s;
+            refresh_retry = 3s;
             account "x" {
                 auth_uri = "http://a.com";
                 client_id = "b";
@@ -681,9 +756,15 @@ mod test {
         )
         .unwrap();
         assert_eq!(c.not_transient_error_if, Some("e".to_owned()));
+        assert_eq!(c.refresh_at_least, Some(Duration::from_secs(1)));
+        assert_eq!(c.refresh_before_expiry, Some(Duration::from_secs(2)));
+        assert_eq!(c.refresh_retry, Some(Duration::from_secs(3)));
 
         let act = &c.accounts["x"];
         assert_eq!(act.not_transient_error_if(&c), Some("e".to_owned()));
+        assert_eq!(act.refresh_at_least(&c), Duration::from_secs(1));
+        assert_eq!(act.refresh_before_expiry(&c), Duration::from_secs(2));
+        assert_eq!(act.refresh_retry(&c), Duration::from_secs(3));
 
         // Local only
         let c = Config::from_str(
@@ -694,33 +775,115 @@ mod test {
                 scopes = ["c"];
                 token_uri = "http://d.com";
                 not_transient_error_if = "f";
+                refresh_at_least = 1s;
+                refresh_before_expiry = 2s;
+                refresh_retry = 3s;
             }
         "#,
         )
         .unwrap();
 
+        assert_eq!(c.not_transient_error_if, None);
+        assert_eq!(c.refresh_at_least, None);
+        assert_eq!(c.refresh_before_expiry, None);
+        assert_eq!(c.refresh_retry, None);
+
         let act = &c.accounts["x"];
         assert_eq!(act.not_transient_error_if, Some("f".to_owned()));
         assert_eq!(act.not_transient_error_if(&c), Some("f".to_owned()));
+        assert_eq!(act.refresh_at_least(&c), Duration::from_secs(1));
+        assert_eq!(act.refresh_before_expiry(&c), Duration::from_secs(2));
+        assert_eq!(act.refresh_retry(&c), Duration::from_secs(3));
 
         // Local overrides global
         let c = Config::from_str(
             r#"
             not_transient_error_if = "e";
+            refresh_at_least = 1s;
+            refresh_before_expiry = 2s;
+            refresh_retry = 3s;
             account "x" {
                 auth_uri = "http://a.com";
                 client_id = "b";
                 scopes = ["c"];
                 token_uri = "http://d.com";
                 not_transient_error_if = "f";
+                refresh_at_least = 4s;
+                refresh_before_expiry = 5s;
+                refresh_retry = 6s;
             }
         "#,
         )
         .unwrap();
         assert_eq!(c.not_transient_error_if, Some("e".to_owned()));
+        assert_eq!(c.refresh_at_least, Some(Duration::from_secs(1)));
+        assert_eq!(c.refresh_before_expiry, Some(Duration::from_secs(2)));
+        assert_eq!(c.refresh_retry, Some(Duration::from_secs(3)));
 
         let act = &c.accounts["x"];
         assert_eq!(act.not_transient_error_if, Some("f".to_owned()));
         assert_eq!(act.not_transient_error_if(&c), Some("f".to_owned()));
+        assert_eq!(act.refresh_at_least(&c), Duration::from_secs(4));
+        assert_eq!(act.refresh_before_expiry(&c), Duration::from_secs(5));
+        assert_eq!(act.refresh_retry(&c), Duration::from_secs(6));
+
+        // Local overrides global
+        let c = Config::from_str(
+            r#"
+            not_transient_error_if = "e";
+            refresh_at_least = 1s;
+            refresh_before_expiry = 2s;
+            refresh_retry = 3s;
+            account "x" {
+                auth_uri = "http://a.com";
+                client_id = "b";
+                scopes = ["c"];
+                token_uri = "http://d.com";
+                not_transient_error_if = "f";
+                refresh_at_least = 4s;
+                refresh_before_expiry = 5s;
+                refresh_retry = 6s;
+            }
+            account "y" {
+                auth_uri = "http://g.com";
+                client_id = "h";
+                scopes = ["i"];
+                token_uri = "http://j.com";
+                not_transient_error_if = "k";
+                refresh_at_least = 7s;
+                refresh_before_expiry = 8s;
+                refresh_retry = 9s;
+            }
+            account "z" {
+                auth_uri = "http://g.com";
+                client_id = "h";
+                scopes = ["i"];
+                token_uri = "http://j.com";
+            }
+        "#,
+        )
+        .unwrap();
+        assert_eq!(c.not_transient_error_if, Some("e".to_owned()));
+        assert_eq!(c.refresh_at_least, Some(Duration::from_secs(1)));
+        assert_eq!(c.refresh_before_expiry, Some(Duration::from_secs(2)));
+        assert_eq!(c.refresh_retry, Some(Duration::from_secs(3)));
+
+        let act = &c.accounts["x"];
+        assert_eq!(act.not_transient_error_if, Some("f".to_owned()));
+        assert_eq!(act.not_transient_error_if(&c), Some("f".to_owned()));
+        assert_eq!(act.refresh_at_least(&c), Duration::from_secs(4));
+        assert_eq!(act.refresh_before_expiry(&c), Duration::from_secs(5));
+        assert_eq!(act.refresh_retry(&c), Duration::from_secs(6));
+
+        let act = &c.accounts["y"];
+        assert_eq!(act.not_transient_error_if(&c), Some("k".to_owned()));
+        assert_eq!(act.refresh_at_least(&c), Duration::from_secs(7));
+        assert_eq!(act.refresh_before_expiry(&c), Duration::from_secs(8));
+        assert_eq!(act.refresh_retry(&c), Duration::from_secs(9));
+
+        let act = &c.accounts["z"];
+        assert_eq!(act.refresh_at_least(&c), Duration::from_secs(1));
+        assert_eq!(act.refresh_before_expiry(&c), Duration::from_secs(2));
+        assert_eq!(act.refresh_retry(&c), Duration::from_secs(3));
     }
 }

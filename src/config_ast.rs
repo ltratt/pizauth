@@ -8,6 +8,9 @@ pub enum TopLevel {
     ErrorNotifyCmd(Span),
     HttpListen(Span),
     NotTransientErrorIf(Span),
+    RefreshAtLeast(Span),
+    RefreshBeforeExpiry(Span),
+    RefreshRetry(Span),
 }
 
 pub enum AccountField {

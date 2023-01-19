@@ -28,10 +28,6 @@ use state::{AccountId, AuthenticatorState, CTGuard, TokenState};
 
 /// Length of the PKCE code verifier in bytes.
 const CODE_VERIFIER_LEN: usize = 64;
-/// If we're given a too-long expiry time, we might not be able to represent it. In such cases, we
-/// use a fixed expiry time in seconds (currently set to 44 minutes, on the basis that a plausible
-/// real expiry time is 45 minutes).
-const FALLBACK_EXPIRY_DURATION: Duration = Duration::from_secs(44 * 60);
 /// The timeout for ureq HTTP requests. It is recommended to make this value lower than
 /// REFRESH_RETRY_DEFAULT to reduce the likelihood that refresh requests overlap.
 pub const UREQ_TIMEOUT: Duration = Duration::from_secs(30);
@@ -55,12 +51,7 @@ pub fn expiry_instant(
     refreshed_at
         .checked_add(Duration::from_secs(expires_in))
         .or_else(|| {
-            refreshed_at.checked_add(
-                ct_lk
-                    .account(act_id)
-                    .refresh_at_least
-                    .unwrap_or(FALLBACK_EXPIRY_DURATION),
-            )
+            refreshed_at.checked_add(ct_lk.account(act_id).refresh_at_least(&ct_lk.config()))
         })
         .ok_or_else(|| "Can't represent expiry".into())
 }

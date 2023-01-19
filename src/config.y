@@ -17,6 +17,9 @@ TopLevel -> Result<TopLevel, ()>:
   | "ERROR_NOTIFY_CMD" "=" "STRING" ";" { Ok(TopLevel::ErrorNotifyCmd(map_err($3)?)) }
   | "HTTP_LISTEN" "=" "STRING" ";" { Ok(TopLevel::HttpListen(map_err($3)?)) }
   | "NOT_TRANSIENT_ERROR_IF" "=" "STRING" ";" { Ok(TopLevel::NotTransientErrorIf(map_err($3)?)) }
+  | "REFRESH_AT_LEAST" "=" "TIME" ";" { Ok(TopLevel::RefreshAtLeast(map_err($3)?)) }
+  | "REFRESH_BEFORE_EXPIRY" "=" "TIME" ";" { Ok(TopLevel::RefreshBeforeExpiry(map_err($3)?)) }
+  | "REFRESH_RETRY" "=" "TIME" ";" { Ok(TopLevel::RefreshRetry(map_err($3)?)) }
   ;
 
 AccountFields -> Result<Vec<AccountField>, ()>:
