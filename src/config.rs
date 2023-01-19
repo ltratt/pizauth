@@ -2,7 +2,7 @@ use std::{
     collections::HashMap, error::Error, fs::read_to_string, path::Path, sync::Arc, time::Duration,
 };
 
-use lrlex::{lrlex_mod, DefaultLexeme, LRNonStreamingLexer};
+use lrlex::{lrlex_mod, DefaultLexerTypes, LRNonStreamingLexer};
 use lrpar::{lrpar_mod, NonStreamingLexer, Span};
 use url::Url;
 
@@ -186,7 +186,7 @@ impl Config {
 }
 
 fn check_not_assigned_str<T>(
-    lexer: &LRNonStreamingLexer<DefaultLexeme<StorageT>, StorageT>,
+    lexer: &LRNonStreamingLexer<DefaultLexerTypes<StorageT>>,
     name: &str,
     span: Span,
     v: Option<T>,
@@ -202,7 +202,7 @@ fn check_not_assigned_str<T>(
 }
 
 fn check_not_assigned_time<'a, T>(
-    lexer: &'a LRNonStreamingLexer<DefaultLexeme<StorageT>, StorageT>,
+    lexer: &'a LRNonStreamingLexer<DefaultLexerTypes<StorageT>>,
     name: &str,
     span: Span,
     v: Option<T>,
@@ -218,7 +218,7 @@ fn check_not_assigned_time<'a, T>(
 }
 
 fn check_not_assigned_uri<T>(
-    lexer: &LRNonStreamingLexer<DefaultLexeme<StorageT>, StorageT>,
+    lexer: &LRNonStreamingLexer<DefaultLexerTypes<StorageT>>,
     name: &str,
     span: Span,
     v: Option<T>,
@@ -240,7 +240,7 @@ fn check_not_assigned_uri<T>(
 }
 
 fn check_assigned<T>(
-    lexer: &LRNonStreamingLexer<DefaultLexeme<StorageT>, StorageT>,
+    lexer: &LRNonStreamingLexer<DefaultLexerTypes<StorageT>>,
     name: &str,
     span: Span,
     v: Option<T>,
@@ -274,7 +274,7 @@ pub struct Account {
 impl Account {
     fn from_fields(
         name: String,
-        lexer: &LRNonStreamingLexer<DefaultLexeme<StorageT>, StorageT>,
+        lexer: &LRNonStreamingLexer<DefaultLexerTypes<StorageT>>,
         overall_span: Span,
         fields: Vec<config_ast::AccountField>,
     ) -> Result<Self, String> {
@@ -492,7 +492,7 @@ fn unescape_str(us: &str) -> String {
 
 /// Return an error message pinpointing `span` as the culprit.
 fn error_at_span(
-    lexer: &LRNonStreamingLexer<DefaultLexeme<StorageT>, StorageT>,
+    lexer: &LRNonStreamingLexer<DefaultLexerTypes<StorageT>>,
     span: Span,
     msg: &str,
 ) -> String {

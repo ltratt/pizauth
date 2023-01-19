@@ -1,6 +1,7 @@
 %start TopLevels
-%avoid_insert "INT" "STRING"
+%avoid_insert "STRING"
 %epp TIME "<time>[dhms]"
+%expect-unused Unmatched "UNMATCHED"
 
 %%
 
