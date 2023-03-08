@@ -10,5 +10,5 @@ account "officesmtp" {
     ];
     // You don't have to specify login_hint, but it does make
     // authentication a little easier.
-    login_hint = "email@example.com";
+    auth_uri_fields = { "login_hint": "email@example.com" };
 }

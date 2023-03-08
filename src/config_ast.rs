@@ -15,6 +15,7 @@ pub enum TopLevel {
 
 pub enum AccountField {
     AuthUri(Span),
+    AuthUriFields(Span, Vec<(Span, Span)>),
     ClientId(Span),
     ClientSecret(Span),
     LoginHint(Span),

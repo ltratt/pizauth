@@ -53,8 +53,8 @@ pub fn request_token(
     if !act.scopes.is_empty() {
         params.push(("scope", scopes_join.as_str()));
     }
-    if let Some(x) = &act.login_hint {
-        params.push(("login_hint", x));
+    for (k, v) in &act.auth_uri_fields {
+        params.push((k.as_str(), v.as_str()));
     }
     let url = Url::parse_with_params(ct_lk.account(act_id).auth_uri.as_str(), &params)?;
     ct_lk.tokenstate_replace(

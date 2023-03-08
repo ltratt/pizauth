@@ -259,6 +259,7 @@ fn check_assigned<T>(
 pub struct Account {
     pub name: String,
     pub auth_uri: String,
+    pub auth_uri_fields: Vec<(String, String)>,
     pub client_id: String,
     pub client_secret: Option<String>,
     pub login_hint: Option<String>,
@@ -279,6 +280,7 @@ impl Account {
         fields: Vec<config_ast::AccountField>,
     ) -> Result<Self, String> {
         let mut auth_uri = None;
+        let mut auth_uri_fields = None;
         let mut client_id = None;
         let mut client_secret = None;
         let mut login_hint = None;
@@ -294,6 +296,27 @@ impl Account {
             match f {
                 config_ast::AccountField::AuthUri(span) => {
                     auth_uri = Some(check_not_assigned_uri(lexer, "auth_uri", span, auth_uri)?)
+                }
+                config_ast::AccountField::AuthUriFields(span, spans) => {
+                    if auth_uri_fields.is_some() {
+                        debug_assert!(!spans.is_empty());
+                        return Err(error_at_span(
+                            lexer,
+                            span,
+                            "Mustn't specify 'auth_uri_fields' more than once",
+                        ));
+                    }
+                    auth_uri_fields = Some(
+                        spans
+                            .iter()
+                            .map(|(key_sp, val_sp)| {
+                                (
+                                    unescape_str(lexer.span_str(*key_sp)),
+                                    unescape_str(lexer.span_str(*val_sp)),
+                                )
+                            })
+                            .collect::<Vec<(String, String)>>(),
+                    );
                 }
                 config_ast::AccountField::ClientId(span) => {
                     client_id = Some(check_not_assigned_str(lexer, "client_id", span, client_id)?)
@@ -380,9 +403,18 @@ impl Account {
         let client_id = check_assigned(lexer, "client_id", overall_span, client_id)?;
         let token_uri = check_assigned(lexer, "token_uri", overall_span, token_uri)?;
 
+        // We allow the deprecated `login_hint` field through but don't want to allow it to clash
+        // with a field of the same name in `auth_uri_fields`.
+        if let (Some(_), Some(auth_uri_fields)) = (&login_hint, &auth_uri_fields) {
+            if auth_uri_fields.iter().any(|(k, _)| k == "login_hint") {
+                return Err(error_at_span(lexer, overall_span, "Both the 'login_hint' attribute and a 'auth_uri_fields' field with the name 'login_hint' are specified. The 'login_hint' attribute is deprecated so remove it."));
+            }
+        }
+
         Ok(Account {
             name,
             auth_uri,
+            auth_uri_fields: auth_uri_fields.unwrap_or_else(Vec::new),
             client_id,
             client_secret,
             login_hint,
@@ -391,7 +423,7 @@ impl Account {
             refresh_at_least,
             refresh_before_expiry,
             refresh_retry,
-            scopes: scopes.unwrap_or_else(|| Vec::new()),
+            scopes: scopes.unwrap_or_else(Vec::new),
             token_uri,
         })
     }
@@ -550,6 +582,7 @@ mod test {
             account "x" {
                 // Mandatory fields
                 auth_uri = "http://a.com";
+                auth_uri_fields = {"l": "m", "n": "o", "l": "p"};
                 client_id = "b";
                 scopes = ["c", "d"];
                 token_uri = "http://f.com";
@@ -572,12 +605,20 @@ mod test {
 
         let act = &c.accounts["x"];
         assert_eq!(act.auth_uri, "http://a.com");
+        assert_eq!(
+            &act.auth_uri_fields,
+            &[
+                ("l".to_owned(), "m".to_owned()),
+                ("n".to_owned(), "o".to_owned()),
+                ("l".to_owned(), "p".to_owned())
+            ]
+        );
         assert_eq!(act.client_id, "b");
         assert_eq!(act.client_secret, Some("h".to_owned()));
-        assert_eq!(&act.scopes, &["c".to_owned(), "d".to_owned()]);
+        assert_eq!(act.login_hint, Some("i".to_owned()));
         assert_eq!(act.redirect_uri, "http://e.com");
         assert_eq!(act.token_uri, "http://f.com");
-        assert_eq!(act.login_hint, Some("i".to_owned()));
+        assert_eq!(&act.scopes, &["c".to_owned(), "d".to_owned()]);
         assert_eq!(act.refresh_at_least, Some(Duration::from_secs(43 * 60)));
         assert_eq!(act.refresh_before_expiry, Some(Duration::from_secs(42)));
         assert_eq!(act.refresh_retry(&c), Duration::from_secs(33));
@@ -639,6 +680,7 @@ mod test {
         }
 
         account_dup("auth_uri", &[r#""http://a.com/""#, r#""http://b.com/""#]);
+        account_dup("auth_uri_fields", &[r#"{"a": "b"}"#, r#"{"c": "d"}"#]);
         account_dup("client_id", &[r#""a""#, r#""b""#]);
         account_dup("client_secret", &[r#""a""#, r#""b""#]);
         account_dup("login_hint", &[r#""a""#, r#""b""#]);
@@ -691,7 +733,7 @@ mod test {
             match Config::from_str(&format!(r#"account "a" {{ {} }}"#, combine(&f))) {
                 Err(e) if e.contains("not specified") => (),
                 Err(e) => panic!("{e:}"),
-                _ => panic!(),
+                e => panic!("{e:?}"),
             }
         }
     }
@@ -867,5 +909,23 @@ mod test {
         assert_eq!(act.refresh_at_least(&c), Duration::from_secs(1));
         assert_eq!(act.refresh_before_expiry(&c), Duration::from_secs(2));
         assert_eq!(act.refresh_retry(&c), Duration::from_secs(3));
+    }
+
+    #[test]
+    fn login_hint_mutually_exclusive_query_field() {
+        let c = format!(
+            r#"account "x" {{
+            auth_uri = "http://a.com/";
+            auth_uri_fields = {{ "login_hint": "e" }};
+            client_id = "b";
+            token_uri = "https://c.com/";
+            login_hint = "d";
+          }}"#
+        );
+        match Config::from_str(&c) {
+            Err(e) if e.contains("Both the 'login_hint' attribute and a 'auth_uri_fields' field with the name 'login_hint' are specified. The 'login_hint' attribute is deprecated so remove it.") => (),
+            Err(e) => panic!("{e:}"),
+            _ => panic!(),
+        }
     }
 }

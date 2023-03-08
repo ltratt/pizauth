@@ -30,6 +30,7 @@ AccountFields -> Result<Vec<AccountField>, ()>:
 
 AccountField -> Result<AccountField, ()>:
     "AUTH_URI" "=" "STRING" ";" { Ok(AccountField::AuthUri(map_err($3)?)) }
+  | "AUTH_URI_FIELDS" "=" "{" AuthUriFields "}" ";" { Ok(AccountField::AuthUriFields($1.unwrap_or_else(|x| x).span(), $4?)) }
   | "CLIENT_ID" "=" "STRING" ";" { Ok(AccountField::ClientId(map_err($3)?)) }
   | "CLIENT_SECRET" "=" "STRING" ";" { Ok(AccountField::ClientSecret(map_err($3)?)) }
   | "LOGIN_HINT" "=" "STRING" ";" { Ok(AccountField::LoginHint(map_err($3)?)) }
@@ -40,6 +41,16 @@ AccountField -> Result<AccountField, ()>:
   | "REFRESH_RETRY" "=" "TIME" ";" { Ok(AccountField::RefreshRetry(map_err($3)?)) }
   | "SCOPES" "=" "[" Scopes "]" ";" { Ok(AccountField::Scopes($1.unwrap_or_else(|x| x).span(), $4?)) }
   | "TOKEN_URI" "=" "STRING" ";" { Ok(AccountField::TokenUri(map_err($3)?)) }
+  ;
+
+AuthUriFields -> Result<Vec<(Span, Span)>, ()>:
+    AuthUriFields "," "STRING" ":" "STRING" {
+      let mut spans = $1?;
+      spans.push((map_err($3)?, map_err($5)?));
+      Ok(spans)
+    }
+  | "STRING" ":" "STRING" { Ok(vec![(map_err($1)?, map_err($3)?)]) }
+  | { Ok(vec![]) }
   ;
 
 Scopes -> Result<Vec<Span>, ()>:

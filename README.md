@@ -57,7 +57,7 @@ account "officesmtp" {
     ];
     // You don't have to specify login_hint, but it does make authentication a
     // little easier.
-    login_hint = "email@example.com";
+    auth_uri_fields = { "login_hint": "email@example.com" };
 }
 ```
 
@@ -208,6 +208,7 @@ platform](https://docs.microsoft.com/en-us/azure/active-directory/develop/quicks
 ```
 account "<your-account-name>" {
     auth_uri = "https://login.microsoftonline.com/common/oauth2/v2.0/authorize";
+    auth_uri_fields = { "login_hint": "<your-email-address>" };
     token_uri = "https://login.microsoftonline.com/common/oauth2/v2.0/token";
     client_id = "<your-client-id>";
     client_secret = "<your-client-secret>";
@@ -217,7 +218,6 @@ account "<your-account-name>" {
       "https://outlook.office365.com/SMTP.Send",
       "offline_access"
     ];
-    login_hint = "<your-email-address>";
 }
 ```
 
@@ -230,11 +230,11 @@ Google Cloud Console.
 ```
 account "<your-account-name>" {
     auth_uri = "https://accounts.google.com/o/oauth2/auth";
+    auth_uri_fields = {"login_hint": "<your-email-address>"};
     token_uri = "https://oauth2.googleapis.com/token";
     client_id = "<your-client-id>";
     client_secret = "<your-client-secret>";
     scopes = ["https://mail.google.com/"];
-    login_hint = "<your-email-address>";
 }
 ```
 
@@ -252,7 +252,6 @@ account "<your-account-name>" {
     token_uri = "https://api.mcs3.miele.com/thirdparty/token/";
     client_id = "<your-client-id>";
     client_secret = "<your-client-secret>";
-    login_hint = "<your-email-address>";
 }
 ```
 

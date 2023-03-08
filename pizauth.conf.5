@@ -77,6 +77,20 @@ where
 .Em URI
 is a URI specifying the OAuth2 server's authentication URI.
 Mandatory.
+.It Sy auth_uri_fields = { Qo Em Key 1 Qc : Qo Em Val 1 Qc , ..., Qo Em Key n Qc : Qo Val n Qc } ;
+specifies zero or more query fields to be passed to
+.Sy auth_uri
+after any fields that
+.Nm
+may have added itself.
+Keys (and their values) are added to
+.Sy auth_uri
+in the order they appear in
+.Sy auth_uri_fields ,
+each separated by
+.Qq & .
+The same key may be specified multiple times.
+Optional.
 .It Sy client_id = Qo Em ID Qc ;
 specifies the OAuth2 client ID (i.e. the identifier of the client software).
 Mandatory.
@@ -89,6 +103,10 @@ is used by the authentication server to help the user understand which account
 they are authenticating.
 Typically a username or email address.
 Optional.
+.Em Deprecated :
+use
+.Ql auth_uri_fields = { Qo login_hint Qc : Qo Hint Qc }
+instead.
 .It Sy not_transient_error_if = Qo Em shell-cmd Qc ;
 Overrides the global
 .Sy not_transient_error_if
@@ -152,7 +170,7 @@ account "officesmtp" {
     ];
     // You don't have to specify login_hint, but it does make
     // authentication a little easier.
-    login_hint = "email@example.com";
+    auth_uri_fields = { "login_hint": "email@example.com" };
 }
 .Ed
 .Pp
