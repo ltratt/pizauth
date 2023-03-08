@@ -383,18 +383,18 @@ impl Refresher {
                     //      expiry).
                     // If the second case occurs, we assume that the user knows that the token
                     // really needs refreshing, and we treat the token as if it had expired.
-                    if let Some(t) = lra.checked_add(act.refresh_retry(&ct_lk.config())) {
+                    if let Some(t) = lra.checked_add(act.refresh_retry(ct_lk.config())) {
                         return Some(t.to_owned());
                     }
                 }
 
                 expiry = expiry
-                    .checked_sub(act.refresh_before_expiry(&ct_lk.config()))
+                    .checked_sub(act.refresh_before_expiry(ct_lk.config()))
                     .unwrap_or_else(|| cmp::min(Instant::now(), expiry));
 
                 // There is no concept of Instant::MAX, so if `refreshed_at + d` exceeds
                 // Instant's bounds, there's nothing we can fall back on.
-                if let Some(t) = refreshed_at.checked_add(act.refresh_at_least(&ct_lk.config())) {
+                if let Some(t) = refreshed_at.checked_add(act.refresh_at_least(ct_lk.config())) {
                     expiry = cmp::min(expiry, t);
                 }
                 Some(expiry.to_owned())

@@ -414,7 +414,7 @@ impl Account {
         Ok(Account {
             name,
             auth_uri,
-            auth_uri_fields: auth_uri_fields.unwrap_or_else(Vec::new),
+            auth_uri_fields: auth_uri_fields.unwrap_or_default(),
             client_id,
             client_secret,
             login_hint,
@@ -423,7 +423,7 @@ impl Account {
             refresh_at_least,
             refresh_before_expiry,
             refresh_retry,
-            scopes: scopes.unwrap_or_else(Vec::new),
+            scopes: scopes.unwrap_or_default(),
             token_uri,
         })
     }

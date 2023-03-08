@@ -51,7 +51,7 @@ pub fn expiry_instant(
     refreshed_at
         .checked_add(Duration::from_secs(expires_in))
         .or_else(|| {
-            refreshed_at.checked_add(ct_lk.account(act_id).refresh_at_least(&ct_lk.config()))
+            refreshed_at.checked_add(ct_lk.account(act_id).refresh_at_least(ct_lk.config()))
         })
         .ok_or_else(|| "Can't represent expiry".into())
 }

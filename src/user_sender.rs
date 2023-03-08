@@ -11,7 +11,7 @@ use crate::server::sock_path;
 pub fn refresh(cache_path: &Path, account: &str, with_url: bool) -> Result<(), Box<dyn Error>> {
     let sock_path = sock_path(cache_path);
     let with_url = if with_url { "withurl" } else { "withouturl" };
-    let mut stream = UnixStream::connect(&sock_path)
+    let mut stream = UnixStream::connect(sock_path)
         .map_err(|_| "pizauth authenticator not running or not responding")?;
     stream
         .write_all(format!("refresh {with_url:} {account:}").as_bytes())
@@ -32,7 +32,7 @@ pub fn refresh(cache_path: &Path, account: &str, with_url: bool) -> Result<(), B
 
 pub fn reload(cache_path: &Path) -> Result<(), Box<dyn Error>> {
     let sock_path = sock_path(cache_path);
-    let mut stream = UnixStream::connect(&sock_path)
+    let mut stream = UnixStream::connect(sock_path)
         .map_err(|_| "pizauth authenticator not running or not responding")?;
     stream
         .write_all(b"reload")
@@ -51,7 +51,7 @@ pub fn reload(cache_path: &Path) -> Result<(), Box<dyn Error>> {
 pub fn show_token(cache_path: &Path, account: &str, with_url: bool) -> Result<(), Box<dyn Error>> {
     let sock_path = sock_path(cache_path);
     let with_url = if with_url { "withurl" } else { "withouturl" };
-    let mut stream = UnixStream::connect(&sock_path)
+    let mut stream = UnixStream::connect(sock_path)
         .map_err(|_| "pizauth authenticator not running or not responding")?;
     stream
         .write_all(format!("showtoken {with_url:} {account:}").as_bytes())
@@ -75,7 +75,7 @@ pub fn show_token(cache_path: &Path, account: &str, with_url: bool) -> Result<()
 
 pub fn shutdown(cache_path: &Path) -> Result<(), Box<dyn Error>> {
     let sock_path = sock_path(cache_path);
-    let mut stream = UnixStream::connect(&sock_path)
+    let mut stream = UnixStream::connect(sock_path)
         .map_err(|_| "pizauth authenticator not running or not responding")?;
     stream
         .write_all(b"shutdown")
