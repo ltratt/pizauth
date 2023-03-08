@@ -26,9 +26,9 @@ At a minimum you need to find out from your provider:
   * The token URI.
   * Your "Client ID" (and in many cases also your "Client secret"), which
     identify your software.
-  * The scope(s) which your OAuth2 access token will give you access to. For
-    pizauth to be able to refresh tokens, you may need to add an explicit
-    `offline_access` scope.
+  * (In some cases) The scope(s) which your OAuth2 access token will give you
+    access to. For pizauth to be able to refresh tokens, you may need to add an
+    explicit `offline_access` scope.
   * (In some cases) The redirect URI (you must copy this *exactly*, including
     trailing slash `/` characters). The default value of `http://localhost/`
     suffices in most instances.
@@ -234,6 +234,24 @@ account "<your-account-name>" {
     client_id = "<your-client-id>";
     client_secret = "<your-client-secret>";
     scopes = ["https://mail.google.com/"];
+    login_hint = "<your-email-address>";
+}
+```
+
+### Miele
+
+You may need to create your own client ID and secret via the [get involved
+tab](https://www.miele.com/f/com/en/register_api.aspx) of the Miele Developer
+site.
+
+No scopes are needed.
+
+```
+account "<your-account-name>" {
+    auth_uri = "https://api.mcs3.miele.com/thirdparty/login/";
+    token_uri = "https://api.mcs3.miele.com/thirdparty/token/";
+    client_id = "<your-client-id>";
+    client_secret = "<your-client-secret>";
     login_hint = "<your-email-address>";
 }
 ```

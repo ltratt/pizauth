@@ -363,13 +363,6 @@ impl Account {
                             "Mustn't specify 'scopes' more than once",
                         ));
                     }
-                    if spans.is_empty() {
-                        return Err(error_at_span(
-                            lexer,
-                            span,
-                            "Must specify at least one scope",
-                        ));
-                    }
                     scopes = Some(
                         spans
                             .iter()
@@ -385,7 +378,6 @@ impl Account {
 
         let auth_uri = check_assigned(lexer, "auth_uri", overall_span, auth_uri)?;
         let client_id = check_assigned(lexer, "client_id", overall_span, client_id)?;
-        let scopes = check_assigned(lexer, "scopes", overall_span, scopes)?;
         let token_uri = check_assigned(lexer, "token_uri", overall_span, token_uri)?;
 
         Ok(Account {
@@ -399,7 +391,7 @@ impl Account {
             refresh_at_least,
             refresh_before_expiry,
             refresh_retry,
-            scopes,
+            scopes: scopes.unwrap_or_else(|| Vec::new()),
             token_uri,
         })
     }
@@ -661,15 +653,6 @@ mod test {
     }
 
     #[test]
-    fn at_least_one_scope() {
-        match Config::from_str(r#"account "x" { scopes = []; }"#) {
-            Err(e) if e.contains("Must specify at least one scope") => (),
-            Err(e) => panic!("{e:}"),
-            _ => panic!(),
-        }
-    }
-
-    #[test]
     fn invalid_uris() {
         fn invalid_uri(field: &str) {
             let c = format!(r#"account "x" {{ {field} = "blah"; }}"#);
@@ -690,7 +673,6 @@ mod test {
         let fields = &[
             ("auth_uri", r#""http://a.com/""#),
             ("client_id", r#""a""#),
-            ("scopes", r#"["a"]"#),
             ("token_uri", r#""http://b.com/""#),
         ];
 

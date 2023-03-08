@@ -45,12 +45,14 @@ pub fn request_token(
         ("access_type", "offline"),
         ("code_challenge", &code_challenge),
         ("code_challenge_method", "S256"),
-        ("scope", scopes_join.as_str()),
         ("client_id", act.client_id.as_str()),
         ("redirect_uri", redirect_uri.as_str()),
         ("response_type", "code"),
         ("state", &state),
     ];
+    if !act.scopes.is_empty() {
+        params.push(("scope", scopes_join.as_str()));
+    }
     if let Some(x) = &act.login_hint {
         params.push(("login_hint", x));
     }
