@@ -307,7 +307,7 @@ pub enum TokenState {
     Active {
         access_token: String,
         /// When does the current access token expire?
-        expiry: Instant,
+        access_token_expiry: Instant,
         /// When did we obtain the current access_token?
         refreshed_at: Instant,
         /// We may have been given a refresh token which may allow us to obtain another access

@@ -197,7 +197,7 @@ fn request(pstate: Arc<AuthenticatorState>, mut stream: TcpStream) -> Result<(),
                 act_id,
                 TokenState::Active {
                     access_token: access_token.to_owned(),
-                    expiry,
+                    access_token_expiry: expiry,
                     ongoing_refresh: false,
                     consecutive_refresh_fails: 0,
                     refreshed_at,

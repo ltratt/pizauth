@@ -332,7 +332,7 @@ impl Refresher {
                         act_id,
                         TokenState::Active {
                             access_token: access_token.to_owned(),
-                            expiry,
+                            access_token_expiry: expiry,
                             ongoing_refresh: false,
                             consecutive_refresh_fails: 0,
                             refreshed_at,
@@ -368,7 +368,7 @@ impl Refresher {
     ) -> Option<Instant> {
         match ct_lk.tokenstate(act_id) {
             TokenState::Active {
-                mut expiry,
+                access_token_expiry,
                 ongoing_refresh,
                 refreshed_at,
                 last_refresh_attempt,
@@ -388,9 +388,9 @@ impl Refresher {
                     }
                 }
 
-                expiry = expiry
+                let mut expiry = access_token_expiry
                     .checked_sub(act.refresh_before_expiry(ct_lk.config()))
-                    .unwrap_or_else(|| cmp::min(Instant::now(), expiry));
+                    .unwrap_or_else(|| cmp::min(Instant::now(), *access_token_expiry));
 
                 // There is no concept of Instant::MAX, so if `refreshed_at + d` exceeds
                 // Instant's bounds, there's nothing we can fall back on.
