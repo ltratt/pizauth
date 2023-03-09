@@ -262,7 +262,6 @@ pub struct Account {
     pub auth_uri_fields: Vec<(String, String)>,
     pub client_id: String,
     pub client_secret: Option<String>,
-    pub login_hint: Option<String>,
     redirect_uri: String,
     not_transient_error_if: Option<String>,
     refresh_at_least: Option<Duration>,
@@ -417,7 +416,6 @@ impl Account {
             auth_uri_fields: auth_uri_fields.unwrap_or_default(),
             client_id,
             client_secret,
-            login_hint,
             not_transient_error_if,
             redirect_uri: redirect_uri.unwrap_or_else(|| "http://localhost/".to_owned()),
             refresh_at_least,
@@ -615,7 +613,6 @@ mod test {
         );
         assert_eq!(act.client_id, "b");
         assert_eq!(act.client_secret, Some("h".to_owned()));
-        assert_eq!(act.login_hint, Some("i".to_owned()));
         assert_eq!(act.redirect_uri, "http://e.com");
         assert_eq!(act.token_uri, "http://f.com");
         assert_eq!(&act.scopes, &["c".to_owned(), "d".to_owned()]);
