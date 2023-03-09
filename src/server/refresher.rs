@@ -318,10 +318,10 @@ impl Refresher {
             parsed["token_type"].as_str(),
         ) {
             (Some(access_token), Some(expires_in), Some(token_type)) if token_type == "Bearer" => {
-                let refreshed_at = Instant::now();
+                let now = Instant::now();
                 let mut ct_lk = pstate.ct_lock();
                 if ct_lk.is_act_id_valid(act_id) {
-                    let expiry = match expiry_instant(&ct_lk, act_id, refreshed_at, expires_in) {
+                    let expiry = match expiry_instant(&ct_lk, act_id, now, expires_in) {
                         Ok(x) => x,
                         Err(e) => {
                             ct_lk.tokenstate_replace(act_id, TokenState::Empty);
@@ -332,10 +332,10 @@ impl Refresher {
                         act_id,
                         TokenState::Active {
                             access_token: access_token.to_owned(),
+                            access_token_obtained: now,
                             access_token_expiry: expiry,
                             ongoing_refresh: false,
                             consecutive_refresh_fails: 0,
-                            refreshed_at,
                             last_refresh_attempt: None,
                             refresh_token: Some(refresh_token),
                         },
@@ -368,9 +368,9 @@ impl Refresher {
     ) -> Option<Instant> {
         match ct_lk.tokenstate(act_id) {
             TokenState::Active {
+                access_token_obtained,
                 access_token_expiry,
                 ongoing_refresh,
-                refreshed_at,
                 last_refresh_attempt,
                 ..
             } if !ongoing_refresh => {
@@ -392,9 +392,11 @@ impl Refresher {
                     .checked_sub(act.refresh_before_expiry(ct_lk.config()))
                     .unwrap_or_else(|| cmp::min(Instant::now(), *access_token_expiry));
 
-                // There is no concept of Instant::MAX, so if `refreshed_at + d` exceeds
+                // There is no concept of Instant::MAX, so if `access_token_obtained + d` exceeds
                 // Instant's bounds, there's nothing we can fall back on.
-                if let Some(t) = refreshed_at.checked_add(act.refresh_at_least(ct_lk.config())) {
+                if let Some(t) =
+                    access_token_obtained.checked_add(act.refresh_at_least(ct_lk.config()))
+                {
                     expiry = cmp::min(expiry, t);
                 }
                 Some(expiry.to_owned())

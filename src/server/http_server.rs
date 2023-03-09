@@ -191,16 +191,16 @@ fn request(pstate: Arc<AuthenticatorState>, mut stream: TcpStream) -> Result<(),
         (Some(token_type), Some(expires_in), Some(access_token), refresh_token)
             if token_type == "Bearer" =>
         {
-            let refreshed_at = Instant::now();
-            let expiry = expiry_instant(&ct_lk, act_id, refreshed_at, expires_in)?;
+            let now = Instant::now();
+            let expiry = expiry_instant(&ct_lk, act_id, now, expires_in)?;
             ct_lk.tokenstate_replace(
                 act_id,
                 TokenState::Active {
                     access_token: access_token.to_owned(),
+                    access_token_obtained: now,
                     access_token_expiry: expiry,
                     ongoing_refresh: false,
                     consecutive_refresh_fails: 0,
-                    refreshed_at,
                     last_refresh_attempt: None,
                     refresh_token: refresh_token.map(|x| x.to_owned()),
                 },

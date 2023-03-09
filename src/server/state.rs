@@ -306,10 +306,10 @@ pub enum TokenState {
     /// There is an active token (and, possibly, also an active refresh token).
     Active {
         access_token: String,
+        /// When did we obtain the current access_token?
+        access_token_obtained: Instant,
         /// When does the current access token expire?
         access_token_expiry: Instant,
-        /// When did we obtain the current access_token?
-        refreshed_at: Instant,
         /// We may have been given a refresh token which may allow us to obtain another access
         /// token when the existing one expires (notice the two "may"s!). The remaining fields in
         /// the `Active` variant are only relevant if `refresh_token` is `Some(...)`.
