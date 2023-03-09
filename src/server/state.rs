@@ -306,16 +306,21 @@ pub enum TokenState {
     /// There is an active token (and, possibly, also an active refresh token).
     Active {
         access_token: String,
+        /// When does the current access token expire?
+        expiry: Instant,
+        /// When did we obtain the current access_token?
+        refreshed_at: Instant,
+        /// We may have been given a refresh token which may allow us to obtain another access
+        /// token when the existing one expires (notice the two "may"s!). The remaining fields in
+        /// the `Active` variant are only relevant if `refresh_token` is `Some(...)`.
+        refresh_token: Option<String>,
         /// Is the refresher currently trying to refresh this token?
         ongoing_refresh: bool,
         /// How many times in a row has refreshing failed? This will be reset to zero when
         /// refreshing succeeds.
         consecutive_refresh_fails: u64,
-        refreshed_at: Instant,
         /// The instant in time when the last ongoing, or unsuccessful, refresh attempt was made.
         last_refresh_attempt: Option<Instant>,
-        expiry: Instant,
-        refresh_token: Option<String>,
     },
 }
 
