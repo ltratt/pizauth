@@ -11,6 +11,7 @@ use std::{
 
 #[cfg(debug_assertions)]
 use log::debug;
+use log::error;
 use wait_timeout::ChildExt;
 
 use super::{expiry_instant, AccountId, AuthenticatorState, CTGuard, TokenState, UREQ_TIMEOUT};
@@ -66,6 +67,7 @@ impl Refresher {
                             RefreshKind::AccountOrTokenStateChanged => (),
                             RefreshKind::NoRefreshToken => (),
                             RefreshKind::PermanentError(msg) => {
+                                error!("{msg}");
                                 pstate
                                     .notifier
                                     .notify_error(
