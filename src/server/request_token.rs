@@ -1,5 +1,6 @@
 use std::{error::Error, sync::Arc};
 
+use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
 use rand::{thread_rng, RngCore};
 use sha2::{Digest, Sha256};
 use url::Url;
@@ -21,23 +22,14 @@ pub fn request_token(
 
     let mut state = [0u8; STATE_LEN];
     thread_rng().fill_bytes(&mut state);
-    let state = base64::encode_config(
-        state,
-        base64::Config::new(base64::CharacterSet::UrlSafe, false),
-    );
+    let state = URL_SAFE_NO_PAD.encode(state);
 
     let mut code_verifier = [0u8; CODE_VERIFIER_LEN];
     thread_rng().fill_bytes(&mut code_verifier);
-    let code_verifier = base64::encode_config(
-        code_verifier,
-        base64::Config::new(base64::CharacterSet::UrlSafe, false),
-    );
+    let code_verifier = URL_SAFE_NO_PAD.encode(code_verifier);
     let mut hasher = Sha256::new();
     hasher.update(&code_verifier);
-    let code_challenge = base64::encode_config(
-        hasher.finalize(),
-        base64::Config::new(base64::CharacterSet::UrlSafe, false),
-    );
+    let code_challenge = URL_SAFE_NO_PAD.encode(hasher.finalize());
 
     let scopes_join = act.scopes.join(" ");
     let redirect_uri = act.redirect_uri(pstate.http_port)?.to_string();

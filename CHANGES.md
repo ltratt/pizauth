@@ -1,3 +1,34 @@
+# pizauth 0.2.1 (2023-03-11)
+
+* `login_hint` is now deprecated in favour of the more general `auth_uri_fields`.
+  Change:
+
+```
+login_hint = "email@example.com";
+```
+
+to:
+
+```
+auth_uri_fields = { "login_hint": "email@example.com" };
+```
+
+  Currently `login_hint` is silently transformed into the equivalent
+  `auth_uri_fields` for backwards compatibility.
+
+* `auth_uri_fields` allows users to specify zero or more key/value pairs to be
+  appended to the authorisation URI. Keys (and their values) are appended
+  in the order they appear in `auth_uri_fields`, each separated by a `&`. The
+  same key may be specified multiple times.
+
+* Several options can now be set globally and overridden in individual accounts:
+    * `not_transient_error_if`
+    * `refresh_at_least`
+    * `refresh_before_expiry`
+    * `refresh_retry`
+
+* `scopes` is now optional and also, equivalently, can be empty.
+
 # pizauth 0.2.0 (2022-12-14)
 
 ## Breaking changes
