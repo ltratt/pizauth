@@ -17,7 +17,7 @@ lrpar = "0.13"
 rerun_except = "1"
 
 [dependencies]
-base64 = "0.13"
+base64 = "0.21"
 cfgrammar = "0.13"
 getopts = "0.2"
 getrandom = "0.2"
