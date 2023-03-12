@@ -77,7 +77,9 @@ impl Refresher {
                                     )
                                     .ok();
                             }
-                            RefreshKind::Refreshed => (),
+                            RefreshKind::Refreshed => {
+                                refresher.notify_changes();
+                            }
                             RefreshKind::TransitoryError(act_id, msg) => {
                                 ct_lk = pstate.ct_lock();
                                 if ct_lk.is_act_id_valid(act_id) {
@@ -343,7 +345,6 @@ impl Refresher {
                         },
                     );
                     drop(ct_lk);
-                    self.notify_changes();
                     RefreshKind::Refreshed
                 } else {
                     RefreshKind::AccountOrTokenStateChanged
