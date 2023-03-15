@@ -14,7 +14,10 @@ use log::debug;
 use log::error;
 use wait_timeout::ChildExt;
 
-use super::{expiry_instant, AccountId, AuthenticatorState, CTGuard, TokenState, UREQ_TIMEOUT};
+use super::{
+    eventer::TokenEvent, expiry_instant, AccountId, AuthenticatorState, CTGuard, TokenState,
+    UREQ_TIMEOUT,
+};
 
 /// How many times can a transient error be encountered before we try `not_transient_error_if`?
 const TRANSIENT_ERROR_RETRIES: u64 = 6;
@@ -22,6 +25,7 @@ const TRANSIENT_ERROR_RETRIES: u64 = 6;
 const NOT_TRANSIENT_ERROR_IF_TIMEOUT: Duration = Duration::from_secs(3 * 60);
 
 /// The outcome of an attempted refresh.
+#[derive(Debug)]
 enum RefreshKind {
     /// Refreshing terminated because the config or tokenstate changed.
     AccountOrTokenStateChanged,
@@ -72,13 +76,17 @@ impl Refresher {
                                     .notifier
                                     .notify_error(
                                         &pstate,
-                                        act_name,
+                                        act_name.clone(),
                                         format!("Permanent refresh error: {msg:}"),
                                     )
                                     .ok();
+                                pstate
+                                    .eventer
+                                    .token_event(act_name, TokenEvent::Invalidated);
                             }
                             RefreshKind::Refreshed => {
                                 refresher.notify_changes();
+                                pstate.eventer.token_event(act_name, TokenEvent::Refresh);
                             }
                             RefreshKind::TransitoryError(act_id, msg) => {
                                 ct_lk = pstate.ct_lock();
@@ -127,12 +135,16 @@ impl Refresher {
                                                             .notifier
                                                             .notify_error(
                                                                 &pstate,
-                                                                act_name,
+                                                                act_name.clone(),
                                                                 format!(
                                                                     "Permanent refresh error: {e:}"
                                                                 ),
                                                             )
                                                             .ok();
+                                                        pstate.eventer.token_event(
+                                                            act_name,
+                                                            TokenEvent::Invalidated,
+                                                        );
                                                     }
                                                 };
                                             } else {

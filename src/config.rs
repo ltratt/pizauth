@@ -37,6 +37,7 @@ pub struct Config {
     refresh_at_least: Option<Duration>,
     refresh_before_expiry: Option<Duration>,
     refresh_retry: Option<Duration>,
+    pub token_event_cmd: Option<String>,
 }
 
 impl Config {
@@ -71,6 +72,7 @@ impl Config {
         let mut refresh_at_least = None;
         let mut refresh_before_expiry = None;
         let mut refresh_retry = None;
+        let mut token_event_cmd = None;
         match astopt {
             Some(Ok(opts)) => {
                 for opt in opts {
@@ -160,6 +162,14 @@ impl Config {
                                 refresh_retry,
                             )?)?)
                         }
+                        config_ast::TopLevel::TokenEventCmd(span) => {
+                            token_event_cmd = Some(check_not_assigned_str(
+                                &lexer,
+                                "token_event_cmd",
+                                span,
+                                token_event_cmd,
+                            )?)
+                        }
                     }
                 }
             }
@@ -181,6 +191,7 @@ impl Config {
             refresh_at_least,
             refresh_before_expiry,
             refresh_retry,
+            token_event_cmd,
         })
     }
 }
@@ -577,6 +588,7 @@ mod test {
             error_notify_cmd = "j";
             http_listen = "127.0.0.1:56789";
             not_transient_error_if = "k";
+            token_event_cmd = "q";
             account "x" {
                 // Mandatory fields
                 auth_uri = "http://a.com";
@@ -600,6 +612,7 @@ mod test {
         assert_eq!(c.auth_notify_interval, Duration::from_secs(88 * 60));
         assert_eq!(c.http_listen, "127.0.0.1:56789".to_owned());
         assert_eq!(c.not_transient_error_if, Some("k".to_owned()));
+        assert_eq!(c.token_event_cmd, Some("q".to_owned()));
 
         let act = &c.accounts["x"];
         assert_eq!(act.auth_uri, "http://a.com");
@@ -649,6 +662,10 @@ mod test {
         }
         match Config::from_str(r#"error_notify_cmd = "a"; error_notify_cmd = "a";"#) {
             Err(s) if s.contains("Mustn't specify 'error_notify_cmd' more than once") => (),
+            _ => panic!(),
+        }
+        match Config::from_str(r#"token_event_cmd = "a"; token_event_cmd = "a";"#) {
+            Err(s) if s.contains("Mustn't specify 'token_event_cmd' more than once") => (),
             _ => panic!(),
         }
         match Config::from_str(r#"not_transient_error_if = "a"; not_transient_error_if = "b";"#) {

@@ -19,7 +19,7 @@ use std::{
 
 use url::Url;
 
-use super::{notifier::Notifier, refresher::Refresher};
+use super::{eventer::Eventer, notifier::Notifier, refresher::Refresher};
 use crate::config::{Account, Config};
 
 /// pizauth's global state.
@@ -30,6 +30,7 @@ pub struct AuthenticatorState {
     locked_state: Mutex<LockedState>,
     /// port of the HTTP server required by OAuth.
     pub http_port: u16,
+    pub eventer: Arc<Eventer>,
     pub notifier: Arc<Notifier>,
     pub refresher: Arc<Refresher>,
 }
@@ -39,6 +40,7 @@ impl AuthenticatorState {
         conf_path: PathBuf,
         conf: Config,
         http_port: u16,
+        eventer: Arc<Eventer>,
         notifier: Arc<Notifier>,
         refresher: Arc<Refresher>,
     ) -> Self {
@@ -46,6 +48,7 @@ impl AuthenticatorState {
             conf_path,
             locked_state: Mutex::new(LockedState::new(conf)),
             http_port,
+            eventer,
             notifier,
             refresher,
         }
@@ -372,8 +375,10 @@ mod test {
             "#;
 
         let conf = Config::from_str(conf1_str).unwrap();
+        let eventer = Arc::new(Eventer::new().unwrap());
         let notifier = Arc::new(Notifier::new().unwrap());
-        let pstate = AuthenticatorState::new(PathBuf::new(), conf, 0, notifier, Refresher::new());
+        let pstate =
+            AuthenticatorState::new(PathBuf::new(), conf, 0, eventer, notifier, Refresher::new());
         let mut old_x_id;
         {
             let ct_lk = pstate.ct_lock();

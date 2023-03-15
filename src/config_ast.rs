@@ -11,6 +11,7 @@ pub enum TopLevel {
     RefreshAtLeast(Span),
     RefreshBeforeExpiry(Span),
     RefreshRetry(Span),
+    TokenEventCmd(Span),
 }
 
 pub enum AccountField {

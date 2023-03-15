@@ -10,7 +10,10 @@ use std::{
 use log::warn;
 use url::Url;
 
-use super::{expiry_instant, AccountId, AuthenticatorState, Config, TokenState, UREQ_TIMEOUT};
+use super::{
+    eventer::TokenEvent, expiry_instant, AccountId, AuthenticatorState, Config, TokenState,
+    UREQ_TIMEOUT,
+};
 
 /// How often should we try making a request to an OAuth server for possibly-temporary transport
 /// issues?
@@ -193,6 +196,7 @@ fn request(pstate: Arc<AuthenticatorState>, mut stream: TcpStream) -> Result<(),
         {
             let now = Instant::now();
             let expiry = expiry_instant(&ct_lk, act_id, now, expires_in)?;
+            let act_name = ct_lk.account(act_id).name.to_owned();
             ct_lk.tokenstate_replace(
                 act_id,
                 TokenState::Active {
@@ -207,6 +211,7 @@ fn request(pstate: Arc<AuthenticatorState>, mut stream: TcpStream) -> Result<(),
             );
             drop(ct_lk);
             pstate.refresher.notify_changes();
+            pstate.eventer.token_event(act_name, TokenEvent::New);
         }
         _ => {
             drop(ct_lk);
@@ -226,6 +231,9 @@ fn fail(
 ) -> Result<(), Box<dyn Error>> {
     let mut ct_lk = pstate.ct_lock();
     if ct_lk.is_act_id_valid(act_id) {
+        // It's possible -- though admittedly unlikely -- that another thread has managed to grab
+        // an `Active` token so we have to handle the possibility.
+        let is_active = matches!(ct_lk.tokenstate(act_id), TokenState::Active { .. });
         let act_id = ct_lk.tokenstate_replace(act_id, TokenState::Empty);
         let act_name = ct_lk.account(act_id).name.clone();
         let msg = format!(
@@ -233,7 +241,14 @@ fn fail(
             ct_lk.account(act_id).name
         );
         drop(ct_lk);
-        pstate.notifier.notify_error(&pstate, act_name, msg)?;
+        pstate
+            .notifier
+            .notify_error(&pstate, act_name.clone(), msg)?;
+        if is_active {
+            pstate
+                .eventer
+                .token_event(act_name, TokenEvent::Invalidated);
+        }
     }
     Ok(())
 }

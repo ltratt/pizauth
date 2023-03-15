@@ -66,6 +66,32 @@ Defaults to 90 seconds if not specified.
 specifies the gap between retrying refreshing after transitory errors
 (e.g. due to network problems).
 Defaults to 40 seconds if not specified.
+.It Sy token_event_cmd = Qo Em shell-cmd Qc ;
+specifies a shell command to be run via
+.Ql $SHELL -c
+when an account's access token changes state.
+Two special environment variables are set:
+.Em $PIZAUTH_ACCOUNT
+is set to the account name;
+.Em $PIZAUTH_EVENT
+is set to the event type.
+The event types are:
+.Em token_invalidated
+if a previously valid access token is invalidated;
+.Em token_new
+if a new access token is obtained;
+.Em token_refreshed
+if an access token is refreshed.
+Token events are queued and processed one-by-one in the order they were
+received: at most one instance of
+.Sy token_event_cmd
+will be executed at any point in time; and there is no guarantee
+that an event reflects the current state of an account's access token,
+since further events may be stored in the queue.
+Note that
+.Sy token_event_cmd
+is subject to a 10 second timeout.
+Optional.
 .El
 .Pp
 An
