@@ -11,7 +11,7 @@ use std::{
 
 #[cfg(debug_assertions)]
 use log::debug;
-use log::error;
+use log::info;
 use wait_timeout::ChildExt;
 
 use super::{
@@ -71,15 +71,7 @@ impl Refresher {
                             RefreshKind::AccountOrTokenStateChanged => (),
                             RefreshKind::NoRefreshToken => (),
                             RefreshKind::PermanentError(msg) => {
-                                error!("{msg}");
-                                pstate
-                                    .notifier
-                                    .notify_error(
-                                        &pstate,
-                                        act_name.clone(),
-                                        format!("Permanent refresh error: {msg:}"),
-                                    )
-                                    .ok();
+                                info!("Permanent refresh error for {act_name}: {msg}");
                                 pstate
                                     .eventer
                                     .token_event(act_name, TokenEvent::Invalidated);
@@ -131,16 +123,7 @@ impl Refresher {
                                                             );
                                                         }
                                                         drop(ct_lk);
-                                                        pstate
-                                                            .notifier
-                                                            .notify_error(
-                                                                &pstate,
-                                                                act_name.clone(),
-                                                                format!(
-                                                                    "Permanent refresh error: {e:}"
-                                                                ),
-                                                            )
-                                                            .ok();
+                                                        info!("Permanent refresh error for {act_name} : {e}");
                                                         pstate.eventer.token_event(
                                                             act_name,
                                                             TokenEvent::Invalidated,
@@ -150,20 +133,14 @@ impl Refresher {
                                             } else {
                                                 ct_lk.tokenstate_set_ongoing_refresh(act_id, false);
                                                 drop(ct_lk);
-                                                pstate
-                                                    .notifier
-                                                    .notify_error(
-                                                        &pstate,
-                                                        act_name,
-                                                        format!(
-                                                            "Transitory token refresh error: {msg:}"
-                                                        ),
-                                                    )
-                                                    .ok();
+                                                info!("Transitory refresh error for {act_name} : {msg}");
                                             }
                                         } else {
                                             ct_lk.tokenstate_set_ongoing_refresh(act_id, false);
                                             drop(ct_lk);
+                                            info!(
+                                                "Transitory refresh error for {act_name} : {msg}"
+                                            );
                                         }
                                     } else {
                                         unreachable!();
