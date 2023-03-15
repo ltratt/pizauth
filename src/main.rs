@@ -52,7 +52,7 @@ fn fatal(msg: &str) -> ! {
 fn usage() -> ! {
     let pn = progname();
     eprintln!(
-        "Usage:\n  {pn:} refresh [-u] <account>\n  {pn:} reload\n  {pn:} server [-c <config-path>] [-dv]\n  {pn:} show [-v] <account>\n  {pn:} shutdown"
+        "Usage:\n  {pn:} refresh [-u] <account>\n  {pn:} reload\n  {pn:} server [-c <config-path>] [-dv]\n  {pn:} show [-u] <account>\n  {pn:} shutdown"
     );
     process::exit(1)
 }
