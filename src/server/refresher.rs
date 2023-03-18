@@ -321,6 +321,11 @@ impl Refresher {
             parsed["token_type"].as_str(),
         ) {
             (Some(access_token), Some(expires_in), Some(token_type)) if token_type == "Bearer" => {
+                let refresh_token = match parsed.get("refresh_token") {
+                    None => Some(refresh_token),
+                    Some(Value::String(x)) => Some(x.to_owned()),
+                    Some(_) => None,
+                };
                 let now = Instant::now();
                 let mut ct_lk = pstate.ct_lock();
                 if ct_lk.is_act_id_valid(act_id) {
@@ -340,7 +345,7 @@ impl Refresher {
                             ongoing_refresh: false,
                             consecutive_refresh_fails: 0,
                             last_refresh_attempt: None,
-                            refresh_token: Some(refresh_token),
+                            refresh_token,
                         },
                     );
                     drop(ct_lk);
