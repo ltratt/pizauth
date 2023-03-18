@@ -8,6 +8,7 @@ use std::{
 };
 
 use log::warn;
+use serde_json::Value;
 use url::Url;
 
 use super::{
@@ -166,10 +167,18 @@ fn request(pstate: Arc<AuthenticatorState>, mut stream: TcpStream) -> Result<(),
         }
         thread::sleep(Duration::from_secs(RETRY_DELAY));
     }
-    let parsed = match body {
-        Some(x) => json::parse(&x)?,
+    let body = match body {
+        Some(x) => x,
         None => {
             fail(pstate, act_id, &format!("couldn't connect to {token_uri:}"))?;
+            return Ok(());
+        }
+    };
+
+    let parsed = match serde_json::from_str::<Value>(&body) {
+        Ok(x) => x,
+        Err(e) => {
+            fail(pstate, act_id, &format!("Invalid JSON: {e}"))?;
             return Ok(());
         }
     };

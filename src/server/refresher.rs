@@ -12,6 +12,7 @@ use std::{
 #[cfg(debug_assertions)]
 use log::debug;
 use log::info;
+use serde_json::Value;
 use wait_timeout::ChildExt;
 
 use super::{
@@ -287,22 +288,31 @@ impl Refresher {
             }
         };
 
-        let parsed = match json::parse(&body).map(|p| (p["error"].as_str().is_some(), p)) {
-            Err(_) | Ok((true, _)) => {
-                // Either JSON parsing failed, or the JSON contains an error field. Unfortunately,
-                // even in the latter case, there is no standard way of knowing why refreshing
-                // failed, so we take the most pessimistic assumption which is that the refresh
-                // token is no longer valid at all.
+        let parsed = match serde_json::from_str::<Value>(&body) {
+            Ok(v) => {
+                if let Some(e) = v["error"].as_str() {
+                    let mut ct_lk = pstate.ct_lock();
+                    if ct_lk.is_act_id_valid(act_id) {
+                        let act_id = ct_lk.tokenstate_replace(act_id, TokenState::Empty);
+                        let msg =
+                            format!("Refreshing {} failed: {}", ct_lk.account(act_id).name, e);
+                        return RefreshKind::PermanentError(msg);
+                    } else {
+                        return RefreshKind::AccountOrTokenStateChanged;
+                    }
+                }
+                v
+            }
+            Err(e) => {
                 let mut ct_lk = pstate.ct_lock();
                 if ct_lk.is_act_id_valid(act_id) {
                     let act_id = ct_lk.tokenstate_replace(act_id, TokenState::Empty);
-                    let msg = format!("Refreshing {} failed", ct_lk.account(act_id).name);
+                    let msg = format!("Refreshing {} failed: {e}", ct_lk.account(act_id).name);
                     return RefreshKind::PermanentError(msg);
                 } else {
                     return RefreshKind::AccountOrTokenStateChanged;
                 }
             }
-            Ok((false, p)) => p,
         };
 
         match (
