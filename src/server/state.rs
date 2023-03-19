@@ -112,7 +112,7 @@ impl LockedState {
         for act_name in config.accounts.keys() {
             if let Some(old_act) = self.config.accounts.get(act_name) {
                 let new_act = &config.accounts[act_name];
-                if new_act == old_act {
+                if new_act.secure_eq(old_act) {
                     // We know that `self.details` must contain `act_name` so the unwrap is safe.
                     details.push(
                         self.details

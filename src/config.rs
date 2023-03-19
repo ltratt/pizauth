@@ -266,7 +266,10 @@ fn check_assigned<T>(
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug)]
+/// If you add to the, or alter the semantics of any existing, fields in this struct, you *must*
+/// check whether the `Account::secure_eq` function also needs to be changed. This function is
+/// vital to the security pizauth makes when reloading configurations.
 pub struct Account {
     pub name: String,
     pub auth_uri: String,
@@ -435,6 +438,27 @@ impl Account {
             scopes: scopes.unwrap_or_default(),
             token_uri,
         })
+    }
+
+    /// Are the security relevant parts of this `Account` the same as `other`?
+    ///
+    /// Note that this is a weaker condition than "is `self` equal to `other`" because there are
+    /// some parts of an `Account`'s configuration that are irrelevant from a security perspective.
+    /// If you add new fields to, or change the semantics of existing fields in, `Account`, you
+    /// must reconsider this function.
+    pub fn secure_eq(&self, other: &Self) -> bool {
+        // Our definition of "are the security relevant parts of this `Account` the same as
+        // `other`" is roughly: if anything here changes could we end up giving out an access token
+        // that the user might send to the wrong server? Note that it is better to be safe than
+        // sorry: if in doubt, it is better to have more, rather than fewer, fields compared here.
+        self.name == other.name
+            && self.auth_uri == other.auth_uri
+            && self.auth_uri_fields == other.auth_uri_fields
+            && self.client_id == other.client_id
+            && self.client_secret == other.client_secret
+            && self.redirect_uri == other.redirect_uri
+            && self.scopes == other.scopes
+            && self.token_uri == other.token_uri
     }
 
     pub fn redirect_uri(&self, http_port: u16) -> Result<Url, Box<dyn Error>> {
