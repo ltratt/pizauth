@@ -59,11 +59,23 @@ pub fn expiry_instant(
 }
 
 fn request(pstate: Arc<AuthenticatorState>, mut stream: UnixStream) -> Result<(), Box<dyn Error>> {
-    let mut cmd = String::new();
-    stream.read_to_string(&mut cmd)?;
+    let mut buf = Vec::new();
+    stream.read_to_end(&mut buf)?;
+    let (cmd, rest) = {
+        let len = buf
+            .iter()
+            .map(|b| *b as char)
+            .take_while(|c| *c != ':')
+            .count();
+        (std::str::from_utf8(&buf[..len])?, &buf[len + 1..])
+    };
 
-    match &cmd.split(' ').collect::<Vec<_>>()[..] {
-        ["reload"] => {
+    match cmd {
+        "dump" if rest.is_empty() => {
+            stream.write_all(&pstate.dump()?)?;
+            return Ok(());
+        }
+        "reload" if rest.is_empty() => {
             match Config::from_path(&pstate.conf_path) {
                 Ok(new_conf) => {
                     pstate.update_conf(new_conf);
@@ -71,87 +83,100 @@ fn request(pstate: Arc<AuthenticatorState>, mut stream: UnixStream) -> Result<()
                 }
                 Err(e) => stream.write_all(format!("error:{e:}").as_bytes())?,
             }
-            Ok(())
+            return Ok(());
         }
-        ["refresh", with_url, act_name] => {
-            let ct_lk = pstate.ct_lock();
-            let act_id = match ct_lk.validate_act_name(act_name) {
-                Some(x) => x,
-                None => {
-                    drop(ct_lk);
-                    stream.write_all(format!("error:No account '{act_name:}'").as_bytes())?;
-                    return Ok(());
-                }
-            };
-            match ct_lk.tokenstate(act_id) {
-                TokenState::Empty | TokenState::Pending { .. } => {
-                    let url = request_token(Arc::clone(&pstate), ct_lk, act_id)?;
-                    if *with_url == "withurl" {
-                        stream.write_all(format!("pending:{url:}").as_bytes())?;
-                    } else {
-                        stream.write_all(b"pending:")?;
+        "refresh" => {
+            let rest = std::str::from_utf8(rest)?;
+            if let [with_url, act_name] = &rest.splitn(2, ' ').collect::<Vec<_>>()[..] {
+                let ct_lk = pstate.ct_lock();
+                let act_id = match ct_lk.validate_act_name(act_name) {
+                    Some(x) => x,
+                    None => {
+                        drop(ct_lk);
+                        stream.write_all(format!("error:No account '{act_name:}'").as_bytes())?;
+                        return Ok(());
+                    }
+                };
+                match ct_lk.tokenstate(act_id) {
+                    TokenState::Empty | TokenState::Pending { .. } => {
+                        let url = request_token(Arc::clone(&pstate), ct_lk, act_id)?;
+                        if *with_url == "withurl" {
+                            stream.write_all(format!("pending:{url:}").as_bytes())?;
+                        } else {
+                            stream.write_all(b"pending:")?;
+                        }
+                    }
+                    TokenState::Active { .. } => {
+                        drop(ct_lk);
+                        pstate.refresher.sched_refresh(Arc::clone(&pstate), act_id);
+                        stream.write_all(b"scheduled:")?;
                     }
                 }
-                TokenState::Active { .. } => {
-                    drop(ct_lk);
-                    pstate.refresher.sched_refresh(Arc::clone(&pstate), act_id);
-                    stream.write_all(b"scheduled:")?;
-                }
+                return Ok(());
             }
-            Ok(())
         }
-        ["showtoken", with_url, act_name] => {
-            // If unwrap()ing the lock fails, we're in such deep trouble that trying to carry on is
-            // pointless.
-            let ct_lk = pstate.ct_lock();
-            let act_id = match ct_lk.validate_act_name(act_name) {
-                Some(x) => x,
-                None => {
-                    drop(ct_lk);
-                    stream.write_all(format!("error:No account '{act_name:}'").as_bytes())?;
-                    return Ok(());
-                }
-            };
-            match ct_lk.tokenstate(act_id) {
-                TokenState::Empty => {
-                    let url = request_token(Arc::clone(&pstate), ct_lk, act_id)?;
-                    if *with_url == "withurl" {
-                        stream.write_all(format!("pending:{url:}").as_bytes())?;
-                    } else {
-                        stream.write_all(b"pending:")?;
+        "restore" => {
+            match pstate.restore(rest.to_vec()) {
+                Ok(_) => stream.write_all(b"ok:")?,
+                Err(e) => stream.write_all(format!("error:{e:}").as_bytes())?,
+            }
+            return Ok(());
+        }
+        "showtoken" => {
+            let rest = std::str::from_utf8(rest)?;
+            if let [with_url, act_name] = &rest.splitn(2, ' ').collect::<Vec<_>>()[..] {
+                let ct_lk = pstate.ct_lock();
+                let act_id = match ct_lk.validate_act_name(act_name) {
+                    Some(x) => x,
+                    None => {
+                        drop(ct_lk);
+                        stream.write_all(format!("error:No account '{act_name:}'").as_bytes())?;
+                        return Ok(());
+                    }
+                };
+                match ct_lk.tokenstate(act_id) {
+                    TokenState::Empty => {
+                        let url = request_token(Arc::clone(&pstate), ct_lk, act_id)?;
+                        if *with_url == "withurl" {
+                            stream.write_all(format!("pending:{url:}").as_bytes())?;
+                        } else {
+                            stream.write_all(b"pending:")?;
+                        }
+                    }
+                    TokenState::Pending { ref url, .. } => {
+                        let response = if *with_url == "withurl" {
+                            format!("pending:{url:}")
+                        } else {
+                            "pending:".to_owned()
+                        };
+                        drop(ct_lk);
+                        stream.write_all(response.as_bytes())?;
+                    }
+                    TokenState::Active {
+                        access_token,
+                        access_token_expiry,
+                        ..
+                    } => {
+                        let response = if access_token_expiry > &Instant::now() {
+                            format!("access_token:{access_token:}")
+                        } else {
+                            "error:Access token has expired and refreshing has not yet succeeded"
+                                .into()
+                        };
+                        drop(ct_lk);
+                        stream.write_all(response.as_bytes())?;
                     }
                 }
-                TokenState::Pending { ref url, .. } => {
-                    let response = if *with_url == "withurl" {
-                        format!("pending:{url:}")
-                    } else {
-                        "pending:".to_owned()
-                    };
-                    drop(ct_lk);
-                    stream.write_all(response.as_bytes())?;
-                }
-                TokenState::Active {
-                    access_token,
-                    access_token_expiry,
-                    ..
-                } => {
-                    let response = if access_token_expiry > &Instant::now() {
-                        format!("access_token:{access_token:}")
-                    } else {
-                        "error:Access token has expired and refreshing has not yet succeeded".into()
-                    };
-                    drop(ct_lk);
-                    stream.write_all(response.as_bytes())?;
-                }
+                return Ok(());
             }
-            Ok(())
         }
-        ["shutdown"] => {
+        "shutdown" if rest.is_empty() => {
             raise(Signal::SIGTERM).ok();
-            Ok(())
+            return Ok(());
         }
-        _ => Err(format!("Invalid cmd '{cmd:}'").into()),
+        _ => (),
     }
+    Err("Invalid command".into())
 }
 
 pub fn server(conf_path: PathBuf, conf: Config, cache_path: &Path) -> Result<(), Box<dyn Error>> {

@@ -6,7 +6,7 @@
 .Nd OAuth2 authentication daemon
 .Sh SYNOPSIS
 .Nm pizauth
-.Sy refresh | Sy reload | Sy server | Sy show | Sy shutdown
+.Sy dump | Sy refresh | Sy reload | Sy restore | Sy server | Sy show | Sy shutdown
 .Sh DESCRIPTION
 .Nm
 requests, shows, and refreshes OAuth2 tokens.
@@ -17,6 +17,29 @@ be used by other programs to show the OAuth2 token for a current account.
 .Pp
 The top-level commands are:
 .Bl -tag -width Ds
+.It Sy dump
+Writes the current
+.Nm
+state to stdout: this can later be fed back into
+.Nm
+with
+.Sy restore .
+The dump format is stable within a pizauth major release (but not
+across major releases) and stable across platforms, though it includes
+timestamps that may be affected by clock drift on either the machine performing
+.Sy dump
+or
+.Sy restore .
+Clock drift does not not affect security, though it may cause dumped access
+tokens to be refreshed unduly early or late upon a
+.Sy restore .
+Refreshed access tokens will then be refreshed at the expected intervals.
+.Pp
+Note that while the
+.Sy dump
+output may look like it is encrypted, it is trivial for an attacker to recover
+access and refresh tokens from it: it is strongly recommended that you use
+external encryption on the output so that your data cannot be compromised.
 .It Sy refresh Oo Fl u Oc Ar account
 Request a refresh of the access token for
 .Em account .
@@ -31,6 +54,19 @@ is ongoing.
 .It Sy reload
 Reload the server's configuration.
 Exits with 0 upon success or 1 if there is a problem in the configuration.
+.It Sy restore
+Reads previously dumped
+.Nm
+state from stdin and updates those parts of the current state it determines
+to be less useful than the dumped state.
+This does not change the running instance's configuration: any changes in
+security relevant configuration between the dumping and restoring
+.Nm
+instances causes those parts of the dump to be silently ignored.
+See
+.Sy dump
+for information about the dump format, timestamp warnings, and encryption
+suggestions.
 .It Sy server Oo Fl c Ar config-file Oc Oo Fl d Oc
 Start the server.
 If not specified with
