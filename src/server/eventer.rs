@@ -57,10 +57,20 @@ impl Eventer {
             *eventer_lk = false;
             drop(eventer_lk);
 
-            while let (Some((act_name, event)), Some(token_event_cmd)) = (
-                self.event_queue.lock().unwrap().pop_front(),
-                pstate.ct_lock().config().token_event_cmd.clone(),
-            ) {
+            loop {
+                let (act_name, event) =
+                    if let Some((act_name, event)) = self.event_queue.lock().unwrap().pop_front() {
+                        (act_name, event)
+                    } else {
+                        break;
+                    };
+                let token_event_cmd = if let Some(token_event_cmd) =
+                    pstate.ct_lock().config().token_event_cmd.clone()
+                {
+                    token_event_cmd
+                } else {
+                    break;
+                };
                 match env::var("SHELL") {
                     Ok(s) => {
                         match Command::new(s)
