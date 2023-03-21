@@ -4,6 +4,7 @@ use std::{
 
 use lrlex::{lrlex_mod, DefaultLexerTypes, LRNonStreamingLexer};
 use lrpar::{lrpar_mod, NonStreamingLexer, Span};
+use serde::{Deserialize, Serialize};
 use url::Url;
 
 use crate::config_ast;
@@ -266,10 +267,15 @@ fn check_assigned<T>(
     }
 }
 
-#[derive(Debug)]
 /// If you add to the, or alter the semantics of any existing, fields in this struct, you *must*
-/// check whether the `Account::secure_eq` function also needs to be changed. This function is
-/// vital to the security pizauth makes when reloading configurations.
+/// check whether any of the following also need to be chnaged:
+///   * `Account::secure_eq`
+///   * `Account::dump`
+///   * `Account::restoreable`
+///   * `AccountDump`
+/// These functions are vital to the security guarantees pizauth makes when reloading/restoring
+/// configurations.
+#[derive(Clone, Debug)]
 pub struct Account {
     pub name: String,
     pub auth_uri: String,
@@ -461,6 +467,28 @@ impl Account {
             && self.token_uri == other.token_uri
     }
 
+    pub fn dump(&self) -> AccountDump {
+        AccountDump {
+            auth_uri: self.auth_uri.clone(),
+            auth_uri_fields: self.auth_uri_fields.clone(),
+            client_id: self.client_id.clone(),
+            client_secret: self.client_secret.clone(),
+            redirect_uri: self.redirect_uri.clone(),
+            scopes: self.scopes.clone(),
+            token_uri: self.token_uri.clone(),
+        }
+    }
+
+    pub fn restoreable(&self, act_dump: &AccountDump) -> bool {
+        self.auth_uri == act_dump.auth_uri
+            && self.auth_uri_fields == act_dump.auth_uri_fields
+            && self.client_id == act_dump.client_id
+            && self.client_secret == act_dump.client_secret
+            && self.redirect_uri == act_dump.redirect_uri
+            && self.scopes == act_dump.scopes
+            && self.token_uri == act_dump.token_uri
+    }
+
     pub fn redirect_uri(&self, http_port: u16) -> Result<Url, Box<dyn Error>> {
         let mut url = Url::parse(&self.redirect_uri)?;
         url.set_port(Some(http_port))
@@ -491,6 +519,17 @@ impl Account {
             .or(config.refresh_retry)
             .unwrap_or(REFRESH_RETRY_DEFAULT)
     }
+}
+
+#[derive(Deserialize, Serialize)]
+pub struct AccountDump {
+    auth_uri: String,
+    auth_uri_fields: Vec<(String, String)>,
+    client_id: String,
+    client_secret: Option<String>,
+    redirect_uri: String,
+    scopes: Vec<String>,
+    token_uri: String,
 }
 
 /// Given a time duration in the format `[0-9]+[dhms]` return a [Duration].

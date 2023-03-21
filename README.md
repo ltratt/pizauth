@@ -5,9 +5,7 @@ access tokens. pizauth is formed of two components: a persistent server which
 interacts with the user to request tokens, and refreshes them as necessary; and
 a command-line interface which can be used by programs such as
 [fdm](https://github.com/nicm/fdm) and [msmtp](https://marlam.de/msmtp/) to
-authenticate with OAuth2. Tokens are only ever stored in memory and are never
-persisted to disk.
-
+authenticate with OAuth2.
 
 ## Quick setup
 
@@ -132,8 +130,10 @@ Note that:
 pizauth's usage is:
 
 ```
+pizauth dump
 pizauth refresh [-u] <account>
 pizauth reload
+pizauth restore
 pizauth server [-c <config-path>] [-d]
 pizauth show [-u] <account>
 pizauth shutdown
@@ -150,6 +150,9 @@ Where:
 * `pizauth show` displays an access token, if one exists, for `account`. If an
   access token does not exist, a new request is initiated.
 * `pizauth shutdown` asks the server to shut itself down.
+
+`pizauth dump` and `pizauth restore` are explained in the
+[Persistence](#persistence) section below.
 
 
 ## Example integrations
@@ -282,6 +285,45 @@ authentication: you can safely close this page." message you can close the
 `ssh` tunnel. If the account later needs reauthenticating (e.g. because the
 refresh token has become invalid), simply reopen the `ssh` tunnel,
 reauthenticate, and close the `ssh` tunnel.
+
+
+## Persistence
+
+By design, pizauth stores its state only in memory, and never to disk: users
+never have to worry that unencrypted secrets may be accessible on disk.
+However, if you use pizauth on a machine where pizauth is regularly restarted
+(e.g. because the machine is regularly rebooted), reauthenticating each time
+can be frustrating.
+
+`pizauth dump` (which writes pizauth's internal state to `stdout`) and `pizauth
+restore` (which restores previously dumped state read from `stdin`) allow you
+to persist state, but since they contain secrets they inevitably increase your
+security responsibilities. Although the output from `pizauth dump` may look
+like it is encrypted, it is trivial for an attacker to recover secrets from it:
+it is strongly recommended that you immediately encrypt the output from
+`pizauth dump` to avoid possible security issues.
+
+The most common way to call `pizauth dump` is via the `token_event_cmd`
+configuration setting. `token_event_cmd` is called each time an account's
+tokens change state (e.g. new tokes, refreshed tokens, etc). You can use this
+to run an arbitrary shell command such as `pizauth dump`:
+
+```
+token_event_cmd = "pizauth dump | age --encrypt --output pizauth.age -R age_public_key";
+```
+
+In this example, output from `pizauth dump` is immediately encrypted using
+[age](https://age-encryption.org/). In your machine's startup process you can
+then call `pizauth restore` to restore the most recent dump e.g.:
+
+```
+age --decrypt -i age_private_key -o - pizauth.age | pizauth restore
+```
+
+Note that `pizauth restore` does not change the running pizauth's
+configuration. Any changes in security relevant configuration between the
+dumping and restoring pizauth instances cause those parts of the dump to be
+silently ignored.
 
 
 ## Alternatives

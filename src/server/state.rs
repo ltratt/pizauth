@@ -12,15 +12,32 @@
 //! revalidated. Failing to do so will cause panics.
 
 use std::{
+    collections::HashMap,
+    error::Error,
     path::PathBuf,
     sync::{Arc, Mutex, MutexGuard},
-    time::Instant,
+    time::{Instant, SystemTime},
 };
 
+use chacha20poly1305::{
+    aead::{Aead, KeyInit},
+    ChaCha20Poly1305, Key, Nonce,
+};
+use rand::{thread_rng, Rng};
+use serde::{Deserialize, Serialize};
 use url::Url;
 
 use super::{eventer::Eventer, notifier::Notifier, refresher::Refresher};
-use crate::config::{Account, Config};
+use crate::config::{Account, AccountDump, Config};
+
+/// We lightly encrypt the dump output to make it at least resistant to simple string-based
+/// grepping. This is the length of the dump nonce.
+const NONCE_LEN: usize = 12;
+/// The ChaCha20 key for the dump.
+const CHACHA20_KEY: &[u8; 32] = b"\x66\xa2\x47\xa8\x5e\x48\xcf\xec\xaa\xed\x9b\x36\xeb\xa9\x7d\x53\x50\xd4\x28\x63\x75\x09\x7a\x44\xee\xff\xb9\xc4\x54\x6b\x65\xa3";
+/// The format of the dump. Monotonically increment if the semantics of the `pizauth dump` change
+/// in an incompatible manner.
+const DUMP_VERSION: u64 = 1;
 
 /// pizauth's global state.
 pub struct AuthenticatorState {
@@ -75,6 +92,46 @@ impl AuthenticatorState {
         }
         self.notifier.notify_changes();
         self.refresher.notify_changes();
+    }
+
+    pub fn dump(&self) -> Result<Vec<u8>, Box<dyn Error>> {
+        let lk = self.locked_state.lock().unwrap();
+        let d = lk.dump()?;
+        drop(lk);
+
+        // The aim of encrypting the dump output isn't to render it impossible to decrypt, but to
+        // at least make it harder for people to shoot themselves in the foot by leaving important
+        // information lurking on a file system in a way that `grep` or `strings` can easily find.
+        let key = Key::from_slice(CHACHA20_KEY);
+        let cipher = ChaCha20Poly1305::new(key);
+        let mut nonce = [0u8; NONCE_LEN];
+        thread_rng().fill(&mut nonce[..]);
+        let nonce = Nonce::from_slice(&nonce);
+        let bytes = cipher
+            .encrypt(nonce, &*d)
+            .map_err(|_| "Creating dump failed.")?;
+        let mut buf = Vec::from(nonce.as_slice());
+        buf.extend(&bytes);
+        Ok(buf)
+    }
+
+    pub fn restore(&self, d: Vec<u8>) -> Result<(), Box<dyn Error>> {
+        if d.len() < NONCE_LEN {
+            return Err("Input too short")?;
+        }
+        let key = Key::from_slice(CHACHA20_KEY);
+        let cipher = ChaCha20Poly1305::new(key);
+        let nonce = &d[..NONCE_LEN];
+        let encrypted = &d[NONCE_LEN..];
+        let d = cipher
+            .decrypt(Nonce::from_slice(nonce), encrypted.as_ref())
+            .map_err(|_| "Restoring dump failed")?;
+
+        let lk = self.locked_state.lock().unwrap().restore(d);
+        drop(lk);
+        self.notifier.notify_changes();
+        self.refresher.notify_changes();
+        Ok(())
     }
 }
 
@@ -139,6 +196,69 @@ impl LockedState {
         self.config = config;
         self.details = details;
     }
+
+    fn dump(&self) -> Result<Vec<u8>, Box<dyn Error>> {
+        let mut acts = HashMap::with_capacity(self.details.len());
+        for (act_name, _, ts) in &self.details {
+            acts.insert(
+                act_name.to_owned(),
+                (self.config.accounts[act_name.as_str()].dump(), ts.dump()),
+            );
+        }
+
+        Ok(bincode::serialize(&Dump {
+            version: DUMP_VERSION,
+            accounts: acts,
+        })?)
+    }
+
+    fn restore(&mut self, dump: Vec<u8>) -> Result<(), Box<dyn Error>> {
+        let d = bincode::deserialize::<Dump>(&dump)?;
+        if d.version != DUMP_VERSION {
+            return Err("Unknown dump version".into());
+        }
+
+        let mut restore = HashMap::new();
+        for (act_name, _, old_ts) in &self.details {
+            let act = &self.config.accounts[act_name.as_str()];
+            if let Some((act_dump, ts_dump)) = d.accounts.get(act_name) {
+                if act.restoreable(act_dump) {
+                    let new_ts = TokenState::restore(ts_dump);
+                    match (old_ts, &new_ts) {
+                        (
+                            &TokenState::Empty | &TokenState::Pending { .. },
+                            &TokenState::Empty | &TokenState::Pending { .. },
+                        ) => (),
+                        (
+                            &TokenState::Empty | &TokenState::Pending { .. },
+                            &TokenState::Active { .. },
+                        ) => {
+                            restore.insert(act_name.to_owned(), new_ts);
+                        }
+                        (&TokenState::Active { .. }, _) => (),
+                    }
+                }
+            }
+        }
+
+        for (act_name, ts) in restore.drain() {
+            let ts_idx = self
+                .details
+                .iter()
+                .position(|(n, _, _)| n == &act_name)
+                .unwrap();
+            self.details[ts_idx].1 = AccountId::new(self);
+            self.details[ts_idx].2 = ts;
+        }
+
+        Ok(())
+    }
+}
+
+#[derive(Deserialize, Serialize)]
+struct Dump {
+    version: u64,
+    accounts: HashMap<String, (AccountDump, TokenStateDump)>,
 }
 
 /// A lock guard around the [Config] and tokens. When this guard is dropped:
@@ -327,10 +447,98 @@ pub enum TokenState {
     },
 }
 
+#[derive(Deserialize, Serialize)]
+/// The format of a dumped [TokenState]. Note that [std::time::Instant] instances are translated to
+/// [std::time::SystemTime] instances: there is no guarantee that we can precisely represent the
+/// latter as the former, so when conversions fail we default to setting values to
+/// [std::time::Instant::now()] or [std::time::SystemTime::now()], as appropriate, as a safe
+/// fallback.
+pub enum TokenStateDump {
+    Empty,
+    Active {
+        access_token: String,
+        access_token_obtained: SystemTime,
+        access_token_expiry: SystemTime,
+        refresh_token: Option<String>,
+    },
+}
+
+impl TokenState {
+    pub fn dump(&self) -> TokenStateDump {
+        fn dump_instant(i: &Instant) -> SystemTime {
+            let t;
+            if let Some(d) = i.checked_duration_since(Instant::now()) {
+                // Instant is in the future
+                t = SystemTime::now().checked_add(d);
+            } else if let Some(d) = Instant::now().checked_duration_since(*i) {
+                // Instant is in the past
+                t = SystemTime::now().checked_sub(d);
+            } else {
+                t = None;
+            }
+            t.unwrap_or_else(SystemTime::now)
+        }
+
+        match self {
+            TokenState::Empty => TokenStateDump::Empty,
+            TokenState::Pending { .. } => TokenStateDump::Empty,
+            TokenState::Active {
+                access_token,
+                access_token_obtained,
+                access_token_expiry,
+                refresh_token,
+                ongoing_refresh: _,
+                consecutive_refresh_fails: _,
+                last_refresh_attempt: _,
+            } => TokenStateDump::Active {
+                access_token: access_token.to_owned(),
+                access_token_obtained: dump_instant(access_token_obtained),
+                access_token_expiry: dump_instant(access_token_expiry),
+                refresh_token: refresh_token.clone(),
+            },
+        }
+    }
+
+    pub fn restore(tsd: &TokenStateDump) -> TokenState {
+        fn restore_instant(t: &SystemTime) -> Instant {
+            let i;
+            if let Ok(d) = t.duration_since(SystemTime::now()) {
+                // SystemTime is in the future
+                i = Instant::now().checked_add(d);
+            } else if let Ok(d) = SystemTime::now().duration_since(*t) {
+                // SystemTime is in the past
+                i = Instant::now().checked_sub(d);
+            } else {
+                i = None;
+            }
+            i.unwrap_or_else(Instant::now)
+        }
+
+        match tsd {
+            TokenStateDump::Empty => TokenState::Empty,
+            TokenStateDump::Active {
+                access_token,
+                access_token_obtained,
+                access_token_expiry,
+                refresh_token,
+            } => TokenState::Active {
+                access_token: access_token.clone(),
+                access_token_obtained: restore_instant(access_token_obtained),
+                access_token_expiry: restore_instant(access_token_expiry),
+                refresh_token: refresh_token.clone(),
+                ongoing_refresh: false,
+                consecutive_refresh_fails: 0,
+                last_refresh_attempt: None,
+            },
+        }
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
     use crate::server::refresher::Refresher;
+    use std::time::Duration;
 
     #[test]
     fn test_act_validation() {
@@ -475,6 +683,126 @@ mod test {
             let act_id = ct_lk.validate_act_name("x").unwrap();
             assert_ne!(act_id, old_x_id);
             assert!(matches!(ct_lk.tokenstate(act_id), TokenState::Empty));
+        }
+    }
+
+    #[test]
+    fn dump_restore() {
+        let conf_str = r#"
+            account "x" {
+                auth_uri = "http://a.com";
+                client_id = "b";
+                client_secret = "c";
+                scopes = ["d", "e"];
+                redirect_uri = "http://f.com";
+                token_uri = "http://g.com";
+            }
+
+            account "y" {
+                auth_uri = "http://a.com";
+                client_id = "b";
+                client_secret = "c";
+                scopes = ["d", "e"];
+                redirect_uri = "http://f.com";
+                token_uri = "http://g.com";
+            }
+            "#;
+
+        let conf = Config::from_str(conf_str).unwrap();
+        let eventer = Arc::new(Eventer::new().unwrap());
+        let notifier = Arc::new(Notifier::new().unwrap());
+        let pstate =
+            AuthenticatorState::new(PathBuf::new(), conf, 0, eventer, notifier, Refresher::new());
+        let old_x_id;
+        {
+            let ct_lk = pstate.ct_lock();
+            old_x_id = ct_lk.validate_act_name("x").unwrap();
+            assert!(matches!(ct_lk.tokenstate(old_x_id), TokenState::Empty));
+        }
+        let dump = pstate.dump().unwrap();
+
+        {
+            pstate.restore(dump.clone()).unwrap();
+
+            let ct_lk = pstate.ct_lock();
+            let x_id = ct_lk.validate_act_name("x").unwrap();
+            assert_eq!(old_x_id, x_id);
+            assert!(matches!(ct_lk.tokenstate(x_id), TokenState::Empty));
+        }
+
+        {
+            let mut ct_lk = pstate.ct_lock();
+            let act_id = ct_lk.validate_act_name("x").unwrap();
+            ct_lk.tokenstate_replace(
+                act_id,
+                TokenState::Pending {
+                    code_verifier: "abc".to_owned(),
+                    last_notification: None,
+                    state: "xyz".to_string(),
+                    url: Url::parse("http://a.com/").unwrap(),
+                },
+            );
+        }
+
+        {
+            pstate.restore(dump.clone()).unwrap();
+
+            let ct_lk = pstate.ct_lock();
+            let x_id = ct_lk.validate_act_name("x").unwrap();
+            assert_ne!(old_x_id, x_id);
+            assert!(matches!(ct_lk.tokenstate(x_id), TokenState::Pending { .. }));
+        }
+
+        {
+            let mut ct_lk = pstate.ct_lock();
+            let act_id = ct_lk.validate_act_name("x").unwrap();
+            ct_lk.tokenstate_replace(
+                act_id,
+                TokenState::Active {
+                    access_token: "abc".to_owned(),
+                    access_token_obtained: Instant::now(),
+                    access_token_expiry: Instant::now()
+                        .checked_add(Duration::from_secs(60))
+                        .unwrap(),
+                    refresh_token: None,
+                    ongoing_refresh: false,
+                    consecutive_refresh_fails: 0,
+                    last_refresh_attempt: None,
+                },
+            );
+        }
+        let dump = pstate.dump().unwrap();
+
+        {
+            pstate.restore(dump.clone()).unwrap();
+
+            let ct_lk = pstate.ct_lock();
+            let x_id = ct_lk.validate_act_name("x").unwrap();
+            assert_ne!(old_x_id, x_id);
+            assert!(matches!(ct_lk.tokenstate(x_id), TokenState::Active { .. }));
+        }
+
+        let conf = Config::from_str(conf_str).unwrap();
+        let eventer = Arc::new(Eventer::new().unwrap());
+        let notifier = Arc::new(Notifier::new().unwrap());
+        let pstate =
+            AuthenticatorState::new(PathBuf::new(), conf, 0, eventer, notifier, Refresher::new());
+
+        let old_x_id;
+        {
+            let ct_lk = pstate.ct_lock();
+            old_x_id = ct_lk.validate_act_name("x").unwrap();
+            assert!(matches!(ct_lk.tokenstate(old_x_id), TokenState::Empty));
+        }
+
+        {
+            pstate.restore(dump.clone()).unwrap();
+
+            let ct_lk = pstate.ct_lock();
+            let x_id = ct_lk.validate_act_name("x").unwrap();
+            dbg!(ct_lk.tokenstate(x_id));
+            assert_ne!(old_x_id, x_id);
+            assert!(matches!(ct_lk.tokenstate(x_id), TokenState::Active { .. }));
         }
     }
 }
