@@ -271,7 +271,7 @@ fn check_assigned<T>(
 /// check whether any of the following also need to be chnaged:
 ///   * `Account::secure_eq`
 ///   * `Account::dump`
-///   * `Account::restoreable`
+///   * `Account::secure_restoreable`
 ///   * `AccountDump`
 /// These functions are vital to the security guarantees pizauth makes when reloading/restoring
 /// configurations.
@@ -479,7 +479,11 @@ impl Account {
         }
     }
 
-    pub fn restoreable(&self, act_dump: &AccountDump) -> bool {
+    /// Can this account's tokenstate safely be restored from an [AccountDump] `act_dump`? Roughly
+    /// speaking, if `act_dump` was converted into an `Account`, would that new `Account` compare
+    /// equal with `secure_eq` to `self`? If `true`, then it is safe to restore the (`self`)
+    /// `Account`'s tokenstate from a dump.
+    pub fn secure_restorable(&self, act_dump: &AccountDump) -> bool {
         self.auth_uri == act_dump.auth_uri
             && self.auth_uri_fields == act_dump.auth_uri_fields
             && self.client_id == act_dump.client_id
