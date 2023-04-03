@@ -289,23 +289,23 @@ reauthenticate, and close the `ssh` tunnel.
 
 ## Persistence
 
-By design, pizauth stores its state only in memory, and never to disk: users
+By design, pizauth stores tokens state only in memory, and never to disk: users
 never have to worry that unencrypted secrets may be accessible on disk.
 However, if you use pizauth on a machine where pizauth is regularly restarted
 (e.g. because the machine is regularly rebooted), reauthenticating each time
 can be frustrating.
 
-`pizauth dump` (which writes pizauth's internal state to `stdout`) and `pizauth
-restore` (which restores previously dumped state read from `stdin`) allow you
-to persist state, but since they contain secrets they inevitably increase your
-security responsibilities. Although the output from `pizauth dump` may look
-like it is encrypted, it is trivial for an attacker to recover secrets from it:
-it is strongly recommended that you immediately encrypt the output from
-`pizauth dump` to avoid possible security issues.
+`pizauth dump` (which writes pizauth's internal token state to `stdout`) and
+`pizauth restore` (which restores previously dumped token state read from
+`stdin`) allow you to persist state, but since they contain secrets they
+inevitably increase your security responsibilities. Although the output from
+`pizauth dump` may look like it is encrypted, it is trivial for an attacker to
+recover secrets from it: it is strongly recommended that you immediately
+encrypt the output from `pizauth dump` to avoid possible security issues.
 
 The most common way to call `pizauth dump` is via the `token_event_cmd`
 configuration setting. `token_event_cmd` is called each time an account's
-tokens change state (e.g. new tokes, refreshed tokens, etc). You can use this
+tokens change state (e.g. new tokens, refreshed tokens, etc). You can use this
 to run an arbitrary shell command such as `pizauth dump`:
 
 ```

@@ -1,3 +1,24 @@
+# pizauth 0.2.2 (2023-04-03)
+
+* Added a global `token_event_cmd` option, which runs a command whenever an
+  account's token changes state.
+
+* Added `pizauth dump` and `pizauth restore` which dump and restore pizauth's
+  token state respectively. When combined with `token_event_cmd`, these allow
+  users to persist token state. The output from `pizauth dump` is not
+  meaningfully encrypted: it is the user's responsibility to encrypt, or
+  otherwise secure, the dump output.
+
+* Update an account's refresh token if it is sent to pizauth by the remote
+  server.
+
+* Move from the unmaintained `json` to the `serde_json` crate.
+
+* Don't bother users with OAuth2 "errors" (e.g. that a token cannot be
+  refreshed) that are better thought of as an inevitable part of the OAuth2
+  lifecycle.
+
+
 # pizauth 0.2.1 (2023-03-11)
 
 * `login_hint` is now deprecated in favour of the more general `auth_uri_fields`.

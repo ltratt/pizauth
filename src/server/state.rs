@@ -222,7 +222,7 @@ impl LockedState {
         for (act_name, _, old_ts) in &self.details {
             let act = &self.config.accounts[act_name.as_str()];
             if let Some((act_dump, ts_dump)) = d.accounts.get(act_name) {
-                if act.restoreable(act_dump) {
+                if act.secure_restorable(act_dump) {
                     let new_ts = TokenState::restore(ts_dump);
                     match (old_ts, &new_ts) {
                         (
