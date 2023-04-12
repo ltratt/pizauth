@@ -11,7 +11,7 @@ authenticate with OAuth2.
 
 pizauth's configuration file is `~/.config/pizauth.conf`. You need to specify
 at least one `account`, which tells pizauth how to authenticate against a
-particular OAuth2 setup. Most sers will also want to receive asynchronous
+particular OAuth2 setup. Most users will also want to receive asynchronous
 notifications of authorisation requests and errors, which requires setting
 `auth_notify_cmd` and `error_notify_cmd`.
 
