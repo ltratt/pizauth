@@ -22,8 +22,8 @@ use super::{
 
 /// How many times can a transient error be encountered before we try `not_transient_error_if`?
 const TRANSIENT_ERROR_RETRIES: u64 = 6;
-/// How long to run `not_transient_error_if` commands before killing them?
-const NOT_TRANSIENT_ERROR_IF_TIMEOUT: Duration = Duration::from_secs(3 * 60);
+/// How long to run `transient_error_if_cmd` commands before killing them?
+const TRANSIENT_ERROR_IF_CMD_TIMEOUT: Duration = Duration::from_secs(3 * 60);
 
 /// The outcome of an attempted refresh.
 #[derive(Debug)]
@@ -99,13 +99,15 @@ impl Refresher {
                                             .rem_euclid(TRANSIENT_ERROR_RETRIES)
                                             == 0
                                         {
-                                            if let Some(ref cmd) = ct_lk
-                                                .account(act_id)
-                                                .not_transient_error_if(ct_lk.config())
+                                            if let Some(ref cmd) =
+                                                ct_lk.config().transient_error_if_cmd
                                             {
                                                 let cmd = cmd.to_owned();
                                                 drop(ct_lk);
-                                                match refresher.run_not_transient_error_if(cmd) {
+                                                match refresher.run_not_transient_error_if(
+                                                    cmd,
+                                                    act_name.as_str(),
+                                                ) {
                                                     Ok(()) => {
                                                         ct_lk = pstate.ct_lock();
                                                         if ct_lk.is_act_id_valid(act_id) {
@@ -161,18 +163,19 @@ impl Refresher {
         });
     }
 
-    fn run_not_transient_error_if(&self, cmd: String) -> Result<(), String> {
+    fn run_not_transient_error_if(&self, cmd: String, act_name: &str) -> Result<(), String> {
         match env::var("SHELL") {
             Ok(s) => match Command::new(s)
                 .stdin(Stdio::null())
                 .stdout(Stdio::null())
                 .stderr(Stdio::null())
+                .env("PIZAUTH_ACCOUNT", act_name)
                 .args(["-c", &cmd])
                 .spawn()
             {
-                Ok(mut child) => match child.wait_timeout(NOT_TRANSIENT_ERROR_IF_TIMEOUT) {
+                Ok(mut child) => match child.wait_timeout(TRANSIENT_ERROR_IF_CMD_TIMEOUT) {
                     Ok(Some(status)) => {
-                        if !status.success() {
+                        if status.success() {
                             Ok(())
                         } else {
                             Err(format!(
@@ -180,7 +183,7 @@ impl Refresher {
                                 status
                                     .code()
                                     .map(|x| x.to_string())
-                                    .unwrap_or_else(|| "<Unknown exit code".to_string())
+                                    .unwrap_or_else(|| "<Unknown exit code>".to_string())
                             ))
                         }
                     }

@@ -17,7 +17,7 @@ TopLevel -> Result<TopLevel, ()>:
   | "AUTH_NOTIFY_INTERVAL" "=" "TIME" ";" { Ok(TopLevel::AuthNotifyInterval(map_err($3)?)) }
   | "ERROR_NOTIFY_CMD" "=" "STRING" ";" { Ok(TopLevel::ErrorNotifyCmd(map_err($3)?)) }
   | "HTTP_LISTEN" "=" "STRING" ";" { Ok(TopLevel::HttpListen(map_err($3)?)) }
-  | "NOT_TRANSIENT_ERROR_IF" "=" "STRING" ";" { Ok(TopLevel::NotTransientErrorIf(map_err($3)?)) }
+  | "TRANSIENT_ERROR_IF_CMD" "=" "STRING" ";" { Ok(TopLevel::TransientErrorIfCmd(map_err($3)?)) }
   | "REFRESH_AT_LEAST" "=" "TIME" ";" { Ok(TopLevel::RefreshAtLeast(map_err($3)?)) }
   | "REFRESH_BEFORE_EXPIRY" "=" "TIME" ";" { Ok(TopLevel::RefreshBeforeExpiry(map_err($3)?)) }
   | "REFRESH_RETRY" "=" "TIME" ";" { Ok(TopLevel::RefreshRetry(map_err($3)?)) }
@@ -35,7 +35,6 @@ AccountField -> Result<AccountField, ()>:
   | "CLIENT_ID" "=" "STRING" ";" { Ok(AccountField::ClientId(map_err($3)?)) }
   | "CLIENT_SECRET" "=" "STRING" ";" { Ok(AccountField::ClientSecret(map_err($3)?)) }
   | "LOGIN_HINT" "=" "STRING" ";" { Ok(AccountField::LoginHint(map_err($3)?)) }
-  | "NOT_TRANSIENT_ERROR_IF" "=" "STRING" ";" { Ok(AccountField::NotTransientErrorIf(map_err($3)?)) }
   | "REDIRECT_URI" "=" "STRING" ";" { Ok(AccountField::RedirectUri(map_err($3)?)) }
   | "REFRESH_AT_LEAST" "=" "TIME" ";" { Ok(AccountField::RefreshAtLeast(map_err($3)?)) }
   | "REFRESH_BEFORE_EXPIRY" "=" "TIME" ";" { Ok(AccountField::RefreshBeforeExpiry(map_err($3)?)) }

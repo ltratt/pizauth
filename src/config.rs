@@ -34,7 +34,7 @@ pub struct Config {
     pub auth_notify_interval: Duration,
     pub error_notify_cmd: Option<String>,
     pub http_listen: String,
-    not_transient_error_if: Option<String>,
+    pub transient_error_if_cmd: Option<String>,
     refresh_at_least: Option<Duration>,
     refresh_before_expiry: Option<Duration>,
     refresh_retry: Option<Duration>,
@@ -69,7 +69,7 @@ impl Config {
         let mut auth_notify_interval = None;
         let mut error_notify_cmd = None;
         let mut http_listen = None;
-        let mut not_transient_error_if = None;
+        let mut transient_error_if_cmd = None;
         let mut refresh_at_least = None;
         let mut refresh_before_expiry = None;
         let mut refresh_retry = None;
@@ -130,12 +130,12 @@ impl Config {
                                 http_listen,
                             )?)
                         }
-                        config_ast::TopLevel::NotTransientErrorIf(span) => {
-                            not_transient_error_if = Some(check_not_assigned_str(
+                        config_ast::TopLevel::TransientErrorIfCmd(span) => {
+                            transient_error_if_cmd = Some(check_not_assigned_str(
                                 &lexer,
-                                "not_transient_error_if",
+                                "transient_error_if_cmd",
                                 span,
-                                not_transient_error_if,
+                                transient_error_if_cmd,
                             )?)
                         }
                         config_ast::TopLevel::RefreshAtLeast(span) => {
@@ -188,7 +188,7 @@ impl Config {
                 .unwrap_or_else(|| Duration::from_secs(AUTH_NOTIFY_INTERVAL_DEFAULT)),
             error_notify_cmd,
             http_listen: http_listen.unwrap_or_else(|| HTTP_LISTEN_DEFAULT.to_owned()),
-            not_transient_error_if,
+            transient_error_if_cmd,
             refresh_at_least,
             refresh_before_expiry,
             refresh_retry,
@@ -283,7 +283,6 @@ pub struct Account {
     pub client_id: String,
     pub client_secret: Option<String>,
     redirect_uri: String,
-    not_transient_error_if: Option<String>,
     refresh_at_least: Option<Duration>,
     refresh_before_expiry: Option<Duration>,
     refresh_retry: Option<Duration>,
@@ -303,7 +302,6 @@ impl Account {
         let mut client_id = None;
         let mut client_secret = None;
         let mut login_hint = None;
-        let mut not_transient_error_if = None;
         let mut redirect_uri = None;
         let mut refresh_at_least = None;
         let mut refresh_before_expiry = None;
@@ -354,14 +352,6 @@ impl Account {
                         "login_hint",
                         span,
                         login_hint,
-                    )?)
-                }
-                config_ast::AccountField::NotTransientErrorIf(span) => {
-                    not_transient_error_if = Some(check_not_assigned_str(
-                        lexer,
-                        "not_transient_error_if",
-                        span,
-                        not_transient_error_if,
                     )?)
                 }
                 config_ast::AccountField::RedirectUri(span) => {
@@ -436,7 +426,6 @@ impl Account {
             auth_uri_fields: auth_uri_fields.unwrap_or_default(),
             client_id,
             client_secret,
-            not_transient_error_if,
             redirect_uri: redirect_uri.unwrap_or_else(|| "http://localhost/".to_owned()),
             refresh_at_least,
             refresh_before_expiry,
@@ -498,12 +487,6 @@ impl Account {
         url.set_port(Some(http_port))
             .map_err(|_| "Cannot set port")?;
         Ok(url)
-    }
-
-    pub fn not_transient_error_if(&self, config: &Config) -> Option<String> {
-        self.not_transient_error_if
-            .clone()
-            .or_else(|| config.not_transient_error_if.clone())
     }
 
     pub fn refresh_at_least(&self, config: &Config) -> Duration {
@@ -654,7 +637,7 @@ mod test {
             auth_notify_interval = 88m;
             error_notify_cmd = "j";
             http_listen = "127.0.0.1:56789";
-            not_transient_error_if = "k";
+            transient_error_if_cmd = "k";
             token_event_cmd = "q";
             account "x" {
                 // Mandatory fields
@@ -678,7 +661,7 @@ mod test {
         assert_eq!(c.auth_notify_cmd, Some("g".to_owned()));
         assert_eq!(c.auth_notify_interval, Duration::from_secs(88 * 60));
         assert_eq!(c.http_listen, "127.0.0.1:56789".to_owned());
-        assert_eq!(c.not_transient_error_if, Some("k".to_owned()));
+        assert_eq!(c.transient_error_if_cmd, Some("k".to_owned()));
         assert_eq!(c.token_event_cmd, Some("q".to_owned()));
 
         let act = &c.accounts["x"];
@@ -735,8 +718,8 @@ mod test {
             Err(s) if s.contains("Mustn't specify 'token_event_cmd' more than once") => (),
             _ => panic!(),
         }
-        match Config::from_str(r#"not_transient_error_if = "a"; not_transient_error_if = "b";"#) {
-            Err(s) if s.contains("Mustn't specify 'not_transient_error_if' more than once") => (),
+        match Config::from_str(r#"transient_error_if_cmd = "a"; transient_error_if_cmd = "b";"#) {
+            Err(s) if s.contains("Mustn't specify 'transient_error_if_cmd' more than once") => (),
             _ => panic!(),
         }
         match Config::from_str(r#"http_listen = "a"; http_listen = "b";"#) {
@@ -833,13 +816,12 @@ mod test {
         "#,
         )
         .unwrap();
-        assert_eq!(c.not_transient_error_if, None);
+        assert_eq!(c.transient_error_if_cmd, None);
         assert_eq!(c.refresh_at_least, None);
         assert_eq!(c.refresh_before_expiry, None);
         assert_eq!(c.refresh_retry, None);
 
         let act = &c.accounts["x"];
-        assert_eq!(act.not_transient_error_if(&c), None);
         assert_eq!(act.refresh_at_least(&c), REFRESH_AT_LEAST_DEFAULT);
         assert_eq!(act.refresh_before_expiry(&c), REFRESH_BEFORE_EXPIRY_DEFAULT);
         assert_eq!(act.refresh_retry(&c), REFRESH_RETRY_DEFAULT);
@@ -847,7 +829,7 @@ mod test {
         // Global only
         let c = Config::from_str(
             r#"
-            not_transient_error_if = "e";
+            transient_error_if_cmd = "e";
             refresh_at_least = 1s;
             refresh_before_expiry = 2s;
             refresh_retry = 3s;
@@ -860,13 +842,12 @@ mod test {
         "#,
         )
         .unwrap();
-        assert_eq!(c.not_transient_error_if, Some("e".to_owned()));
+        assert_eq!(c.transient_error_if_cmd, Some("e".to_owned()));
         assert_eq!(c.refresh_at_least, Some(Duration::from_secs(1)));
         assert_eq!(c.refresh_before_expiry, Some(Duration::from_secs(2)));
         assert_eq!(c.refresh_retry, Some(Duration::from_secs(3)));
 
         let act = &c.accounts["x"];
-        assert_eq!(act.not_transient_error_if(&c), Some("e".to_owned()));
         assert_eq!(act.refresh_at_least(&c), Duration::from_secs(1));
         assert_eq!(act.refresh_before_expiry(&c), Duration::from_secs(2));
         assert_eq!(act.refresh_retry(&c), Duration::from_secs(3));
@@ -879,7 +860,6 @@ mod test {
                 client_id = "b";
                 scopes = ["c"];
                 token_uri = "http://d.com";
-                not_transient_error_if = "f";
                 refresh_at_least = 1s;
                 refresh_before_expiry = 2s;
                 refresh_retry = 3s;
@@ -888,14 +868,12 @@ mod test {
         )
         .unwrap();
 
-        assert_eq!(c.not_transient_error_if, None);
+        assert_eq!(c.transient_error_if_cmd, None);
         assert_eq!(c.refresh_at_least, None);
         assert_eq!(c.refresh_before_expiry, None);
         assert_eq!(c.refresh_retry, None);
 
         let act = &c.accounts["x"];
-        assert_eq!(act.not_transient_error_if, Some("f".to_owned()));
-        assert_eq!(act.not_transient_error_if(&c), Some("f".to_owned()));
         assert_eq!(act.refresh_at_least(&c), Duration::from_secs(1));
         assert_eq!(act.refresh_before_expiry(&c), Duration::from_secs(2));
         assert_eq!(act.refresh_retry(&c), Duration::from_secs(3));
@@ -903,7 +881,7 @@ mod test {
         // Local overrides global
         let c = Config::from_str(
             r#"
-            not_transient_error_if = "e";
+            transient_error_if_cmd = "e";
             refresh_at_least = 1s;
             refresh_before_expiry = 2s;
             refresh_retry = 3s;
@@ -912,7 +890,6 @@ mod test {
                 client_id = "b";
                 scopes = ["c"];
                 token_uri = "http://d.com";
-                not_transient_error_if = "f";
                 refresh_at_least = 4s;
                 refresh_before_expiry = 5s;
                 refresh_retry = 6s;
@@ -920,14 +897,12 @@ mod test {
         "#,
         )
         .unwrap();
-        assert_eq!(c.not_transient_error_if, Some("e".to_owned()));
+        assert_eq!(c.transient_error_if_cmd, Some("e".to_owned()));
         assert_eq!(c.refresh_at_least, Some(Duration::from_secs(1)));
         assert_eq!(c.refresh_before_expiry, Some(Duration::from_secs(2)));
         assert_eq!(c.refresh_retry, Some(Duration::from_secs(3)));
 
         let act = &c.accounts["x"];
-        assert_eq!(act.not_transient_error_if, Some("f".to_owned()));
-        assert_eq!(act.not_transient_error_if(&c), Some("f".to_owned()));
         assert_eq!(act.refresh_at_least(&c), Duration::from_secs(4));
         assert_eq!(act.refresh_before_expiry(&c), Duration::from_secs(5));
         assert_eq!(act.refresh_retry(&c), Duration::from_secs(6));
@@ -935,7 +910,7 @@ mod test {
         // Local overrides global
         let c = Config::from_str(
             r#"
-            not_transient_error_if = "e";
+            transient_error_if_cmd = "e";
             refresh_at_least = 1s;
             refresh_before_expiry = 2s;
             refresh_retry = 3s;
@@ -944,7 +919,6 @@ mod test {
                 client_id = "b";
                 scopes = ["c"];
                 token_uri = "http://d.com";
-                not_transient_error_if = "f";
                 refresh_at_least = 4s;
                 refresh_before_expiry = 5s;
                 refresh_retry = 6s;
@@ -954,7 +928,6 @@ mod test {
                 client_id = "h";
                 scopes = ["i"];
                 token_uri = "http://j.com";
-                not_transient_error_if = "k";
                 refresh_at_least = 7s;
                 refresh_before_expiry = 8s;
                 refresh_retry = 9s;
@@ -968,20 +941,17 @@ mod test {
         "#,
         )
         .unwrap();
-        assert_eq!(c.not_transient_error_if, Some("e".to_owned()));
+        assert_eq!(c.transient_error_if_cmd, Some("e".to_owned()));
         assert_eq!(c.refresh_at_least, Some(Duration::from_secs(1)));
         assert_eq!(c.refresh_before_expiry, Some(Duration::from_secs(2)));
         assert_eq!(c.refresh_retry, Some(Duration::from_secs(3)));
 
         let act = &c.accounts["x"];
-        assert_eq!(act.not_transient_error_if, Some("f".to_owned()));
-        assert_eq!(act.not_transient_error_if(&c), Some("f".to_owned()));
         assert_eq!(act.refresh_at_least(&c), Duration::from_secs(4));
         assert_eq!(act.refresh_before_expiry(&c), Duration::from_secs(5));
         assert_eq!(act.refresh_retry(&c), Duration::from_secs(6));
 
         let act = &c.accounts["y"];
-        assert_eq!(act.not_transient_error_if(&c), Some("k".to_owned()));
         assert_eq!(act.refresh_at_least(&c), Duration::from_secs(7));
         assert_eq!(act.refresh_before_expiry(&c), Duration::from_secs(8));
         assert_eq!(act.refresh_retry(&c), Duration::from_secs(9));

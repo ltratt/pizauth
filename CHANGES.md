@@ -1,3 +1,27 @@
+# pizauth 0.3.0 (2023-XX-YY)
+
+## Breaking changes
+
+* `not_transient_error_if` has been removed as a global and per-account option.
+  In its place has been added the global option `transient_error_if_cmd`.
+
+  If you have an existing `not_transient_error_if` option, you will need
+  to reconsider the shell command you execute. One possibility is to change:
+
+```
+not_transient_error_if = "shell-cmd";
+```
+
+to:
+
+```
+transient_error_if_cmd = "! shell-cmd";
+```
+
+  `transient_error_if_cmd` sets the environment variable `$PIZAUTH_ACCOUNT` to
+  allow you to perform different actions for different accounts if you desire.
+
+
 # pizauth 0.2.2 (2023-04-03)
 
 * Added a global `token_event_cmd` option, which runs a command whenever an
