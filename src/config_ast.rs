@@ -7,7 +7,7 @@ pub enum TopLevel {
     AuthNotifyInterval(Span),
     ErrorNotifyCmd(Span),
     HttpListen(Span),
-    NotTransientErrorIf(Span),
+    TransientErrorIfCmd(Span),
     RefreshAtLeast(Span),
     RefreshBeforeExpiry(Span),
     RefreshRetry(Span),
