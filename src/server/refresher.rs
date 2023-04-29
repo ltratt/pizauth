@@ -99,9 +99,8 @@ impl Refresher {
                                             .rem_euclid(TRANSIENT_ERROR_RETRIES)
                                             == 0
                                         {
-                                            if let Some(ref cmd) = ct_lk
-                                                .account(act_id)
-                                                .not_transient_error_if(ct_lk.config())
+                                            if let Some(ref cmd) =
+                                                ct_lk.config().not_transient_error_if
                                             {
                                                 let cmd = cmd.to_owned();
                                                 drop(ct_lk);

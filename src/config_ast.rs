@@ -20,7 +20,6 @@ pub enum AccountField {
     ClientId(Span),
     ClientSecret(Span),
     LoginHint(Span),
-    NotTransientErrorIf(Span),
     RedirectUri(Span),
     RefreshAtLeast(Span),
     RefreshBeforeExpiry(Span),
