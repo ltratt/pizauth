@@ -104,7 +104,10 @@ impl Refresher {
                                             {
                                                 let cmd = cmd.to_owned();
                                                 drop(ct_lk);
-                                                match refresher.run_not_transient_error_if(cmd) {
+                                                match refresher.run_not_transient_error_if(
+                                                    cmd,
+                                                    act_name.as_str(),
+                                                ) {
                                                     Ok(()) => {
                                                         ct_lk = pstate.ct_lock();
                                                         if ct_lk.is_act_id_valid(act_id) {
@@ -160,12 +163,13 @@ impl Refresher {
         });
     }
 
-    fn run_not_transient_error_if(&self, cmd: String) -> Result<(), String> {
+    fn run_not_transient_error_if(&self, cmd: String, act_name: &str) -> Result<(), String> {
         match env::var("SHELL") {
             Ok(s) => match Command::new(s)
                 .stdin(Stdio::null())
                 .stdout(Stdio::null())
                 .stderr(Stdio::null())
+                .env("PIZAUTH_ACCOUNT", act_name)
                 .args(["-c", &cmd])
                 .spawn()
             {

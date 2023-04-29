@@ -45,6 +45,9 @@ Defaults to
 .It Sy not_transient_error_if = Qo Em shell-cmd Qc ;
 specifies a shell command to be run when pizauth repeatedly encounters
 errors when trying to refresh a token.
+One special environment variable is set:
+.Em $PIZAUTH_ACCOUNT
+is set to the account name.
 If
 .Em shell-cmd
 returns a zero exit code, or exceeds a 3 minute timeout, pizauth treats
