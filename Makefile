@@ -1,11 +1,12 @@
 PREFIX ?= /usr/local
 MAN_PREFIX ?= ${PREFIX}/man
 
-all:
+all: target/release/pizauth
+
+target/release/pizauth:
 	cargo build --release
 
-install:
-	cargo build --release
+install: target/release/pizauth
 	install -d ${PREFIX}/bin
 	install -c -m 555 target/release/pizauth ${PREFIX}/bin/pizauth
 	install -d ${MAN_PREFIX}/man1
