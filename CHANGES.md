@@ -1,9 +1,9 @@
-# pizauth 0.3.0 (2023-XX-YY)
+# pizauth 0.3.0 (2023-05-29)
 
 ## Breaking changes
 
 * `not_transient_error_if` has been removed as a global and per-account option.
-  In its place has been added the global option `transient_error_if_cmd`.
+  In its place is a new global option `transient_error_if_cmd`.
 
   If you have an existing `not_transient_error_if` option, you will need
   to reconsider the shell command you execute. One possibility is to change:
