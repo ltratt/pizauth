@@ -19,6 +19,7 @@ use getopts::Options;
 use log::error;
 #[cfg(target_os = "openbsd")]
 use pledge::pledge;
+use serde_json::json;
 use server::sock_path;
 
 use compat::daemon;
@@ -53,7 +54,7 @@ fn fatal(msg: &str) -> ! {
 fn usage() -> ! {
     let pn = progname();
     eprintln!(
-        "Usage:\n  {pn:} dump\n  {pn:} refresh [-u] <account>\n  {pn:} restore\n  {pn:} reload\n  {pn:} server [-c <config-path>] [-dv]\n  {pn:} show [-u] <account>\n  {pn:} shutdown"
+        "Usage:\n  {pn:} dump\n  {pn:} info [-j]\n  {pn:} refresh [-u] <account>\n  {pn:} restore\n  {pn:} reload\n  {pn:} server [-c <config-path>] [-dv]\n  {pn:} show [-u] <account>\n  {pn:} shutdown"
     );
     process::exit(1)
 }
@@ -140,6 +141,37 @@ fn main() {
                     error!("{e:}");
                     process::exit(1);
                 }
+            }
+        }
+        "info" => {
+            let matches = opts
+                .optflagopt("c", "config", "Path to pizauth.conf.", "<conf-path>")
+                .optflag("j", "", "JSON output.")
+                .parse(&args[2..])
+                .unwrap_or_else(|_| usage());
+            if matches.opt_present("h") || !matches.free.is_empty() {
+                usage();
+            }
+            let progname = progname();
+            let cache_path = cache_path
+                .to_str()
+                .unwrap_or("<path cannot be represented as UTF-8>");
+            let conf_path = conf_path(&matches);
+            let conf_path = conf_path
+                .to_str()
+                .unwrap_or("<path cannot be represented as UTF-8>");
+            let ver = env!("CARGO_PKG_VERSION");
+            if matches.opt_present("j") {
+                let j = json!({
+                    "cache_directory": cache_path,
+                    "config_file": conf_path,
+                    "executed_as": progname,
+                    "info_format_version": 1,
+                    "pizauth_version": ver
+                });
+                println!("{}", j);
+            } else {
+                println!("{progname} version {ver}:\n  cache directory: {cache_path}\n  config file: {conf_path}")
             }
         }
         "refresh" => {

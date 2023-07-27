@@ -6,7 +6,7 @@
 .Nd OAuth2 authentication daemon
 .Sh SYNOPSIS
 .Nm pizauth
-.Sy dump | Sy refresh | Sy reload | Sy restore | Sy server | Sy show | Sy shutdown
+.Sy dump | Sy info | Sy refresh | Sy reload | Sy restore | Sy server | Sy show | Sy shutdown
 .Sh DESCRIPTION
 .Nm
 requests, shows, and refreshes OAuth2 tokens.
@@ -40,6 +40,23 @@ Note that while the
 output may look like it is encrypted, it is trivial for an attacker to recover
 access and refresh tokens from it: it is strongly recommended that you use
 external encryption on the output so that your data cannot be compromised.
+.It Sy info Oo Fl j Oc
+Writes output about
+.Nm
+to stdout including: the cache directory path; the config file path; and
+.Nm
+version.
+Defaults to human-readable output in an unspecified format that may change
+freely between
+.Nm
+versions.
+.Pp
+.Fl j
+specifies JSON output.
+The
+.Qq info_format_version
+field is an integer value specifying the version of the JSON output: if
+incompatible changes are made, this integer will be monotonically increased.
 .It Sy refresh Oo Fl u Oc Ar account
 Request a refresh of the access token for
 .Em account .
