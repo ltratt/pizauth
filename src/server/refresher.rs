@@ -323,7 +323,7 @@ impl Refresher {
             parsed["expires_in"].as_u64(),
             parsed["token_type"].as_str(),
         ) {
-            (Some(access_token), Some(expires_in), Some(token_type)) if token_type == "Bearer" => {
+            (Some(access_token), Some(expires_in), Some("Bearer")) => {
                 let refresh_token = match parsed.get("refresh_token") {
                     None => Some(refresh_token),
                     Some(Value::String(x)) => Some(x.to_owned()),

@@ -200,9 +200,7 @@ fn request(pstate: Arc<AuthenticatorState>, mut stream: TcpStream) -> Result<(),
         parsed["access_token"].as_str(),
         parsed["refresh_token"].as_str(),
     ) {
-        (Some(token_type), Some(expires_in), Some(access_token), refresh_token)
-            if token_type == "Bearer" =>
-        {
+        (Some("Bearer"), Some(expires_in), Some(access_token), refresh_token) => {
             let now = Instant::now();
             let expiry = expiry_instant(&ct_lk, act_id, now, expires_in)?;
             let act_name = ct_lk.account(act_id).name.to_owned();
