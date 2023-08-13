@@ -1,3 +1,23 @@
+# pizauth 1.0.0 (2023-08-13)
+
+* First stable release.
+
+* Add `pizauth info [-j]` which informs the user where pizauth is looking for
+  configuration files and so on. For example:
+
+```
+$ pizauth info
+pizauth version 0.3.0:
+  cache directory: /home/ltratt/.cache/pizauth
+  config file: /home/ltratt/.config/pizauth.conf
+```
+
+  Adding `-j` outputs the same information in JSON format for integration with
+  external tools. The `info_format_version` field is an integer value
+  specifying the version of the JSON output: if incompatible changes are made,
+  this integer will be monotonically increased.
+
+
 # pizauth 0.3.0 (2023-05-29)
 
 ## Breaking changes
