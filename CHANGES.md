@@ -1,3 +1,8 @@
+# pizauth 1.0.1 (2023-08-14)
+
+* Fix location of `ring` dependency.
+
+
 # pizauth 1.0.0 (2023-08-13)
 
 * First stable release.
