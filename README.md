@@ -79,7 +79,7 @@ display notifications. There are two main settings:
 For example to use pizauth with `notify-send` on XFCE:
 
 ```
-auth_notify_cmd = "notify-send -t 30000 'pizauth authentication' \"<a href=\\\"${echo $PIZAUTH_URL | sed 's/&/&amp;/g'}\\\">$PIZAUTH_ACCOUNT</a>\"";
+auth_notify_cmd = "notify-send -t 30000 'pizauth authentication' \"<a href=\\\"$(echo $PIZAUTH_URL | sed 's/&/&amp;/g')\\\">$PIZAUTH_ACCOUNT</a>\"";
 error_notify_cmd = "notify-send -t 90000 \"pizauth error for $PIZAUTH_ACCOUNT\" \"$PIZAUTH_MSG\"";
 ```
 
