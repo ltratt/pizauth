@@ -67,6 +67,13 @@ fn request(pstate: Arc<AuthenticatorState>, mut stream: UnixStream) -> Result<()
             .map(|b| *b as char)
             .take_while(|c| *c != ':')
             .count();
+        if len == buf.len() {
+            return Err(format!(
+                "Syntactically invalid request '{}'",
+                std::str::from_utf8(&buf).unwrap_or("<can't represent as UTF-8")
+            )
+            .into());
+        }
         (std::str::from_utf8(&buf[..len])?, &buf[len + 1..])
     };
 
