@@ -84,7 +84,7 @@ See
 .Sy dump
 for information about the dump format, timestamp warnings, and encryption
 suggestions.
-.It Sy server Oo Fl c Ar config-file Oc Oo Fl d Oc
+.It Sy server Oo Fl c Ar config-file Oc Oo Fl dv Oc
 Start the server.
 If not specified with
 .Fl c ,
@@ -96,6 +96,11 @@ The server will daemonise itself unless
 .Fl d
 is specified.
 Exits with 0 if the server started successfully or 1 otherwise.
+.Fl v
+enables more verbose logging.
+.Fl v
+can be used up to 4 times, with each repetition increasing the quantity
+of logging.
 .It Sy show Oo Fl u Oc Ar account
 If there is an access token for
 .Em account ,
