@@ -1,3 +1,13 @@
+# pizauth 1.0.2 (2023-10-12)
+
+* Better handle syntactically invalid requests. In particular, this causes the
+  check for a running instance of pizauth not to cause the existing instance to
+  exit.
+
+* Document `-v` (which can be repeated up to 4 times for increased verbosity)
+  on `pizauth server`.
+
+
 # pizauth 1.0.1 (2023-08-14)
 
 * Fix location of `ring` dependency.
