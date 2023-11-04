@@ -76,15 +76,16 @@ display notifications. There are two main settings:
       * `PIZAUTH_ACCOUNT` is set to the account name to be authorised.
       * `PIZAUTH_MSG` is set to the error message.
 
-For example to use pizauth with `notify-send` on XFCE:
+For example to use pizauth with `notify-send`:
 
 ```
-auth_notify_cmd = "notify-send -t 30000 'pizauth authentication' \"<a href=\\\"$(echo $PIZAUTH_URL | sed 's/&/&amp;/g')\\\">$PIZAUTH_ACCOUNT</a>\"";
+auth_notify_cmd = "if [[ \"$(notify-send -A \"Open $PIZAUTH_ACCOUNT\" -t 30000 'pizauth authorisation')\" == \"0\" ]]; then open \"$PIZAUTH_URL\"; fi";
 error_notify_cmd = "notify-send -t 90000 \"pizauth error for $PIZAUTH_ACCOUNT\" \"$PIZAUTH_MSG\"";
 ```
 
-In this example, `auth_notify_cmd` escapes `&` characters, as
-XFCE's notification daemon otherwise does not parse URLs correctly.
+In this example, `notify-send` is used to open a notification with a "Open
+&lt;account&gt;" button; if that button is clicked, then the authorisation URL
+is opened in the user's default web browser.
 
 
 ### Running pizauth
