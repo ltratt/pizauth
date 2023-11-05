@@ -6,7 +6,7 @@
 .Nd OAuth2 authentication daemon
 .Sh SYNOPSIS
 .Nm pizauth
-.Sy dump | Sy info | Sy refresh | Sy reload | Sy restore | Sy server | Sy show | Sy shutdown
+.Sy Em command
 .Sh DESCRIPTION
 .Nm
 requests, shows, and refreshes OAuth2 tokens.
@@ -118,6 +118,12 @@ encounter an error when showing an access token.
 Shut the server down.
 Note that shutdown occurs asynchronously: the server may still be alive for a
 period of time after this command returns.
+.It Sy status
+Writes output about the current accounts and whether they have access tokens to
+stdout. The format is human-readable and in an unspecified format that may
+change freely between
+.Nm
+versions.
 .El
 .Sh SEE ALSO
 .Xr pizauth.conf 5

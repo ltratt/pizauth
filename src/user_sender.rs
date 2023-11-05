@@ -117,3 +117,24 @@ pub fn shutdown(cache_path: &Path) -> Result<(), Box<dyn Error>> {
         .map_err(|_| "Socket not writeable")?;
     Ok(())
 }
+
+pub fn status(cache_path: &Path) -> Result<(), Box<dyn Error>> {
+    let sock_path = sock_path(cache_path);
+    let mut stream = UnixStream::connect(sock_path)
+        .map_err(|_| "pizauth authenticator not running or not responding")?;
+    stream
+        .write_all("status:".as_bytes())
+        .map_err(|_| "Socket not writeable")?;
+    stream.shutdown(Shutdown::Write)?;
+
+    let mut rtn = String::new();
+    stream.read_to_string(&mut rtn)?;
+    match rtn.splitn(2, ':').collect::<Vec<_>>()[..] {
+        ["ok", x] => {
+            println!("{x:}");
+            Ok(())
+        }
+        ["error", cause] => Err(cause.into()),
+        _ => Err(format!("Malformed response '{rtn:}'").into()),
+    }
+}

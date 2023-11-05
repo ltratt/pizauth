@@ -11,9 +11,10 @@ use std::{
     os::unix::net::{UnixListener, UnixStream},
     path::{Path, PathBuf},
     sync::Arc,
-    time::{Duration, Instant},
+    time::{Duration, Instant, SystemTime},
 };
 
+use chrono::{DateTime, Local};
 use log::warn;
 use nix::sys::signal::{raise, Signal};
 #[cfg(target_os = "openbsd")]
@@ -181,9 +182,79 @@ fn request(pstate: Arc<AuthenticatorState>, mut stream: UnixStream) -> Result<()
             raise(Signal::SIGTERM).ok();
             return Ok(());
         }
-        _ => (),
+        "status" if rest.is_empty() => {
+            let ct_lk = pstate.ct_lock();
+            let mut acts = Vec::new();
+            for act_id in ct_lk.act_ids() {
+                let act = ct_lk.account(act_id);
+                let st = match ct_lk.tokenstate(act_id) {
+                    TokenState::Empty => "No access token".into(),
+                    TokenState::Pending {
+                        last_notification: Some(i),
+                        ..
+                    } => format!(
+                        "Access token pending authentication (last notification {})",
+                        instant_fmt(*i)
+                    ),
+                    TokenState::Pending {
+                        last_notification: None,
+                        ..
+                    } => "Access token pending authentication".into(),
+                    TokenState::Active {
+                        access_token_obtained,
+                        access_token_expiry,
+                        last_refresh_attempt,
+                        ..
+                    } => {
+                        if *access_token_expiry > Instant::now() {
+                            format!(
+                                "Active access token (obtained {}; expires {})",
+                                instant_fmt(*access_token_obtained),
+                                instant_fmt(*access_token_expiry)
+                            )
+                        } else if let Some(i) = last_refresh_attempt {
+                            format!(
+                                "Access token expired (last refresh attempt {})",
+                                instant_fmt(*i)
+                            )
+                        } else {
+                            "Access token expired (refresh not yet attempted)".into()
+                        }
+                    }
+                };
+                acts.push(format!("{}: {st}", act.name));
+            }
+            acts.sort();
+            if acts.is_empty() {
+                stream.write_all(b"error:No accounts configured")?;
+            } else {
+                stream.write_all(format!("ok:{}", acts.join("\n")).as_bytes())?;
+            }
+            return Ok(());
+        }
+        x => stream.write_all(format!("error:Unknown command '{x}'").as_bytes())?,
     }
     Err("Invalid command".into())
+}
+
+/// Attempt to print an [Instant] as a user-readable string. By the very nature of [Instant]s,
+/// there is no guarantee this is possible or that the time presented is accurate.
+fn instant_fmt(i: Instant) -> String {
+    let now = Instant::now();
+    if i < now {
+        if let Some(d) = now.checked_duration_since(i) {
+            if let Some(st) = SystemTime::now().checked_sub(d) {
+                let dt: DateTime<Local> = st.into();
+                return dt.to_rfc2822();
+            }
+        }
+    } else if let Some(d) = i.checked_duration_since(now) {
+        if let Some(st) = SystemTime::now().checked_add(d) {
+            let dt: DateTime<Local> = st.into();
+            return dt.to_rfc2822();
+        }
+    }
+    "<unknown time>".into()
 }
 
 pub fn server(conf_path: PathBuf, conf: Config, cache_path: &Path) -> Result<(), Box<dyn Error>> {
