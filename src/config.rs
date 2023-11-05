@@ -598,6 +598,7 @@ fn error_at_span(
 #[cfg(test)]
 mod test {
     use super::*;
+    use lrpar::Lexer;
 
     #[test]
     fn test_unescape_string() {
@@ -627,6 +628,17 @@ mod test {
         );
 
         assert!(time_str_to_duration("9223372036854775808m").is_err());
+    }
+
+    #[test]
+    fn string_escapes() {
+        let lexerdef = config_l::lexerdef();
+        let lexemes = lexerdef.lexer("\"\\\\\"").iter().collect::<Vec<_>>();
+        assert_eq!(lexemes.len(), 1);
+        let lexemes = lexerdef.lexer("\"\\\"\\\"\"").iter().collect::<Vec<_>>();
+        assert_eq!(lexemes.len(), 1);
+        let lexemes = lexerdef.lexer("\"\\n\"").iter().collect::<Vec<_>>();
+        assert_eq!(lexemes.len(), 4);
     }
 
     #[test]
