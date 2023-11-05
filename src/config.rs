@@ -976,16 +976,14 @@ mod test {
 
     #[test]
     fn login_hint_mutually_exclusive_query_field() {
-        let c = format!(
-            r#"account "x" {{
+        let c = r#"account "x" {{
             auth_uri = "http://a.com/";
             auth_uri_fields = {{ "login_hint": "e" }};
             client_id = "b";
             token_uri = "https://c.com/";
             login_hint = "d";
-          }}"#
-        );
-        match Config::from_str(&c) {
+          }}"#;
+        match Config::from_str(c) {
             Err(e) if e.contains("Both the 'login_hint' attribute and a 'auth_uri_fields' field with the name 'login_hint' are specified. The 'login_hint' attribute is deprecated so remove it.") => (),
             Err(e) => panic!("{e:}"),
             _ => panic!(),
