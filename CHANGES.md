@@ -20,12 +20,12 @@
 * Add `pizauth info [-j]` which informs the user where pizauth is looking for
   configuration files and so on. For example:
 
-```
-$ pizauth info
-pizauth version 0.3.0:
-  cache directory: /home/ltratt/.cache/pizauth
-  config file: /home/ltratt/.config/pizauth.conf
-```
+  ```
+  $ pizauth info
+  pizauth version 0.3.0:
+    cache directory: /home/ltratt/.cache/pizauth
+    config file: /home/ltratt/.config/pizauth.conf
+  ```
 
   Adding `-j` outputs the same information in JSON format for integration with
   external tools. The `info_format_version` field is an integer value
@@ -43,15 +43,15 @@ pizauth version 0.3.0:
   If you have an existing `not_transient_error_if` option, you will need
   to reconsider the shell command you execute. One possibility is to change:
 
-```
-not_transient_error_if = "shell-cmd";
-```
-
-to:
-
-```
-transient_error_if_cmd = "! shell-cmd";
-```
+  ```
+  not_transient_error_if = "shell-cmd";
+  ```
+  
+  to:
+  
+  ```
+  transient_error_if_cmd = "! shell-cmd";
+  ```
 
   `transient_error_if_cmd` sets the environment variable `$PIZAUTH_ACCOUNT` to
   allow you to perform different actions for different accounts if you desire.
@@ -83,15 +83,15 @@ transient_error_if_cmd = "! shell-cmd";
 * `login_hint` is now deprecated in favour of the more general `auth_uri_fields`.
   Change:
 
-```
-login_hint = "email@example.com";
-```
-
-to:
-
-```
-auth_uri_fields = { "login_hint": "email@example.com" };
-```
+  ```
+  login_hint = "email@example.com";
+  ```
+  
+  to:
+  
+  ```
+  auth_uri_fields = { "login_hint": "email@example.com" };
+  ```
 
   Currently `login_hint` is silently transformed into the equivalent
   `auth_uri_fields` for backwards compatibility.
