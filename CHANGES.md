@@ -1,3 +1,16 @@
+# pizauth 1.0.3 (2023-11-28)
+
+* Add `pizauth status` to see which accounts have valid tokens (or not):
+  ```
+  $ pizauth status
+  act1: No access token
+  act2: Active access token (obtained Sat, 4 Nov 2023 21:52:11 +0000; expires Sat, 4 Nov 2023 23:20:42 +0000)
+  act3: Active access token (obtained Sat, 4 Nov 2023 22:23:03 +0000; expires Mon, 4 Dec 2023 22:23:03 +0000)
+  ```
+
+* Give better syntax errors if backslashes (`\\`) are used incorrectly.
+
+
 # pizauth 1.0.2 (2023-10-12)
 
 * Better handle syntactically invalid requests. In particular, this causes the
