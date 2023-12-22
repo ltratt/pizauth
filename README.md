@@ -90,7 +90,8 @@ is opened in the user's default web browser.
 
 ### Running pizauth
 
-You need to start the pizauth server:
+You need to start the pizauth server (alternatively, start `pizauth.service`,
+see [systemd-unit](#systemd-unit) below):
 
 ```sh
 $ pizauth server
@@ -125,6 +126,30 @@ Note that:
      becoming invalid and pizauth realising that has happened and notifying you
      to request a new token.
 
+### Systemd unit
+
+Pizauth ships with a systemd unit and example configurations.
+To start `pizauth`, run
+
+```sh
+$ systemctl --user start pizauth.service
+```
+
+If you want `pizauth` to start on login, run
+
+```sh
+$ systemctl --user enable pizauth.service
+```
+
+Finally, in `systemd-dropins/` you'll find templates for saving pizauth dumps
+encrypted with `age` and `gpg`. To use them, run
+
+```sh
+$ systemctl --user edit pizauth.service
+```
+
+and paste whichever of these templates suits you in the file `systemctl` opens.
+(Modify the references to private/public keys to actually point to your keys!)
 
 ## Command-line interface
 
