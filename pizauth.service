@@ -1,0 +1,11 @@
+[Unit]
+Description=Pizauth OAuth2 token manager
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/pizauth server -vvvv -d
+ExecReload=/usr/bin/pizauth reload
+ExecStop=/usr/bin/pizauth shutdown
+
+[Install]
+WantedBy=default.target
