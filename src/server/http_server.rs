@@ -337,11 +337,11 @@ fn http_200(mut stream: TcpStream, body: &str) {
 }
 
 fn http_404(mut stream: TcpStream) {
-    stream.write_all(b"HTTP/1.1 404").ok();
+    stream.write_all(b"HTTP/1.1 404\r\n\r\n").ok();
 }
 
 fn http_400(mut stream: TcpStream) {
-    stream.write_all(b"HTTP/1.1 400").ok();
+    stream.write_all(b"HTTP/1.1 400\r\n\r\n").ok();
 }
 
 pub fn http_server_setup(conf: &Config) -> Result<(u16, TcpListener), Box<dyn Error>> {
