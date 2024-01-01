@@ -1,6 +1,8 @@
 PREFIX ?= /usr/local
 MAN_PREFIX ?= ${PREFIX}/man
 
+.PHONY: all install test distrib
+
 all: target/release/pizauth
 
 target/release/pizauth:
