@@ -84,7 +84,10 @@ if a previously valid access token is invalidated;
 .Em token_new
 if a new access token is obtained;
 .Em token_refreshed
-if an access token is refreshed.
+if an access token is refreshed;
+.Em token_revoked
+if the user has requested that any token, or ongoing authentication for,
+an account should be removed or cancelled.
 Token events are queued and processed one-by-one in the order they were
 received: at most one instance of
 .Sy token_event_cmd

@@ -23,7 +23,7 @@ use pledge::pledge;
 use unveil::unveil;
 
 use crate::{config::Config, PIZAUTH_CACHE_SOCK_LEAF};
-use eventer::Eventer;
+use eventer::{Eventer, TokenEvent};
 use notifier::Notifier;
 use refresher::Refresher;
 use request_token::request_token;
@@ -129,6 +129,27 @@ fn request(pstate: Arc<AuthenticatorState>, mut stream: UnixStream) -> Result<()
                 Err(e) => stream.write_all(format!("error:{e:}").as_bytes())?,
             }
             return Ok(());
+        }
+        "revoke" => {
+            let act_name = std::str::from_utf8(rest)?;
+            let mut ct_lk = pstate.ct_lock();
+            match ct_lk.validate_act_name(act_name) {
+                Some(act_id) => {
+                    ct_lk.tokenstate_replace(act_id, TokenState::Empty);
+                    drop(ct_lk);
+
+                    pstate
+                        .eventer
+                        .token_event(act_name.to_owned(), TokenEvent::Revoked);
+                    stream.write_all(b"ok:")?;
+                    return Ok(());
+                }
+                None => {
+                    drop(ct_lk);
+                    stream.write_all(format!("error:No account '{act_name:}'").as_bytes())?;
+                    return Ok(());
+                }
+            };
         }
         "showtoken" => {
             let rest = std::str::from_utf8(rest)?;

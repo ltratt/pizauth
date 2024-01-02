@@ -84,6 +84,15 @@ See
 .Sy dump
 for information about the dump format, timestamp warnings, and encryption
 suggestions.
+.It Sy revoke Ar account
+Removes any token, and cancels any ongoing authentication, for
+.Em account .
+Note that OAuth2 provides no standard way of remotely revoking a token:
+.Sy revoke
+thus only affects the local
+.Nm
+instance.
+Exits with 0 upon success.
 .It Sy server Oo Fl c Ar config-file Oc Oo Fl dv Oc
 Start the server.
 If not specified with
