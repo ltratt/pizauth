@@ -1,5 +1,13 @@
 PREFIX ?= /usr/local
-MAN_PREFIX ?= ${PREFIX}/man
+BINDIR ?= ${PREFIX}/bin
+LIBDIR ?= ${PREFIX}/lib
+SHAREDIR ?= ${PREFIX}/share
+EXAMPLESDIR ?= ${SHAREDIR}/examples
+
+MANDIR.${PREFIX} = ${PREFIX}/share/man
+MANDIR./usr/local = /usr/local/man
+MANDIR. = /usr/share/man
+MANDIR ?= ${MANDIR.${PREFIX}}
 
 .PHONY: all install test distrib
 
@@ -11,22 +19,22 @@ target/release/pizauth:
 PLATFORM=$(shell uname)
 
 install: target/release/pizauth
-	install -d ${PREFIX}/bin
-	install -c -m 555 target/release/pizauth ${PREFIX}/bin/pizauth
-	install -d ${MAN_PREFIX}/man1
-	install -d ${MAN_PREFIX}/man5
-	install -c -m 444 pizauth.1 ${MAN_PREFIX}/man1/pizauth.1
-	install -c -m 444 pizauth.conf.5 ${MAN_PREFIX}/man5/pizauth.conf.5
-	install -d ${PREFIX}/share/examples/pizauth
-	install -c -m 444 examples/pizauth.conf ${PREFIX}/share/examples/pizauth/pizauth.conf
-	install -d ${PREFIX}/share/pizauth/bash
-	install -c -m 444 share/bash/completion.bash ${PREFIX}/share/pizauth/bash/completion.bash
+	install -d ${DESTDIR}${BINDIR}
+	install -c -m 555 target/release/pizauth ${DESTDIR}${BINDIR}/pizauth
+	install -d ${DESTDIR}${MANDIR}/man1
+	install -d ${DESTDIR}${MANDIR}/man5
+	install -c -m 444 pizauth.1 ${DESTDIR}${MANDIR}/man1/pizauth.1
+	install -c -m 444 pizauth.conf.5 ${DESTDIR}${MANDIR}/man5/pizauth.conf.5
+	install -d ${DESTDIR}${EXAMPLESDIR}/pizauth
+	install -c -m 444 examples/pizauth.conf ${DESTDIR}${EXAMPLESDIR}/pizauth/pizauth.conf
+	install -d ${DESTDIR}${SHAREDIR}/pizauth/bash
+	install -c -m 444 share/bash/completion.bash ${DESTDIR}${SHAREDIR}/pizauth/bash/completion.bash
 ifeq ($(PLATFORM), Linux)
-	install -d ${PREFIX}/lib/systemd/user
-	install -c -m 444 lib/systemd/user/pizauth.service ${PREFIX}/lib/systemd/user/pizauth.service
-	install -d ${PREFIX}/share/examples/pizauth/systemd-dropins
-	install -c -m 444 examples/systemd-dropins/age.conf ${PREFIX}/share/examples/pizauth/systemd-dropins/age.conf
-	install -c -m 444 examples/systemd-dropins/gpg-dump.conf ${PREFIX}/share/examples/pizauth/systemd-dropins/gpg-dump.conf
+	install -d ${DESTDIR}${LIBDIR}/systemd/user
+	install -c -m 444 lib/systemd/user/pizauth.service ${DESTDIR}${LIBDIR}/systemd/user/pizauth.service
+	install -d ${DESTDIR}${EXAMPLESDIR}/pizauth/systemd-dropins
+	install -c -m 444 examples/systemd-dropins/age.conf ${DESTDIR}${EXAMPLESDIR}/pizauth/systemd-dropins/age.conf
+	install -c -m 444 examples/systemd-dropins/gpg-dump.conf ${DESTDIR}${EXAMPLESDIR}/pizauth/systemd-dropins/gpg-dump.conf
 endif
 
 test:
