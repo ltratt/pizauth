@@ -40,6 +40,14 @@ _pizauth()
                     mapfile -t COMPREPLY < \
                         <(compgen -W "${accounts[*]}" -- "$cur")
                     ;;
+                revoke)
+                    local accounts
+                    mapfile -t accounts < <(_accounts)
+                    mapfile -t COMPREPLY < \
+                        <(compgen -W "${accounts[*]}" -- "$cur")
+                    ;;
+                *) COMPREPLY=()
+                ;;
             esac
             ;;
         3)
