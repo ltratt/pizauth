@@ -54,7 +54,7 @@ fn fatal(msg: &str) -> ! {
 fn usage() -> ! {
     let pn = progname();
     eprintln!(
-        "Usage:\n  {pn:} dump\n  {pn:} info [-j]\n  {pn:} refresh [-u] <account>\n  {pn:} restore\n  {pn:} reload\n  {pn:} server [-c <config-path>] [-dv]\n  {pn:} show [-u] <account>\n  {pn:} shutdown\n  {pn:} status"
+        "Usage:\n  {pn:} dump\n  {pn:} info [-j]\n  {pn:} refresh [-u] <account>\n  {pn:} restore\n  {pn:} reload\n  {pn:} revoke <account>\n  {pn:} server [-c <config-path>] [-dv]\n  {pn:} show [-u] <account>\n  {pn:} shutdown\n  {pn:} status"
     );
     process::exit(1)
 }
@@ -219,6 +219,21 @@ fn main() {
                 .init()
                 .unwrap();
             if let Err(e) = user_sender::restore(&cache_path) {
+                error!("{e:}");
+                process::exit(1);
+            }
+        }
+        "revoke" => {
+            let matches = opts.parse(&args[2..]).unwrap_or_else(|_| usage());
+            if matches.opt_present("h") || matches.free.len() != 1 {
+                usage();
+            }
+            stderrlog::new()
+                .module(module_path!())
+                .verbosity(matches.opt_count("v"))
+                .init()
+                .unwrap();
+            if let Err(e) = user_sender::revoke(&cache_path, &matches.free[0]) {
                 error!("{e:}");
                 process::exit(1);
             }

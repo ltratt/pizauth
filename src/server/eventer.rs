@@ -21,6 +21,7 @@ pub enum TokenEvent {
     Invalidated,
     New,
     Refresh,
+    Revoked,
 }
 
 impl Display for TokenEvent {
@@ -29,6 +30,7 @@ impl Display for TokenEvent {
             TokenEvent::Invalidated => write!(f, "token_invalidated"),
             TokenEvent::New => write!(f, "token_new"),
             TokenEvent::Refresh => write!(f, "token_refreshed"),
+            TokenEvent::Revoked => write!(f, "token_revoked"),
         }
     }
 }
