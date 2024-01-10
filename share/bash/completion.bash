@@ -19,7 +19,10 @@ _accounts(){
 _pizauth()
 {
     local cur prev sub
-    local cmds=(dump info refresh restore reload server show shutdown status)
+    local cmds=()
+    cmds+=(dump restore reload shutdown status)
+    cmds+=(info server)
+    cmds+=(refresh revoke show)
 
     cur=${COMP_WORDS[COMP_CWORD]}
     prev=${COMP_WORDS[COMP_CWORD - 1]}
