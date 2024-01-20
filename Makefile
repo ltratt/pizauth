@@ -27,8 +27,8 @@ install: target/release/pizauth
 	install -c -m 444 pizauth.conf.5 ${DESTDIR}${MANDIR}/man5/pizauth.conf.5
 	install -d ${DESTDIR}${EXAMPLESDIR}/pizauth
 	install -c -m 444 examples/pizauth.conf ${DESTDIR}${EXAMPLESDIR}/pizauth/pizauth.conf
-	install -d ${DESTDIR}${SHAREDIR}/pizauth/bash
-	install -c -m 444 share/bash/completion.bash ${DESTDIR}${SHAREDIR}/pizauth/bash/completion.bash
+	install -d ${DESTDIR}${SHAREDIR}/bash-completion/completions
+	install -c -m 444 share/bash/completion.bash ${DESTDIR}${SHAREDIR}/bash-completion/completions/pizauth
 ifeq ($(PLATFORM), Linux)
 	install -d ${DESTDIR}${LIBDIR}/systemd/user
 	install -c -m 444 lib/systemd/user/pizauth.service ${DESTDIR}${LIBDIR}/systemd/user/pizauth.service
