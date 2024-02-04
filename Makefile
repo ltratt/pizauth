@@ -47,6 +47,6 @@ distrib:
 	  && mkdir pizauth-$$v \
 	  && cp -rp Cargo.lock Cargo.toml COPYRIGHT LICENSE-APACHE LICENSE-MIT \
 	    Makefile CHANGES.md README.md build.rs pizauth.1 pizauth.conf.5 \
-	    pizauth.conf.example src pizauth-$$v \
+	    examples lib share src pizauth-$$v \
 	  && tar cfz pizauth-$$v.tgz pizauth-$$v \
 	  && rm -rf pizauth-$$v
