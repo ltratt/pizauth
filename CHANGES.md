@@ -1,4 +1,4 @@
-# pizauth 1.0.4 (2023-02-04)
+# pizauth 1.0.4 (2024-02-04)
 
 * Add `pizauth revoke` which revokes any tokens / ongoing authentication for a
   given account. Note that this does *not* revoke the remote token, as OAuth2
