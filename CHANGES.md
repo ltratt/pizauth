@@ -1,3 +1,15 @@
+# pizauth 1.0.4 (2023-02-04)
+
+* Add `pizauth revoke` which revokes any tokens / ongoing authentication for a
+  given account. Note that this does *not* revoke the remote token, as OAuth2
+  does not currently have standard support for this.
+
+* Include bash completion scripts and example systemd units.
+
+* Rework file installation to better handle a variety of OSes and file layouts.
+  The Makefile is now only compatible with gmake.
+
+
 # pizauth 1.0.3 (2023-11-28)
 
 * Add `pizauth status` to see which accounts have valid tokens (or not):
