@@ -17,7 +17,7 @@ lrpar = "0.13"
 rerun_except = "1"
 
 [dependencies]
-base64 = "0.21"
+base64 = "0.22"
 bincode = "1"
 cfgrammar = "0.13"
 chacha20poly1305 = "0.10"
@@ -27,12 +27,12 @@ getrandom = "0.2"
 log = "0.4"
 lrlex = "0.13"
 lrpar = "0.13"
-nix = { version="0.27", features=["signal"] }
+nix = { version="0.29", features=["signal"] }
 rand = "0.8"
 serde = { version="1.0", features=["derive"] }
 sha2 = "0.10"
 serde_json = "1"
-stderrlog = "0.5"
+stderrlog = "0.6"
 syslog = "6"
 ureq = "2"
 url = "2"
