@@ -10,17 +10,23 @@ use std::{
     env::{self, current_exe},
     fs,
     io::{stdout, Write},
-    os::unix::net::UnixStream,
+    os::unix::{fs::PermissionsExt, net::UnixStream},
     path::PathBuf,
-    process,
+    process, thread,
+    time::Duration,
 };
 
 use getopts::Options;
 use log::error;
+use nix::sys::{
+    stat::{utimensat, UtimensatFlags},
+    time::TimeSpec,
+};
 #[cfg(target_os = "openbsd")]
 use pledge::pledge;
 use serde_json::json;
 use server::sock_path;
+use whoami::username;
 
 use compat::daemon;
 use config::Config;
@@ -61,18 +67,34 @@ fn usage() -> ! {
 
 fn cache_path() -> PathBuf {
     let mut p = PathBuf::new();
-    match env::var_os("XDG_DATA_HOME") {
+    match env::var_os("XDG_RUNTIME_DIR") {
         Some(s) => p.push(s),
-        None => match env::var_os("HOME") {
-            Some(s) => {
-                p.push(s);
-                p.push(".cache")
+        None => {
+            match env::var_os("TMPDIR") {
+                Some(s) => p.push(s),
+                None => p.push("/tmp"),
             }
-            None => fatal("Neither $XDG_DATA_HOME or $HOME set"),
-        },
+            p.push(format!("runtime-{}", username()));
+        }
     }
+
+    let md = |p: &PathBuf| {
+        if !p.exists() {
+            fs::create_dir(&p).unwrap_or_else(|e| fatal(&format!("Can't create cache dir: {e}")));
+        }
+        fs::set_permissions(&p, PermissionsExt::from_mode(0o700)).unwrap_or_else(|_| {
+            fatal(&format!(
+                "Can't set permissions for {} to 0700 (octal)",
+                p.to_str()
+                    .unwrap_or("<path cannot be represented as UTF-8>")
+            ))
+        });
+    };
+
+    md(&p);
     p.push(PIZAUTH_CACHE_LEAF);
-    fs::create_dir_all(&p).unwrap_or_else(|e| fatal(&format!("Can't create cache dir: {}", e)));
+    md(&p);
+
     p
 }
 
@@ -257,6 +279,22 @@ fn main() {
                 }
                 fs::remove_file(&sock_path).ok();
             }
+
+            // The XDG spec says of `$XDG_RUNTIME_DIR` (where our socket file will live):
+            //   Files in this directory MAY be subjected to periodic clean-up. To ensure that your files
+            //   are not removed, they should have their access time timestamp modified at least once every
+            //   6 hours of monotonic time
+            let sock_path_cl = sock_path.clone();
+            thread::spawn(move || loop {
+                thread::sleep(Duration::from_secs(6 * 60 * 60));
+                let _ = utimensat(
+                    None,
+                    &sock_path_cl,
+                    &TimeSpec::UTIME_NOW,
+                    &TimeSpec::UTIME_NOW,
+                    UtimensatFlags::NoFollowSymlink,
+                );
+            });
 
             let conf_path = conf_path(&matches);
             let conf = Config::from_path(&conf_path).unwrap_or_else(|m| fatal(&m));
