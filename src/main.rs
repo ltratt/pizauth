@@ -68,7 +68,7 @@ fn cache_path() -> PathBuf {
                 p.push(s);
                 p.push(".cache")
             }
-            None => fatal("Neither $DATA_HOME or $HOME set"),
+            None => fatal("Neither $XDG_DATA_HOME or $HOME set"),
         },
     }
     p.push(PIZAUTH_CACHE_LEAF);
