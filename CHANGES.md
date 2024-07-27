@@ -1,3 +1,8 @@
+# pizauth 1.0.5 (2024-07-27)
+
+* Use `XDG_RUNTIME_DIR` instead of `XDG_DATA_HOME` for the socket path.
+
+
 # pizauth 1.0.4 (2024-02-04)
 
 * Add `pizauth revoke` which revokes any tokens / ongoing authentication for a
