@@ -1,7 +1,7 @@
 use std::{
     error::Error,
-    io::{BufRead, BufReader, Write},
-    net::{TcpListener, TcpStream},
+    io::{BufRead, BufReader, Read, Write},
+    net::TcpListener,
     sync::Arc,
     thread,
     time::{Duration, Instant},
@@ -10,6 +10,12 @@ use std::{
 use log::warn;
 use serde_json::Value;
 use url::Url;
+
+use rcgen::{generate_simple_self_signed, CertifiedKey};
+use rustls::{
+    pki_types::{PrivateKeyDer, PrivatePkcs8KeyDer},
+    ServerConfig,
+};
 
 use super::{
     eventer::TokenEvent, expiry_instant, AccountId, AuthenticatorState, Config, TokenState,
@@ -23,14 +29,17 @@ const RETRY_POST: u8 = 10;
 const RETRY_DELAY: u64 = 6;
 
 /// Handle an incoming (hopefully OAuth2) HTTP request.
-fn request(pstate: Arc<AuthenticatorState>, mut stream: TcpStream) -> Result<(), Box<dyn Error>> {
+fn request<T: Read + Write>(
+    pstate: Arc<AuthenticatorState>,
+    mut stream: T,
+    is_https: bool,
+) -> Result<(), Box<dyn Error>> {
     // This function is split into two halves. In the first half, we process the incoming HTTP
     // request: if there's a problem, it (mostly) means the request is mal-formed or stale, and
     // there's no effect on the tokenstate. In the second half we make a request to an OAuth
     // server: if there's a problem, we have to reset the tokenstate and force the user to make an
     // entirely fresh request.
-
-    let uri = match parse_get(&mut stream) {
+    let uri = match parse_get(&mut stream, is_https) {
         Ok(x) => x,
         Err(_) => {
             // If someone couldn't even be bothered giving us a valid URI, it's unlikely this was a
@@ -66,7 +75,7 @@ fn request(pstate: Arc<AuthenticatorState>, mut stream: TcpStream) -> Result<(),
     // Now that we know which account has been matched we can check if the full URI requested
     // matched the redirect URI we expected for that account.
     let act = ct_lk.account(act_id);
-    let expected_uri = act.redirect_uri(pstate.http_port)?;
+    let expected_uri = act.redirect_uri(pstate.http_port, pstate.https_port)?;
     if expected_uri.scheme() != uri.scheme()
         || expected_uri.host_str() != uri.host_str()
         || expected_uri.port() != uri.port()
@@ -112,7 +121,9 @@ fn request(pstate: Arc<AuthenticatorState>, mut stream: TcpStream) -> Result<(),
     };
     let token_uri = act.token_uri.clone();
     let client_id = act.client_id.clone();
-    let redirect_uri = act.redirect_uri(pstate.http_port)?.to_string();
+    let redirect_uri = act
+        .redirect_uri(pstate.http_port, pstate.https_port)?
+        .to_string();
     let mut pairs = vec![
         ("code", code.as_str()),
         ("client_id", client_id.as_str()),
@@ -262,13 +273,13 @@ fn fail(
 
 /// A very literal, and rather unforgiving, implementation of RFC2616 (HTTP/1.1), returning the URL
 /// of GET requests: returns `Err` for anything else.
-fn parse_get(stream: &mut TcpStream) -> Result<Url, Box<dyn Error>> {
+fn parse_get<T: Read + Write>(stream: &mut T, is_https: bool) -> Result<Url, Box<dyn Error>> {
     let mut rdr = BufReader::new(stream);
     let mut req_line = String::new();
     rdr.read_line(&mut req_line)?;
 
     // First the request line:
-    //   Request-Line   = Method SP Request-URI SP HTTP-Version CRLF
+    //  Request-Line   = Method SP Request-URI SP HTTP-Version CRLF
     // where Method = "GET" and `SP` is a single space character.
     let req_line_sp = req_line.split(' ').collect::<Vec<_>>();
     if !matches!(req_line_sp.as_slice(), &["GET", _, _]) {
@@ -321,14 +332,19 @@ fn parse_get(stream: &mut TcpStream) -> Result<Url, Box<dyn Error>> {
         }
     }
 
+    // If host is Some, use addressed port to select scheme (http / https)
+    // This works, as no HTTPS request will arrive until here on the HTTP port and vice versa
     match host {
-        Some(h) => Url::parse(&format!("http://{h:}{path:}"))
-            .map_err(|e| format!("Invalid request URI: {e:}").into()),
+        Some(h) => Url::parse(&format!(
+            "{}://{h:}{path:}",
+            if is_https { "https" } else { "http" }
+        ))
+        .map_err(|e| format!("Invalid request URI: {e:}").into()),
         None => Err("No host field specified in HTTP request".into()),
     }
 }
 
-fn http_200(mut stream: TcpStream, body: &str) {
+fn http_200<T: Read + Write>(mut stream: T, body: &str) {
     stream
         .write_all(
             format!("HTTP/1.1 200 OK\r\n\r\n<html><body><h2>{body}</h2></body></html>").as_bytes(),
@@ -336,15 +352,16 @@ fn http_200(mut stream: TcpStream, body: &str) {
         .ok();
 }
 
-fn http_404(mut stream: TcpStream) {
+fn http_404<T: Read + Write>(mut stream: T) {
     stream.write_all(b"HTTP/1.1 404\r\n\r\n").ok();
 }
 
-fn http_400(mut stream: TcpStream) {
+fn http_400<T: Read + Write>(mut stream: T) {
     stream.write_all(b"HTTP/1.1 400\r\n\r\n").ok();
 }
 
 pub fn http_server_setup(conf: &Config) -> Result<(u16, TcpListener), Box<dyn Error>> {
+    // Bind TCP port for HTTP
     let listener = TcpListener::bind(&conf.http_listen)?;
     Ok((listener.local_addr()?.port(), listener))
 }
@@ -357,7 +374,62 @@ pub fn http_server(
         for stream in listener.incoming().flatten() {
             let pstate = Arc::clone(&pstate);
             thread::spawn(|| {
-                if let Err(e) = request(pstate, stream) {
+                if let Err(e) = request(pstate, stream, false) {
+                    warn!("{e:}");
+                }
+            });
+        }
+    });
+    Ok(())
+}
+
+pub fn https_server_setup(
+    conf: &Config,
+) -> Result<(u16, TcpListener, CertifiedKey), Box<dyn Error>> {
+    // Set a process wide default crypto provider.
+    let _ = rustls::crypto::ring::default_provider().install_default();
+
+    // Generate self-signed certificate
+    let cert =
+        generate_simple_self_signed(vec![String::from("localhost"), String::from("127.0.0.1")])?;
+
+    // Bind TCP port for HTTPS
+    let listener = TcpListener::bind(&conf.https_listen)?;
+    Ok((listener.local_addr()?.port(), listener, cert))
+}
+
+pub fn https_server(
+    pstate: Arc<AuthenticatorState>,
+    listener: TcpListener,
+    cert: CertifiedKey,
+) -> Result<(), Box<dyn Error>> {
+    // Build TLS configuration.
+    let mut server_config = ServerConfig::builder()
+        .with_no_client_auth()
+        .with_single_cert(
+            vec![cert.cert.into()],
+            PrivateKeyDer::Pkcs8(PrivatePkcs8KeyDer::from(cert.key_pair.serialize_der())),
+        )
+        .map_err(|e| e.to_string())?;
+
+    // Negotiate application layer protocols: Only HTTP/1.1 is allowed
+    server_config.alpn_protocols = vec![b"http/1.1".to_vec()];
+
+    thread::spawn(move || {
+        for mut stream in listener.incoming().flatten() {
+            // generate a new TLS connection
+            let conn = rustls::ServerConnection::new(Arc::new(server_config.clone()));
+            if let Err(e) = conn {
+                warn!("{e:}");
+                continue;
+            }
+            let mut conn = conn.unwrap();
+
+            let pstate = Arc::clone(&pstate);
+            thread::spawn(move || {
+                // convert TCP stream into TLS stream
+                let stream = rustls::Stream::new(&mut conn, &mut stream);
+                if let Err(e) = request(pstate, stream, true) {
                     warn!("{e:}");
                 }
             });
