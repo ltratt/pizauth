@@ -308,6 +308,9 @@ pub fn server(conf_path: PathBuf, conf: Config, cache_path: &Path) -> Result<(),
     pledge("stdio rpath wpath inet fattr unix dns proc exec", None).unwrap();
 
     let (http_port, http_state) = http_server::http_server_setup(&conf)?;
+    let (https_port, https_state, certificate) = http_server::https_server_setup(&conf)?;
+    // TODO: Store certificate into trusted folder (OS dependent..)?
+
     let eventer = Arc::new(Eventer::new()?);
     let notifier = Arc::new(Notifier::new()?);
     let refresher = Refresher::new();
@@ -316,12 +319,14 @@ pub fn server(conf_path: PathBuf, conf: Config, cache_path: &Path) -> Result<(),
         conf_path,
         conf,
         http_port,
+        https_port,
         Arc::clone(&eventer),
         Arc::clone(&notifier),
         Arc::clone(&refresher),
     ));
 
     http_server::http_server(Arc::clone(&pstate), http_state)?;
+    http_server::https_server(Arc::clone(&pstate), https_state, certificate)?;
     eventer.eventer(Arc::clone(&pstate))?;
     refresher.refresher(Arc::clone(&pstate))?;
     notifier.notifier(Arc::clone(&pstate))?;

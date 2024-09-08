@@ -17,6 +17,7 @@ TopLevel -> Result<TopLevel, ()>:
   | "AUTH_NOTIFY_INTERVAL" "=" "TIME" ";" { Ok(TopLevel::AuthNotifyInterval(map_err($3)?)) }
   | "ERROR_NOTIFY_CMD" "=" "STRING" ";" { Ok(TopLevel::ErrorNotifyCmd(map_err($3)?)) }
   | "HTTP_LISTEN" "=" "STRING" ";" { Ok(TopLevel::HttpListen(map_err($3)?)) }
+  | "HTTPS_LISTEN" "=" "STRING" ";" { Ok(TopLevel::HttpsListen(map_err($3)?)) }
   | "TRANSIENT_ERROR_IF_CMD" "=" "STRING" ";" { Ok(TopLevel::TransientErrorIfCmd(map_err($3)?)) }
   | "REFRESH_AT_LEAST" "=" "TIME" ";" { Ok(TopLevel::RefreshAtLeast(map_err($3)?)) }
   | "REFRESH_BEFORE_EXPIRY" "=" "TIME" ";" { Ok(TopLevel::RefreshBeforeExpiry(map_err($3)?)) }

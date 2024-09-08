@@ -47,6 +47,8 @@ pub struct AuthenticatorState {
     locked_state: Mutex<LockedState>,
     /// port of the HTTP server required by OAuth.
     pub http_port: u16,
+    /// port of the HTTPS server required by OAuth.
+    pub https_port: u16,
     pub eventer: Arc<Eventer>,
     pub notifier: Arc<Notifier>,
     pub refresher: Arc<Refresher>,
@@ -57,6 +59,7 @@ impl AuthenticatorState {
         conf_path: PathBuf,
         conf: Config,
         http_port: u16,
+        https_port: u16,
         eventer: Arc<Eventer>,
         notifier: Arc<Notifier>,
         refresher: Arc<Refresher>,
@@ -65,6 +68,7 @@ impl AuthenticatorState {
             conf_path,
             locked_state: Mutex::new(LockedState::new(conf)),
             http_port,
+            https_port,
             eventer,
             notifier,
             refresher,
@@ -585,8 +589,15 @@ mod test {
         let conf = Config::from_str(conf1_str).unwrap();
         let eventer = Arc::new(Eventer::new().unwrap());
         let notifier = Arc::new(Notifier::new().unwrap());
-        let pstate =
-            AuthenticatorState::new(PathBuf::new(), conf, 0, eventer, notifier, Refresher::new());
+        let pstate = AuthenticatorState::new(
+            PathBuf::new(),
+            conf,
+            0,
+            0,
+            eventer,
+            notifier,
+            Refresher::new(),
+        );
         let mut old_x_id;
         {
             let ct_lk = pstate.ct_lock();
@@ -711,8 +722,15 @@ mod test {
         let conf = Config::from_str(conf_str).unwrap();
         let eventer = Arc::new(Eventer::new().unwrap());
         let notifier = Arc::new(Notifier::new().unwrap());
-        let pstate =
-            AuthenticatorState::new(PathBuf::new(), conf, 0, eventer, notifier, Refresher::new());
+        let pstate = AuthenticatorState::new(
+            PathBuf::new(),
+            conf,
+            0,
+            0,
+            eventer,
+            notifier,
+            Refresher::new(),
+        );
         let old_x_id;
         {
             let ct_lk = pstate.ct_lock();
@@ -785,8 +803,15 @@ mod test {
         let conf = Config::from_str(conf_str).unwrap();
         let eventer = Arc::new(Eventer::new().unwrap());
         let notifier = Arc::new(Notifier::new().unwrap());
-        let pstate =
-            AuthenticatorState::new(PathBuf::new(), conf, 0, eventer, notifier, Refresher::new());
+        let pstate = AuthenticatorState::new(
+            PathBuf::new(),
+            conf,
+            0,
+            0,
+            eventer,
+            notifier,
+            Refresher::new(),
+        );
 
         let old_x_id;
         {

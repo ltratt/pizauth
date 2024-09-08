@@ -32,7 +32,9 @@ pub fn request_token(
     let code_challenge = URL_SAFE_NO_PAD.encode(hasher.finalize());
 
     let scopes_join = act.scopes.join(" ");
-    let redirect_uri = act.redirect_uri(pstate.http_port)?.to_string();
+    let redirect_uri = act
+        .redirect_uri(pstate.http_port, pstate.https_port)?
+        .to_string();
     let mut params = vec![
         ("access_type", "offline"),
         ("code_challenge", &code_challenge),

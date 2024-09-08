@@ -26,6 +26,7 @@ const REFRESH_RETRY_DEFAULT: Duration = Duration::from_secs(40);
 const AUTH_NOTIFY_INTERVAL_DEFAULT: u64 = 15 * 60;
 /// What is the default bind() address for the HTTP server?
 const HTTP_LISTEN_DEFAULT: &str = "127.0.0.1:0";
+const HTTPS_LISTEN_DEFAULT: &str = "127.0.0.1:0";
 
 #[derive(Debug)]
 pub struct Config {
@@ -34,6 +35,7 @@ pub struct Config {
     pub auth_notify_interval: Duration,
     pub error_notify_cmd: Option<String>,
     pub http_listen: String,
+    pub https_listen: String,
     pub transient_error_if_cmd: Option<String>,
     refresh_at_least: Option<Duration>,
     refresh_before_expiry: Option<Duration>,
@@ -69,6 +71,7 @@ impl Config {
         let mut auth_notify_interval = None;
         let mut error_notify_cmd = None;
         let mut http_listen = None;
+        let mut https_listen = None;
         let mut transient_error_if_cmd = None;
         let mut refresh_at_least = None;
         let mut refresh_before_expiry = None;
@@ -130,6 +133,14 @@ impl Config {
                                 http_listen,
                             )?)
                         }
+                        config_ast::TopLevel::HttpsListen(span) => {
+                            https_listen = Some(check_not_assigned_str(
+                                &lexer,
+                                "https_listen",
+                                span,
+                                https_listen,
+                            )?)
+                        }
                         config_ast::TopLevel::TransientErrorIfCmd(span) => {
                             transient_error_if_cmd = Some(check_not_assigned_str(
                                 &lexer,
@@ -188,6 +199,7 @@ impl Config {
                 .unwrap_or_else(|| Duration::from_secs(AUTH_NOTIFY_INTERVAL_DEFAULT)),
             error_notify_cmd,
             http_listen: http_listen.unwrap_or_else(|| HTTP_LISTEN_DEFAULT.to_owned()),
+            https_listen: https_listen.unwrap_or_else(|| HTTPS_LISTEN_DEFAULT.to_owned()),
             transient_error_if_cmd,
             refresh_at_least,
             refresh_before_expiry,
@@ -482,10 +494,15 @@ impl Account {
             && self.token_uri == act_dump.token_uri
     }
 
-    pub fn redirect_uri(&self, http_port: u16) -> Result<Url, Box<dyn Error>> {
+    pub fn redirect_uri(&self, http_port: u16, https_port: u16) -> Result<Url, Box<dyn Error>> {
         let mut url = Url::parse(&self.redirect_uri)?;
-        url.set_port(Some(http_port))
-            .map_err(|_| "Cannot set port")?;
+        if self.redirect_uri.to_lowercase().starts_with("https") {
+            url.set_port(Some(https_port))
+                .map_err(|_| "Cannot set https port")?;
+        } else {
+            url.set_port(Some(http_port))
+                .map_err(|_| "Cannot set http port")?;
+        }
         Ok(url)
     }
 
@@ -784,6 +801,33 @@ mod test {
         invalid_uri("auth_uri");
         invalid_uri("redirect_uri");
         invalid_uri("token_uri");
+    }
+
+    #[test]
+    fn valid_https_config() {
+        let c = Config::from_str(
+            r#"
+            https_listen = "127.0.0.1:56789";
+            account "x" {
+                // Mandatory fields
+                auth_uri = "http://a.com";
+                auth_uri_fields = {"l": "m", "n": "o", "l": "p"};
+                client_id = "b";
+                scopes = ["c", "d"];
+                token_uri = "http://f.com";
+                // Optional fields
+                redirect_uri = "https://e.com";
+            }
+        "#,
+        )
+        .unwrap();
+        assert_eq!(c.https_listen, "127.0.0.1:56789".to_owned());
+        let act = &c.accounts["x"];
+        assert_eq!(act.redirect_uri, "https://e.com");
+        let uri = act.redirect_uri(0, 56789).unwrap();
+        assert_eq!(uri.scheme(), "https");
+        assert_eq!(uri.port(), Some(56789));
+        assert_eq!(uri.host_str(), Some("e.com"));
     }
 
     #[test]
