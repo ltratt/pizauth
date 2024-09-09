@@ -33,7 +33,7 @@ serde = { version="1.0", features=["derive"] }
 sha2 = "0.10"
 serde_json = "1"
 stderrlog = "0.6"
-syslog = "6"
+syslog = "7.0.0"
 ureq = "2"
 url = "2"
 urlencoding = "2"
