@@ -285,6 +285,7 @@ fn check_assigned<T>(
 ///   * `Account::dump`
 ///   * `Account::secure_restoreable`
 ///   * `AccountDump`
+///
 /// These functions are vital to the security guarantees pizauth makes when reloading/restoring
 /// configurations.
 #[derive(Clone, Debug)]

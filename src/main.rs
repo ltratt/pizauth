@@ -80,9 +80,9 @@ fn cache_path() -> PathBuf {
 
     let md = |p: &PathBuf| {
         if !p.exists() {
-            fs::create_dir(&p).unwrap_or_else(|e| fatal(&format!("Can't create cache dir: {e}")));
+            fs::create_dir(p).unwrap_or_else(|e| fatal(&format!("Can't create cache dir: {e}")));
         }
-        fs::set_permissions(&p, PermissionsExt::from_mode(0o700)).unwrap_or_else(|_| {
+        fs::set_permissions(p, PermissionsExt::from_mode(0o700)).unwrap_or_else(|_| {
             fatal(&format!(
                 "Can't set permissions for {} to 0700 (octal)",
                 p.to_str()
