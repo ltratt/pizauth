@@ -42,6 +42,12 @@ specifies the address for the
 HTTP server to listen on.
 Defaults to
 .Qq 127.0.0.1:0 .
+.It Sy https_listen = Qo Em bind-name Qc ;
+specifies the address for the
+.Xr pizauth 1
+HTTPS server to listen on.
+Defaults to
+.Qq 127.0.0.1:0 .
 .It Sy transient_error_if_cmd = Qo Em shell-cmd Qc ;
 specifies a shell command to be run when pizauth repeatedly encounters
 errors when trying to refresh a token.

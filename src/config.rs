@@ -26,6 +26,7 @@ const REFRESH_RETRY_DEFAULT: Duration = Duration::from_secs(40);
 const AUTH_NOTIFY_INTERVAL_DEFAULT: u64 = 15 * 60;
 /// What is the default bind() address for the HTTP server?
 const HTTP_LISTEN_DEFAULT: &str = "127.0.0.1:0";
+/// What is the default bind() address for the HTTPS server?
 const HTTPS_LISTEN_DEFAULT: &str = "127.0.0.1:0";
 
 #[derive(Debug)]
