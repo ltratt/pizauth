@@ -46,9 +46,9 @@ pub struct AuthenticatorState {
     /// [AuthenticatorState::ct_lock].
     locked_state: Mutex<LockedState>,
     /// port of the HTTP server required by OAuth.
-    pub http_port: u16,
+    pub http_port: Option<u16>,
     /// port of the HTTPS server required by OAuth.
-    pub https_port: u16,
+    pub https_port: Option<u16>,
     pub eventer: Arc<Eventer>,
     pub notifier: Arc<Notifier>,
     pub refresher: Arc<Refresher>,
@@ -58,8 +58,8 @@ impl AuthenticatorState {
     pub fn new(
         conf_path: PathBuf,
         conf: Config,
-        http_port: u16,
-        https_port: u16,
+        http_port: Option<u16>,
+        https_port: Option<u16>,
         eventer: Arc<Eventer>,
         notifier: Arc<Notifier>,
         refresher: Arc<Refresher>,
@@ -592,8 +592,8 @@ mod test {
         let pstate = AuthenticatorState::new(
             PathBuf::new(),
             conf,
-            0,
-            0,
+            Some(0),
+            Some(0),
             eventer,
             notifier,
             Refresher::new(),
@@ -725,8 +725,8 @@ mod test {
         let pstate = AuthenticatorState::new(
             PathBuf::new(),
             conf,
-            0,
-            0,
+            Some(0),
+            Some(0),
             eventer,
             notifier,
             Refresher::new(),
@@ -806,8 +806,8 @@ mod test {
         let pstate = AuthenticatorState::new(
             PathBuf::new(),
             conf,
-            0,
-            0,
+            Some(0),
+            Some(0),
             eventer,
             notifier,
             Refresher::new(),
