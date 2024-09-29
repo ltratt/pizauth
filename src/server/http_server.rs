@@ -390,8 +390,13 @@ pub fn https_server_setup(
     let _ = rustls::crypto::ring::default_provider().install_default();
 
     // Generate self-signed certificate
-    let cert =
-        generate_simple_self_signed(vec![String::from("localhost"), String::from("127.0.0.1")])?;
+    let mut names = vec![String::from("localhost"), String::from("127.0.0.1")];
+    if let Ok(x) = hostname::get() {
+        if let Some(x) = x.to_str() {
+            names.push(String::from(x));
+        }
+    }
+    let cert = generate_simple_self_signed(names)?;
 
     // Bind TCP port for HTTPS
     let listener = TcpListener::bind(&conf.https_listen)?;
