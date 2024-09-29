@@ -304,7 +304,7 @@ fn check_not_assigned_uri<T>(
                     } else {
                         Err(error_at_span(lexer, span, "not a valid HTTP or HTTPS URI"))
                     }
-                },
+                }
                 Err(e) => Err(error_at_span(lexer, span, &format!("Invalid URI: {e:}"))),
             }
         }
