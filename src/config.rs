@@ -134,7 +134,7 @@ impl Config {
                                 http_listen,
                             )?))
                         }
-                        config_ast::TopLevel::HttpListenOff(span) => {
+                        config_ast::TopLevel::HttpListenNone(span) => {
                             check_not_assigned(&lexer, "http_listen", span, http_listen)?;
                             http_listen = Some(None)
                         }
@@ -146,7 +146,7 @@ impl Config {
                                 https_listen,
                             )?))
                         }
-                        config_ast::TopLevel::HttpsListenOff(span) => {
+                        config_ast::TopLevel::HttpsListenNone(span) => {
                             check_not_assigned(&lexer, "https_listen", span, https_listen)?;
                             https_listen = Some(None)
                         }
@@ -198,7 +198,7 @@ impl Config {
         }
 
         if let (&Some(None), &Some(None)) = (&http_listen, &https_listen) {
-            return Err("Cannot turn both http_listen or https_listen off".into());
+            return Err("Cannot set both http_listen and https_listen to 'none'".into());
         }
 
         if accounts.is_empty() {
@@ -210,14 +210,14 @@ impl Config {
                 match https_listen {
                     Some(Some(_)) | None => (),
                     Some(None) => {
-                        return Err(format!("Account {act_name} has an 'https' redirect but the HTTPS server is turned off"));
+                        return Err(format!("Account {act_name} has an 'https' redirect but the HTTPS server is set to 'none'"));
                     }
                 }
             } else if act.redirect_uri.starts_with("http") {
                 match http_listen {
                     Some(Some(_)) | None => (),
                     Some(None) => {
-                        return Err(format!("Account {act_name} has an 'http' redirect but the HTTP server is turned off"));
+                        return Err(format!("Account {act_name} has an 'http' redirect but the HTTP server is set to 'none'"));
                     }
                 }
             }
@@ -810,7 +810,7 @@ mod test {
             Err(s) if s.contains("Mustn't specify 'http_listen' more than once") => (),
             _ => panic!(),
         }
-        match Config::from_str(r#"http_listen = off; http_listen = "a";"#) {
+        match Config::from_str(r#"http_listen = none; http_listen = "a";"#) {
             Err(s) if s.contains("Mustn't specify 'http_listen' more than once") => (),
             _ => panic!(),
         }
@@ -818,7 +818,7 @@ mod test {
             Err(s) if s.contains("Mustn't specify 'https_listen' more than once") => (),
             _ => panic!(),
         }
-        match Config::from_str(r#"https_listen = off; https_listen = "a";"#) {
+        match Config::from_str(r#"https_listen = none; https_listen = "a";"#) {
             Err(s) if s.contains("Mustn't specify 'https_listen' more than once") => (),
             _ => panic!(),
         }
@@ -858,8 +858,8 @@ mod test {
     fn one_of_http_or_https() {
         match Config::from_str(
             r#"
-            http_listen = off;
-            https_listen = off;
+            http_listen = none;
+            https_listen = none;
             account "x" {
                 auth_uri = "http://a.com";
                 client_id = "b";
@@ -867,7 +867,7 @@ mod test {
             }
         "#,
         ) {
-            Err(e) if e.contains("Cannot turn both http_listen or https_listen off") => (),
+            Err(e) if e.contains("Cannot set both http_listen and https_listen to 'none'") => (),
             Err(e) => panic!("{e:?}"),
             _ => panic!(),
         }
@@ -910,7 +910,7 @@ mod test {
     fn correct_listen_for_account() {
         match Config::from_str(
             r#"
-            http_listen = off;
+            http_listen = none;
             account "x" {
                 auth_uri = "http://a.com";
                 client_id = "b";
@@ -920,7 +920,7 @@ mod test {
         ) {
             Err(e)
                 if e.contains(
-                    "Account x has an 'http' redirect but the HTTP server is turned off",
+                    "Account x has an 'http' redirect but the HTTP server is set to 'none'",
                 ) =>
             {
                 ()
@@ -930,7 +930,7 @@ mod test {
         }
         match Config::from_str(
             r#"
-            https_listen = off;
+            https_listen = none;
             account "x" {
                 auth_uri = "http://a.com";
                 client_id = "b";
@@ -941,7 +941,7 @@ mod test {
         ) {
             Err(e)
                 if e.contains(
-                    "Account x has an 'https' redirect but the HTTPS server is turned off",
+                    "Account x has an 'https' redirect but the HTTPS server is set to 'none'",
                 ) =>
             {
                 ()
