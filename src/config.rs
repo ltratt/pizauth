@@ -26,6 +26,7 @@ const REFRESH_RETRY_DEFAULT: Duration = Duration::from_secs(40);
 const AUTH_NOTIFY_INTERVAL_DEFAULT: u64 = 15 * 60;
 /// What is the default bind() address for the HTTP server?
 const HTTP_LISTEN_DEFAULT: &str = "127.0.0.1:0";
+/// What is the default bind() address for the HTTPS server?
 const HTTPS_LISTEN_DEFAULT: &str = "127.0.0.1:0";
 
 #[derive(Debug)]
@@ -34,8 +35,8 @@ pub struct Config {
     pub auth_notify_cmd: Option<String>,
     pub auth_notify_interval: Duration,
     pub error_notify_cmd: Option<String>,
-    pub http_listen: String,
-    pub https_listen: String,
+    pub http_listen: Option<String>,
+    pub https_listen: Option<String>,
     pub transient_error_if_cmd: Option<String>,
     refresh_at_least: Option<Duration>,
     refresh_before_expiry: Option<Duration>,
@@ -126,20 +127,28 @@ impl Config {
                             )?)
                         }
                         config_ast::TopLevel::HttpListen(span) => {
-                            http_listen = Some(check_not_assigned_str(
+                            http_listen = Some(Some(check_not_assigned_str(
                                 &lexer,
                                 "http_listen",
                                 span,
                                 http_listen,
-                            )?)
+                            )?))
+                        }
+                        config_ast::TopLevel::HttpListenNone(span) => {
+                            check_not_assigned(&lexer, "http_listen", span, http_listen)?;
+                            http_listen = Some(None)
                         }
                         config_ast::TopLevel::HttpsListen(span) => {
-                            https_listen = Some(check_not_assigned_str(
+                            https_listen = Some(Some(check_not_assigned_str(
                                 &lexer,
                                 "https_listen",
                                 span,
                                 https_listen,
-                            )?)
+                            )?))
+                        }
+                        config_ast::TopLevel::HttpsListenNone(span) => {
+                            check_not_assigned(&lexer, "https_listen", span, https_listen)?;
+                            https_listen = Some(None)
                         }
                         config_ast::TopLevel::TransientErrorIfCmd(span) => {
                             transient_error_if_cmd = Some(check_not_assigned_str(
@@ -188,8 +197,30 @@ impl Config {
             _ => unreachable!(),
         }
 
+        if let (&Some(None), &Some(None)) = (&http_listen, &https_listen) {
+            return Err("Cannot set both http_listen and https_listen to 'none'".into());
+        }
+
         if accounts.is_empty() {
             return Err("Must specify at least one account".into());
+        }
+
+        for (act_name, act) in &accounts {
+            if act.redirect_uri.starts_with("https") {
+                match https_listen {
+                    Some(Some(_)) | None => (),
+                    Some(None) => {
+                        return Err(format!("Account {act_name} has an 'https' redirect but the HTTPS server is set to 'none'"));
+                    }
+                }
+            } else if act.redirect_uri.starts_with("http") {
+                match http_listen {
+                    Some(Some(_)) | None => (),
+                    Some(None) => {
+                        return Err(format!("Account {act_name} has an 'http' redirect but the HTTP server is set to 'none'"));
+                    }
+                }
+            }
         }
 
         Ok(Config {
@@ -198,14 +229,30 @@ impl Config {
             auth_notify_interval: auth_notify_interval
                 .unwrap_or_else(|| Duration::from_secs(AUTH_NOTIFY_INTERVAL_DEFAULT)),
             error_notify_cmd,
-            http_listen: http_listen.unwrap_or_else(|| HTTP_LISTEN_DEFAULT.to_owned()),
-            https_listen: https_listen.unwrap_or_else(|| HTTPS_LISTEN_DEFAULT.to_owned()),
+            http_listen: http_listen.unwrap_or_else(|| Some(HTTP_LISTEN_DEFAULT.to_owned())),
+            https_listen: https_listen.unwrap_or_else(|| Some(HTTPS_LISTEN_DEFAULT.to_owned())),
             transient_error_if_cmd,
             refresh_at_least,
             refresh_before_expiry,
             refresh_retry,
             token_event_cmd,
         })
+    }
+}
+
+fn check_not_assigned<T>(
+    lexer: &LRNonStreamingLexer<DefaultLexerTypes<StorageT>>,
+    name: &str,
+    span: Span,
+    v: Option<T>,
+) -> Result<(), String> {
+    match v {
+        None => Ok(()),
+        Some(_) => Err(error_at_span(
+            lexer,
+            span,
+            &format!("Mustn't specify '{name:}' more than once"),
+        )),
     }
 }
 
@@ -251,7 +298,13 @@ fn check_not_assigned_uri<T>(
         None => {
             let s = unescape_str(lexer.span_str(span));
             match Url::parse(&s) {
-                Ok(_) => Ok(s),
+                Ok(x) => {
+                    if x.scheme() == "http" || x.scheme() == "https" {
+                        Ok(s)
+                    } else {
+                        Err(error_at_span(lexer, span, "not a valid HTTP or HTTPS URI"))
+                    }
+                }
                 Err(e) => Err(error_at_span(lexer, span, &format!("Invalid URI: {e:}"))),
             }
         }
@@ -368,12 +421,8 @@ impl Account {
                     )?)
                 }
                 config_ast::AccountField::RedirectUri(span) => {
-                    redirect_uri = Some(check_not_assigned_uri(
-                        lexer,
-                        "redirect_uri",
-                        span,
-                        redirect_uri,
-                    )?)
+                    let uri = check_not_assigned_uri(lexer, "redirect_uri", span, redirect_uri)?;
+                    redirect_uri = Some(uri)
                 }
                 config_ast::AccountField::RefreshAtLeast(span) => {
                     refresh_at_least = Some(time_str_to_duration(check_not_assigned_time(
@@ -495,13 +544,18 @@ impl Account {
             && self.token_uri == act_dump.token_uri
     }
 
-    pub fn redirect_uri(&self, http_port: u16, https_port: u16) -> Result<Url, Box<dyn Error>> {
+    pub fn redirect_uri(
+        &self,
+        http_port: Option<u16>,
+        https_port: Option<u16>,
+    ) -> Result<Url, Box<dyn Error>> {
+        assert!(http_port.is_some() || https_port.is_some());
         let mut url = Url::parse(&self.redirect_uri)?;
-        if self.redirect_uri.to_lowercase().starts_with("https") {
-            url.set_port(Some(https_port))
+        if https_port.is_some() && self.redirect_uri.to_lowercase().starts_with("https") {
+            url.set_port(https_port)
                 .map_err(|_| "Cannot set https port")?;
         } else {
-            url.set_port(Some(http_port))
+            url.set_port(http_port)
                 .map_err(|_| "Cannot set http port")?;
         }
         Ok(url)
@@ -690,7 +744,7 @@ mod test {
         assert_eq!(c.error_notify_cmd, Some("j".to_owned()));
         assert_eq!(c.auth_notify_cmd, Some("g".to_owned()));
         assert_eq!(c.auth_notify_interval, Duration::from_secs(88 * 60));
-        assert_eq!(c.http_listen, "127.0.0.1:56789".to_owned());
+        assert_eq!(c.http_listen, Some("127.0.0.1:56789".to_owned()));
         assert_eq!(c.transient_error_if_cmd, Some("k".to_owned()));
         assert_eq!(c.token_event_cmd, Some("q".to_owned()));
 
@@ -756,6 +810,18 @@ mod test {
             Err(s) if s.contains("Mustn't specify 'http_listen' more than once") => (),
             _ => panic!(),
         }
+        match Config::from_str(r#"http_listen = none; http_listen = "a";"#) {
+            Err(s) if s.contains("Mustn't specify 'http_listen' more than once") => (),
+            _ => panic!(),
+        }
+        match Config::from_str(r#"https_listen = "a"; https_listen = "b";"#) {
+            Err(s) if s.contains("Mustn't specify 'https_listen' more than once") => (),
+            _ => panic!(),
+        }
+        match Config::from_str(r#"https_listen = none; https_listen = "a";"#) {
+            Err(s) if s.contains("Mustn't specify 'https_listen' more than once") => (),
+            _ => panic!(),
+        }
 
         fn account_dup(field: &str, values: &[&str]) {
             let c = format!(
@@ -786,6 +852,103 @@ mod test {
         account_dup("refresh_at_least", &["1m", "2m"]);
         account_dup("scopes", &[r#"["a"]"#, r#"["b"]"#]);
         account_dup("token_uri", &[r#""http://a.com/""#, r#""http://b.com/""#]);
+    }
+
+    #[test]
+    fn one_of_http_or_https() {
+        match Config::from_str(
+            r#"
+            http_listen = none;
+            https_listen = none;
+            account "x" {
+                auth_uri = "http://a.com";
+                client_id = "b";
+                token_uri = "http://f.com";
+            }
+        "#,
+        ) {
+            Err(e) if e.contains("Cannot set both http_listen and https_listen to 'none'") => (),
+            Err(e) => panic!("{e:?}"),
+            _ => panic!(),
+        }
+    }
+
+    #[test]
+    fn http_or_https_redirect_uris_only() {
+        match Config::from_str(
+            r#"
+            account "x" {
+                auth_uri = "http://a.com";
+                client_id = "b";
+                redirect_uri = "httpx://";
+                token_uri = "http://f.com";
+            }
+        "#,
+        ) {
+            Err(e) if e.contains("not a valid HTTP or HTTPS URI") => (),
+            Err(e) => panic!("{e:?}"),
+            _ => panic!(),
+        }
+
+        match Config::from_str(
+            r#"
+            account "x" {
+                auth_uri = "http://a.com";
+                client_id = "b";
+                redirect_uri = "ftp://blah/";
+                token_uri = "http://f.com";
+            }
+        "#,
+        ) {
+            Err(e) if e.contains("not a valid HTTP or HTTPS URI") => (),
+            Err(e) => panic!("{e:?}"),
+            _ => panic!(),
+        }
+    }
+
+    #[test]
+    fn correct_listen_for_account() {
+        match Config::from_str(
+            r#"
+            http_listen = none;
+            account "x" {
+                auth_uri = "http://a.com";
+                client_id = "b";
+                token_uri = "http://f.com";
+            }
+        "#,
+        ) {
+            Err(e)
+                if e.contains(
+                    "Account x has an 'http' redirect but the HTTP server is set to 'none'",
+                ) =>
+            {
+                ()
+            }
+            Err(e) => panic!("{e:?}"),
+            _ => panic!(),
+        }
+        match Config::from_str(
+            r#"
+            https_listen = none;
+            account "x" {
+                auth_uri = "http://a.com";
+                client_id = "b";
+                redirect_uri = "https://c.com";
+                token_uri = "http://f.com";
+            }
+        "#,
+        ) {
+            Err(e)
+                if e.contains(
+                    "Account x has an 'https' redirect but the HTTPS server is set to 'none'",
+                ) =>
+            {
+                ()
+            }
+            Err(e) => panic!("{e:?}"),
+            _ => panic!(),
+        }
     }
 
     #[test]
@@ -822,10 +985,10 @@ mod test {
         "#,
         )
         .unwrap();
-        assert_eq!(c.https_listen, "127.0.0.1:56789".to_owned());
+        assert_eq!(c.https_listen, Some("127.0.0.1:56789".to_owned()));
         let act = &c.accounts["x"];
         assert_eq!(act.redirect_uri, "https://e.com");
-        let uri = act.redirect_uri(0, 56789).unwrap();
+        let uri = act.redirect_uri(Some(0), Some(56789)).unwrap();
         assert_eq!(uri.scheme(), "https");
         assert_eq!(uri.port(), Some(56789));
         assert_eq!(uri.host_str(), Some("e.com"));
