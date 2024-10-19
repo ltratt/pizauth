@@ -307,8 +307,14 @@ pub fn server(conf_path: PathBuf, conf: Config, cache_path: &Path) -> Result<(),
     #[cfg(target_os = "openbsd")]
     pledge("stdio rpath wpath inet fattr unix dns proc exec", None).unwrap();
 
-    let (http_port, http_state) = http_server::http_server_setup(&conf)?;
-    let (https_port, https_state, certificate) = http_server::https_server_setup(&conf)?;
+    let (http_port, http_state) = match http_server::http_server_setup(&conf)? {
+        Some((x, y)) => (Some(x), Some(y)),
+        None => (None, None),
+    };
+    let (https_port, https_state, certificate) = match http_server::https_server_setup(&conf)? {
+        Some((x, y, z)) => (Some(x), Some(y), Some(z)),
+        None => (None, None, None),
+    };
     // TODO: Store certificate into trusted folder (OS dependent..)?
 
     let eventer = Arc::new(Eventer::new()?);
@@ -325,8 +331,12 @@ pub fn server(conf_path: PathBuf, conf: Config, cache_path: &Path) -> Result<(),
         Arc::clone(&refresher),
     ));
 
-    http_server::http_server(Arc::clone(&pstate), http_state)?;
-    http_server::https_server(Arc::clone(&pstate), https_state, certificate)?;
+    if let Some(x) = http_state {
+        http_server::http_server(Arc::clone(&pstate), x)?;
+    }
+    if let (Some(x), Some(y)) = (https_state, certificate) {
+        http_server::https_server(Arc::clone(&pstate), x, y)?;
+    }
     eventer.eventer(Arc::clone(&pstate))?;
     refresher.refresher(Arc::clone(&pstate))?;
     notifier.notifier(Arc::clone(&pstate))?;

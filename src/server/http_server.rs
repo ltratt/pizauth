@@ -360,10 +360,15 @@ fn http_400<T: Read + Write>(mut stream: T) {
     stream.write_all(b"HTTP/1.1 400\r\n\r\n").ok();
 }
 
-pub fn http_server_setup(conf: &Config) -> Result<(u16, TcpListener), Box<dyn Error>> {
+pub fn http_server_setup(conf: &Config) -> Result<Option<(u16, TcpListener)>, Box<dyn Error>> {
     // Bind TCP port for HTTP
-    let listener = TcpListener::bind(&conf.http_listen)?;
-    Ok((listener.local_addr()?.port(), listener))
+    match &conf.http_listen {
+        Some(http_listen) => {
+            let listener = TcpListener::bind(http_listen)?;
+            Ok(Some((listener.local_addr()?.port(), listener)))
+        }
+        None => Ok(None),
+    }
 }
 
 pub fn http_server(
@@ -385,17 +390,31 @@ pub fn http_server(
 
 pub fn https_server_setup(
     conf: &Config,
-) -> Result<(u16, TcpListener, CertifiedKey), Box<dyn Error>> {
-    // Set a process wide default crypto provider.
-    let _ = rustls::crypto::ring::default_provider().install_default();
+) -> Result<Option<(u16, TcpListener, CertifiedKey)>, Box<dyn Error>> {
+    match &conf.https_listen {
+        Some(https_listen) => {
+            // Set a process wide default crypto provider.
+            let _ = rustls::crypto::ring::default_provider().install_default();
 
-    // Generate self-signed certificate
-    let cert =
-        generate_simple_self_signed(vec![String::from("localhost"), String::from("127.0.0.1")])?;
+            // Generate self-signed certificate
+            let mut names = vec![
+                String::from("localhost"),
+                String::from("127.0.0.1"),
+                String::from("::1"),
+            ];
+            if let Ok(x) = hostname::get() {
+                if let Some(x) = x.to_str() {
+                    names.push(String::from(x));
+                }
+            }
+            let cert = generate_simple_self_signed(names)?;
 
-    // Bind TCP port for HTTPS
-    let listener = TcpListener::bind(&conf.https_listen)?;
-    Ok((listener.local_addr()?.port(), listener, cert))
+            // Bind TCP port for HTTPS
+            let listener = TcpListener::bind(https_listen)?;
+            Ok(Some((listener.local_addr()?.port(), listener, cert)))
+        }
+        None => Ok(None),
+    }
 }
 
 pub fn https_server(

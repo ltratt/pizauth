@@ -36,10 +36,24 @@ is set to the error message.
 Defaults to logging via
 .Xr syslog 3
 if not specified.
-.It Sy http_listen = Qo Em bind-name Qc ;
+.It Sy http_listen = Em none | Qo Em bind-name Qc ;
 specifies the address for the
 .Xr pizauth 1
 HTTP server to listen on.
+If
+.Em none
+is specified, the HTTP server is turned off entirely.
+Note that at least one of the HTTP and HTTPS servers must be turned on.
+Defaults to
+.Qq 127.0.0.1:0 .
+.It Sy https_listen = Em none | Qo Em bind-name Qc ;
+specifies the address for the
+.Xr pizauth 1
+HTTPS server to listen on.
+If
+.Em none
+is specified, the HTTPS server is turned off entirely.
+Note that at least one of the HTTP and HTTPS servers must be turned on.
 Defaults to
 .Qq 127.0.0.1:0 .
 .It Sy transient_error_if_cmd = Qo Em shell-cmd Qc ;
