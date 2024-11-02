@@ -45,10 +45,12 @@ pub struct AuthenticatorState {
     /// The "global lock" protecting the config and current [TokenState]s. Can only be accessed via
     /// [AuthenticatorState::ct_lock].
     locked_state: Mutex<LockedState>,
-    /// port of the HTTP server required by OAuth.
+    /// Port of the HTTP server required by OAuth.
     pub http_port: Option<u16>,
-    /// port of the HTTPS server required by OAuth.
+    /// Port of the HTTPS server required by OAuth.
     pub https_port: Option<u16>,
+    /// If an HTTPS server is running, its raw public key formatted in hex with each byte separated by `:`.
+    pub https_pub_key: Option<String>,
     pub eventer: Arc<Eventer>,
     pub notifier: Arc<Notifier>,
     pub refresher: Arc<Refresher>,
@@ -60,6 +62,7 @@ impl AuthenticatorState {
         conf: Config,
         http_port: Option<u16>,
         https_port: Option<u16>,
+        https_pub_key: Option<String>,
         eventer: Arc<Eventer>,
         notifier: Arc<Notifier>,
         refresher: Arc<Refresher>,
@@ -69,6 +72,7 @@ impl AuthenticatorState {
             locked_state: Mutex::new(LockedState::new(conf)),
             http_port,
             https_port,
+            https_pub_key,
             eventer,
             notifier,
             refresher,
@@ -594,6 +598,7 @@ mod test {
             conf,
             Some(0),
             Some(0),
+            Some("".to_string()),
             eventer,
             notifier,
             Refresher::new(),
@@ -727,6 +732,7 @@ mod test {
             conf,
             Some(0),
             Some(0),
+            Some("".to_string()),
             eventer,
             notifier,
             Refresher::new(),
@@ -808,6 +814,7 @@ mod test {
             conf,
             Some(0),
             Some(0),
+            Some("".to_string()),
             eventer,
             notifier,
             Refresher::new(),

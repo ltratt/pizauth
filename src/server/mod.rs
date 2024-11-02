@@ -6,6 +6,7 @@ mod request_token;
 mod state;
 
 use std::{
+    collections::HashMap,
     error::Error,
     io::{Read, Write},
     os::unix::net::{UnixListener, UnixStream},
@@ -27,6 +28,7 @@ use eventer::{Eventer, TokenEvent};
 use notifier::Notifier;
 use refresher::Refresher;
 use request_token::request_token;
+use serde_json::json;
 use state::{AccountId, AuthenticatorState, CTGuard, TokenState};
 
 /// Length of the PKCE code verifier in bytes.
@@ -81,6 +83,28 @@ fn request(pstate: Arc<AuthenticatorState>, mut stream: UnixStream) -> Result<()
     match cmd {
         "dump" if rest.is_empty() => {
             stream.write_all(&pstate.dump()?)?;
+            return Ok(());
+        }
+        "info" if rest.is_empty() => {
+            let mut m = HashMap::new();
+            m.insert(
+                "http_port",
+                match pstate.http_port {
+                    Some(x) => x.to_string(),
+                    None => "none".to_string(),
+                },
+            );
+            m.insert(
+                "https_port",
+                match pstate.https_port {
+                    Some(x) => x.to_string(),
+                    None => "none".to_string(),
+                },
+            );
+            if let Some(x) = &pstate.https_pub_key {
+                m.insert("https_pub_key", x.clone());
+            }
+            stream.write_all(json!(m).to_string().as_bytes())?;
             return Ok(());
         }
         "reload" if rest.is_empty() => {
@@ -311,7 +335,7 @@ pub fn server(conf_path: PathBuf, conf: Config, cache_path: &Path) -> Result<(),
         Some((x, y)) => (Some(x), Some(y)),
         None => (None, None),
     };
-    let (https_port, https_state, certificate) = match http_server::https_server_setup(&conf)? {
+    let (https_port, https_state, certified_key) = match http_server::https_server_setup(&conf)? {
         Some((x, y, z)) => (Some(x), Some(y), Some(z)),
         None => (None, None, None),
     };
@@ -321,11 +345,21 @@ pub fn server(conf_path: PathBuf, conf: Config, cache_path: &Path) -> Result<(),
     let notifier = Arc::new(Notifier::new()?);
     let refresher = Refresher::new();
 
+    let pub_key_str = certified_key.as_ref().map(|x| {
+        x.key_pair
+            .public_key_raw()
+            .iter()
+            .map(|x| format!("{x:02X}"))
+            .collect::<Vec<_>>()
+            .join(":")
+    });
+
     let pstate = Arc::new(AuthenticatorState::new(
         conf_path,
         conf,
         http_port,
         https_port,
+        pub_key_str,
         Arc::clone(&eventer),
         Arc::clone(&notifier),
         Arc::clone(&refresher),
@@ -334,7 +368,7 @@ pub fn server(conf_path: PathBuf, conf: Config, cache_path: &Path) -> Result<(),
     if let Some(x) = http_state {
         http_server::http_server(Arc::clone(&pstate), x)?;
     }
-    if let (Some(x), Some(y)) = (https_state, certificate) {
+    if let (Some(x), Some(y)) = (https_state, certified_key) {
         http_server::https_server(Arc::clone(&pstate), x, y)?;
     }
     eventer.eventer(Arc::clone(&pstate))?;

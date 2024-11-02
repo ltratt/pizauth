@@ -175,6 +175,7 @@ fn main() {
             if matches.opt_present("h") || !matches.free.is_empty() {
                 usage();
             }
+            let svj = user_sender::server_info(&cache_path).ok();
             let progname = progname();
             let cache_path = cache_path
                 .to_str()
@@ -185,16 +186,35 @@ fn main() {
                 .unwrap_or("<path cannot be represented as UTF-8>");
             let ver = env!("CARGO_PKG_VERSION");
             if matches.opt_present("j") {
-                let j = json!({
+                let mut j = json!({
                     "cache_directory": cache_path,
                     "config_file": conf_path,
                     "executed_as": progname,
-                    "info_format_version": 1,
+                    "info_format_version": 2,
                     "pizauth_version": ver
                 });
+                let svj = match svj {
+                    Some(x) => json!({ "server_running": true, "server_info": x}),
+                    None => json!({ "server_running": false }),
+                };
+                j.as_object_mut()
+                    .unwrap()
+                    .extend(svj.as_object().unwrap().clone());
                 println!("{}", j);
             } else {
-                println!("{progname} version {ver}:\n  cache directory: {cache_path}\n  config file: {conf_path}")
+                println!("{progname} version {ver}:\n  cache directory: {cache_path}\n  config file: {conf_path}");
+                if let Some(svj) = svj {
+                    println!(
+                        "server running:\n  HTTP port: {}\n  HTTPS port: {}",
+                        svj["http_port"].as_str().unwrap(),
+                        svj["https_port"].as_str().unwrap()
+                    );
+                    if let Some(x) = svj.get("https_pub_key") {
+                        println!("  HTTPS public key: {}", x.as_str().unwrap());
+                    }
+                } else {
+                    println!("server not running");
+                }
             }
         }
         "refresh" => {

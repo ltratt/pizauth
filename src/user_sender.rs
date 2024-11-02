@@ -22,6 +22,20 @@ pub fn dump(cache_path: &Path) -> Result<Vec<u8>, Box<dyn Error>> {
     Ok(buf)
 }
 
+pub fn server_info(cache_path: &Path) -> Result<serde_json::Value, Box<dyn Error>> {
+    let sock_path = sock_path(cache_path);
+    let mut stream = UnixStream::connect(sock_path)
+        .map_err(|_| "pizauth authenticator not running or not responding")?;
+    stream
+        .write_all("info:".as_bytes())
+        .map_err(|_| "Socket not writeable")?;
+    stream.shutdown(Shutdown::Write)?;
+
+    let mut s = String::new();
+    stream.read_to_string(&mut s)?;
+    Ok(serde_json::from_str(&s)?)
+}
+
 pub fn refresh(cache_path: &Path, account: &str, with_url: bool) -> Result<(), Box<dyn Error>> {
     let sock_path = sock_path(cache_path);
     let with_url = if with_url { "withurl" } else { "withouturl" };
