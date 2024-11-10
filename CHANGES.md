@@ -1,3 +1,16 @@
+# pizauth 1.0.6 (2024-11-10)
+
+* Support HTTPS redirects. pizauth now starts, by default, both HTTP and HTTPS
+  servers, generating a new self-signed HTTPS certificate on each invocation.
+
+  `pizauth info` shows you the certificate hash so you can verify that your
+  browser is connecting to the right HTTPS server. You can turn either (but
+  not both!) of the HTTP and HTTPS servers off with `http_listen=off` or
+  `https_listen=off`. This is most useful if you want to force HTTPS redirects
+  and ensure that you're not accidentally being redirected to an HTTP URL (i.e.
+  `http_listen=off` is the option you are most likely to be interested in).
+
+
 # pizauth 1.0.5 (2024-07-27)
 
 * Use `XDG_RUNTIME_DIR` instead of `XDG_DATA_HOME` for the socket path.
