@@ -12,9 +12,10 @@ use std::{
     os::unix::net::{UnixListener, UnixStream},
     path::{Path, PathBuf},
     sync::Arc,
-    time::{Duration, Instant, SystemTime},
+    time::{Duration, SystemTime},
 };
 
+use boot_time::Instant;
 use chrono::{DateTime, Local};
 use log::warn;
 use nix::sys::signal::{raise, Signal};

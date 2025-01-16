@@ -6,9 +6,10 @@ use std::{
     process::{Command, Stdio},
     sync::{Arc, Condvar, Mutex},
     thread,
-    time::{Duration, Instant},
+    time::Duration,
 };
 
+use boot_time::Instant;
 #[cfg(debug_assertions)]
 use log::debug;
 use log::info;

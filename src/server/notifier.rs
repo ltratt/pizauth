@@ -4,9 +4,9 @@ use std::{
     process::Command,
     sync::{Arc, Condvar, Mutex},
     thread,
-    time::Instant,
 };
 
+use boot_time::Instant;
 #[cfg(debug_assertions)]
 use log::debug;
 use log::error;
