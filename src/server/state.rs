@@ -280,7 +280,7 @@ pub struct CTGuard<'a> {
 }
 
 impl<'a> CTGuard<'a> {
-    fn new(guard: MutexGuard<'a, LockedState>) -> CTGuard {
+    fn new(guard: MutexGuard<'a, LockedState>) -> CTGuard<'a> {
         CTGuard { guard }
     }
 
