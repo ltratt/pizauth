@@ -1,4 +1,5 @@
 #![allow(clippy::derive_partial_eq_without_eq)]
+#![allow(clippy::too_many_arguments)]
 #![allow(clippy::type_complexity)]
 
 mod compat;
