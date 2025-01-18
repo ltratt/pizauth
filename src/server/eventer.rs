@@ -77,7 +77,7 @@ impl Eventer {
                     Ok(s) => {
                         match Command::new(s)
                             .env("PIZAUTH_ACCOUNT", act_name.as_str())
-                            .env("PIZAUTH_EVENT", &format!("{event}"))
+                            .env("PIZAUTH_EVENT", event.to_string())
                             .args(["-c", &token_event_cmd])
                             .spawn()
                         {
