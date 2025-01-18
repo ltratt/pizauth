@@ -39,6 +39,20 @@ const CODE_VERIFIER_LEN: usize = 64;
 pub const UREQ_TIMEOUT: Duration = Duration::from_secs(30);
 /// Length of the OAuth state in bytes.
 const STATE_LEN: usize = 8;
+/// When waiting to do something (e.g. in the notifier or refresher), we have the problem that when
+/// we ask to be woken up in "X seconds from now", operating systems do not interpret that as "wake
+/// you up in X seconds of wall-clock time". For example, if a machine is suspended then resumed,
+/// then the time the machine was out of action may not be counted as "wait time". The impact of
+/// ntp/adjtime and friends is also unclear. There is no portable way for us to know if any of
+/// these things has happened, so we are left in the unhappy situation that if a thread knows it
+/// has work to do in the future, it needs to wake itself up every so often to check if -- without
+/// us knowing it! -- the clock has changed underneath it.
+///
+/// There is no universally good value here. Too short means that we waste resources; too long and
+/// the user will think that we have gone wrong; too predictable and we might end up causing weird
+/// spikes in performance (e.g. if we wake up exactly every 10/30/60 seconds). To make problems
+/// even less likely, we choose a prime number.
+const MAX_WAIT_SECS: u64 = 37;
 
 pub fn sock_path(cache_path: &Path) -> PathBuf {
     let mut p = cache_path.to_owned();

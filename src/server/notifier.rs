@@ -1,9 +1,10 @@
 use std::{
-    env,
+    cmp, env,
     error::Error,
     process::Command,
     sync::{Arc, Condvar, Mutex},
     thread,
+    time::Duration,
 };
 
 use boot_time::Instant;
@@ -11,7 +12,7 @@ use boot_time::Instant;
 use log::debug;
 use log::error;
 
-use super::{AccountId, AuthenticatorState, CTGuard, TokenState};
+use super::{AccountId, AuthenticatorState, CTGuard, TokenState, MAX_WAIT_SECS};
 
 pub struct Notifier {
     pred: Mutex<bool>,
@@ -124,6 +125,12 @@ impl Notifier {
             .act_ids()
             .filter_map(|act_id| notify_at(pstate, &ct_lk, act_id))
             .min()
+            .map(
+                |act_min| match Instant::now().checked_add(Duration::from_secs(MAX_WAIT_SECS)) {
+                    Some(x) => cmp::min(act_min, x),
+                    None => act_min,
+                },
+            )
     }
 
     pub fn notify_error(
