@@ -6,9 +6,10 @@ use std::{
     process::{Command, Stdio},
     sync::{Arc, Condvar, Mutex},
     thread,
-    time::{Duration, Instant},
+    time::Duration,
 };
 
+use boot_time::Instant;
 #[cfg(debug_assertions)]
 use log::debug;
 use log::info;
@@ -17,7 +18,7 @@ use wait_timeout::ChildExt;
 
 use super::{
     eventer::TokenEvent, expiry_instant, AccountId, AuthenticatorState, CTGuard, TokenState,
-    UREQ_TIMEOUT,
+    MAX_WAIT_SECS, UREQ_TIMEOUT,
 };
 
 /// How many times can a transient error be encountered before we try `not_transient_error_if`?
@@ -421,6 +422,12 @@ impl Refresher {
             .act_ids()
             .filter_map(|act_id| self.refresh_at(pstate, &ct_lk, act_id))
             .min()
+            .map(
+                |act_min| match Instant::now().checked_add(Duration::from_secs(MAX_WAIT_SECS)) {
+                    Some(x) => cmp::min(act_min, x),
+                    None => act_min,
+                },
+            )
     }
 
     /// Notify the refresher that one or more [TokenState]s is likely to have changed in a way that

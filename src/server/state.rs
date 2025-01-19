@@ -16,9 +16,10 @@ use std::{
     error::Error,
     path::PathBuf,
     sync::{Arc, Mutex, MutexGuard},
-    time::{Instant, SystemTime},
+    time::SystemTime,
 };
 
+use boot_time::Instant;
 use chacha20poly1305::{
     aead::{Aead, KeyInit},
     ChaCha20Poly1305, Key, Nonce,

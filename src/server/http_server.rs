@@ -4,9 +4,10 @@ use std::{
     net::TcpListener,
     sync::Arc,
     thread,
-    time::{Duration, Instant},
+    time::Duration,
 };
 
+use boot_time::Instant;
 use log::warn;
 use serde_json::Value;
 use url::Url;

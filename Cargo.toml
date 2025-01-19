@@ -19,6 +19,7 @@ rerun_except = "1"
 [dependencies]
 base64 = "0.22"
 bincode = "1"
+boot-time = "0.1.2"
 cfgrammar = "0.13"
 chacha20poly1305 = "0.10"
 chrono = "0.4"
