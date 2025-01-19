@@ -223,13 +223,17 @@ fn request(pstate: Arc<AuthenticatorState>, mut stream: UnixStream) -> Result<()
                     TokenState::Active {
                         access_token,
                         access_token_expiry,
+                        ongoing_refresh,
                         ..
                     } => {
                         let response = if access_token_expiry > &Instant::now() {
                             format!("access_token:{access_token:}")
-                        } else {
-                            "error:Access token has expired and refreshing has not yet succeeded"
+                        } else if *ongoing_refresh {
+                            "error:Access token has expired. Refreshing is in progress but has not yet succeeded"
                                 .into()
+                        } else {
+                            pstate.refresher.sched_refresh(Arc::clone(&pstate), act_id);
+                            "error:Access token has expired. Refreshing initiated".into()
                         };
                         drop(ct_lk);
                         stream.write_all(response.as_bytes())?;
