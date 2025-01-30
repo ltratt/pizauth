@@ -1,7 +1,7 @@
 use std::{error::Error, sync::Arc};
 
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
-use rand::{thread_rng, RngCore};
+use rand::{rng, RngCore};
 use sha2::{Digest, Sha256};
 use url::Url;
 
@@ -21,11 +21,11 @@ pub fn request_token(
     let act = ct_lk.account(act_id);
 
     let mut state = [0u8; STATE_LEN];
-    thread_rng().fill_bytes(&mut state);
+    rng().fill_bytes(&mut state);
     let state = URL_SAFE_NO_PAD.encode(state);
 
     let mut code_verifier = [0u8; CODE_VERIFIER_LEN];
-    thread_rng().fill_bytes(&mut code_verifier);
+    rng().fill_bytes(&mut code_verifier);
     let code_verifier = URL_SAFE_NO_PAD.encode(code_verifier);
     let mut hasher = Sha256::new();
     hasher.update(&code_verifier);

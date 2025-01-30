@@ -24,7 +24,7 @@ use chacha20poly1305::{
     aead::{Aead, KeyInit},
     ChaCha20Poly1305, Key, Nonce,
 };
-use rand::{thread_rng, Rng};
+use rand::{rng, Rng};
 use serde::{Deserialize, Serialize};
 use url::Url;
 
@@ -114,7 +114,7 @@ impl AuthenticatorState {
         let key = Key::from_slice(CHACHA20_KEY);
         let cipher = ChaCha20Poly1305::new(key);
         let mut nonce = [0u8; NONCE_LEN];
-        thread_rng().fill(&mut nonce[..]);
+        rng().fill(&mut nonce[..]);
         let nonce = Nonce::from_slice(&nonce);
         let bytes = cipher
             .encrypt(nonce, &*d)
