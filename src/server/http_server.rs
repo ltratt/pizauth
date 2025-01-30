@@ -28,6 +28,11 @@ use super::{
 const RETRY_POST: u8 = 10;
 /// How long to delay between each retry?
 const RETRY_DELAY: u64 = 6;
+/// What is the maximum HTTP request size, in bytes, we allow? We are less worried about malicious
+/// actors than we are about malfunctioning systems. We thus set this to a far higher value than we
+/// actually expect to see in practise: if any client connecting exceeds this, they've probably got
+/// real problems!
+const MAX_HTTP_REQUEST_SIZE: usize = 16 * 1024;
 
 /// Handle an incoming (hopefully OAuth2) HTTP request.
 fn request<T: Read + Write>(
@@ -278,6 +283,7 @@ fn parse_get<T: Read + Write>(stream: &mut T, is_https: bool) -> Result<Url, Box
     let mut rdr = BufReader::new(stream);
     let mut req_line = String::new();
     rdr.read_line(&mut req_line)?;
+    let mut http_req_size = req_line.len();
 
     // First the request line:
     //  Request-Line   = Method SP Request-URI SP HTTP-Version CRLF
@@ -291,11 +297,15 @@ fn parse_get<T: Read + Write>(stream: &mut T, is_https: bool) -> Result<Url, Box
     // Consume rest of HTTP request
     let mut req: Vec<String> = Vec::new();
     loop {
+        if http_req_size >= MAX_HTTP_REQUEST_SIZE {
+            return Err("HTTP request exceeds maximum permitted size".into());
+        }
         let mut line = String::new();
         rdr.read_line(&mut line)?;
         if line.as_str().trim().is_empty() {
             break;
         }
+        http_req_size += line.len();
         match line.chars().next() {
             Some(' ') | Some('\t') => {
                 // Continuation of previous header
