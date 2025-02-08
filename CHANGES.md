@@ -1,3 +1,18 @@
+# pizauth 1.0.7 (2025-02-08)
+
+* Add an upper limit to the size of HTTP requests pizauth accepts. In the
+  (admittedly rather unlikely) case that a client malfunctions, this makes it
+  more difficult for them to accidentally cause pizauth to run out of memory.
+
+* Wake up the refresher / notifier periodically (currently every 37 seconds) to
+  see if there is work to do. This is a crude workaround for inconsistency in
+  operating systems as to whether "wake up in X seconds" includes time spent in
+  suspend/hibernate or adjusted by `adjtime` and so on.
+
+* Present times (e.g. about expired tokens) in a way that is less likely to be
+  skewed by suspend/hibernate on some operating systems.
+
+
 # pizauth 1.0.6 (2024-11-10)
 
 * Support HTTPS redirects. pizauth now starts, by default, both HTTP and HTTPS
