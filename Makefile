@@ -29,6 +29,8 @@ install: target/release/pizauth
 	install -c -m 444 examples/pizauth.conf ${DESTDIR}${EXAMPLESDIR}/pizauth/pizauth.conf
 	install -d ${DESTDIR}${SHAREDIR}/bash-completion/completions
 	install -c -m 444 share/bash/completion.bash ${DESTDIR}${SHAREDIR}/bash-completion/completions/pizauth
+	install -d ${DESTDIR}${SHAREDIR}/fish/vendor_completions.d
+	install -c -m 444 share/fish/pizauth.fish ${DESTDIR}${SHAREDIR}/fish/vendor_completions.d
 ifeq ($(PLATFORM), Linux)
 	install -d ${DESTDIR}${LIBDIR}/systemd/user
 	install -c -m 444 lib/systemd/user/pizauth.service ${DESTDIR}${LIBDIR}/systemd/user/pizauth.service
