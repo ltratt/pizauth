@@ -87,7 +87,7 @@ impl AuthenticatorState {
     /// If another thread poisoned the underlying lock, this function will panic. There is little
     /// to be done in such a case, as it is likely that pizauth is in an inconsistent, and
     /// irretrievable, state.
-    pub fn ct_lock(&self) -> CTGuard {
+    pub fn ct_lock(&self) -> CTGuard<'_> {
         CTGuard::new(self.locked_state.lock().unwrap())
     }
 
