@@ -14,6 +14,7 @@ pub enum TopLevel {
     RefreshAtLeast(Span),
     RefreshBeforeExpiry(Span),
     RefreshRetry(Span),
+    StartupCmd(Span),
     TokenEventCmd(Span),
 }
 

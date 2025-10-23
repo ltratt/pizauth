@@ -7,17 +7,20 @@ mod state;
 
 use std::{
     collections::HashMap,
+    env,
     error::Error,
     io::{Read, Write},
     os::unix::net::{UnixListener, UnixStream},
     path::{Path, PathBuf},
+    process::Command,
     sync::Arc,
+    thread,
     time::{Duration, SystemTime},
 };
 
 use boot_time::Instant;
 use chrono::{DateTime, Local};
-use log::warn;
+use log::{error, warn};
 use nix::sys::signal::{raise, Signal};
 #[cfg(target_os = "openbsd")]
 use pledge::pledge;
@@ -321,6 +324,31 @@ fn instant_fmt(i: Instant) -> String {
     "<unknown time>".into()
 }
 
+/// If [Config::startup_cmd] is non-`None`, call this function to run that command (in a thread, so
+/// this is non-blocking).
+fn startup_cmd(cmd: String) {
+    thread::spawn(move || match env::var("SHELL") {
+        Ok(s) => match Command::new(s).args(["-c", &cmd]).spawn() {
+            Ok(mut child) => match child.wait() {
+                Ok(status) => {
+                    if !status.success() {
+                        error!(
+                            "'{cmd:}' returned {}",
+                            status
+                                .code()
+                                .map(|x| x.to_string())
+                                .unwrap_or_else(|| "<Unknown exit code".to_string())
+                        );
+                    }
+                }
+                Err(e) => error!("Waiting on '{cmd:}' failed: {e:}"),
+            },
+            Err(e) => error!("Couldn't execute '{cmd:}': {e:}"),
+        },
+        Err(e) => error!("{e:}"),
+    });
+}
+
 pub fn server(conf_path: PathBuf, conf: Config, cache_path: &Path) -> Result<(), Box<dyn Error>> {
     let sock_path = sock_path(cache_path);
 
@@ -395,6 +423,9 @@ pub fn server(conf_path: PathBuf, conf: Config, cache_path: &Path) -> Result<(),
     notifier.notifier(Arc::clone(&pstate))?;
 
     let listener = UnixListener::bind(sock_path)?;
+    if let Some(s) = &pstate.ct_lock().config().startup_cmd {
+        startup_cmd(s.to_owned());
+    }
     for stream in listener.incoming().flatten() {
         let pstate = Arc::clone(&pstate);
         if let Err(e) = request(pstate, stream) {

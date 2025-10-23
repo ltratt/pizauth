@@ -83,6 +83,18 @@ Defaults to 90 seconds if not specified.
 specifies the gap between retrying refreshing after transitory errors
 (e.g. due to network problems).
 Defaults to 40 seconds if not specified.
+.It Sy startup_cmd = Qo Em shell-cmd Qc ;
+specifies a shell command to be run via
+.Ql $SHELL -c
+after pizauth's server has completed setup and is ready to accept commands.
+Note that unless
+.Fl d
+is set,
+.Sy startup_cmd
+will be run after
+.Xr pizauth 1
+has daemonised.
+The command will thus be run with stdin and stdin closed.
 .It Sy token_event_cmd = Qo Em shell-cmd Qc ;
 specifies a shell command to be run via
 .Ql $SHELL -c
