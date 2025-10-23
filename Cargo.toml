@@ -11,23 +11,23 @@ keywords = ["oauth", "oauth2", "authentication"]
 edition = "2021"
 
 [build-dependencies]
-cfgrammar = "0.13"
-lrlex = "0.13"
-lrpar = "0.13"
+cfgrammar = "0.14"
+lrlex = "0.14"
+lrpar = "0.14"
 rerun_except = "1"
 
 [dependencies]
 base64 = "0.22"
-bincode = "1"
+bincode = { version="2", features=["serde"] }
 boot-time = "0.1.2"
-cfgrammar = "0.13"
+cfgrammar = "0.14"
 chacha20poly1305 = "0.10"
 chrono = "0.4"
 getopts = "0.2"
 hostname = "0.4"
 log = "0.4"
-lrlex = "0.13"
-lrpar = "0.13"
+lrlex = "0.14"
+lrpar = "0.14"
 nix = { version="0.29", features=["fs", "signal"] }
 rand = "0.9"
 serde = { version="1.0", features=["derive"] }
