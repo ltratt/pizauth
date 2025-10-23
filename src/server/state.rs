@@ -215,14 +215,17 @@ impl LockedState {
             );
         }
 
-        Ok(bincode::serialize(&Dump {
-            version: DUMP_VERSION,
-            accounts: acts,
-        })?)
+        Ok(bincode::serde::encode_to_vec(
+            &Dump {
+                version: DUMP_VERSION,
+                accounts: acts,
+            },
+            bincode::config::legacy(),
+        )?)
     }
 
     fn restore(&mut self, dump: Vec<u8>) -> Result<(), Box<dyn Error>> {
-        let d = bincode::deserialize::<Dump>(&dump)?;
+        let d: Dump = bincode::serde::decode_from_slice(&dump, bincode::config::legacy())?.0;
         if d.version != DUMP_VERSION {
             return Err("Unknown dump version".into());
         }
