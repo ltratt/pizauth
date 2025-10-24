@@ -56,21 +56,6 @@ is specified, the HTTPS server is turned off entirely.
 Note that at least one of the HTTP and HTTPS servers must be turned on.
 Defaults to
 .Qq 127.0.0.1:0 .
-.It Sy transient_error_if_cmd = Qo Em shell-cmd Qc ;
-specifies a shell command to be run when pizauth repeatedly encounters
-errors when trying to refresh a token.
-One special environment variable is set:
-.Em $PIZAUTH_ACCOUNT
-is set to the account name.
-If
-.Em shell-cmd
-returns a zero exit code, the transient errors are ignored.
-If
-.Em shell-cmd
-returns a non-zero exit code, or exceeds a 3 minute timeout, pizauth treats
-the errors as permanent: the access token is invalidated (forcing the user
-to later reauthenicate).
-Defaults to ignoring non-fatal errors if not specified.
 .It Sy refresh_at_least = Em time ;
 specifies the maximum period of time before an access token will be forcibly
 refreshed.
@@ -124,6 +109,21 @@ Note that
 .Sy token_event_cmd
 is subject to a 10 second timeout.
 Optional.
+.It Sy transient_error_if_cmd = Qo Em shell-cmd Qc ;
+specifies a shell command to be run when pizauth repeatedly encounters
+errors when trying to refresh a token.
+One special environment variable is set:
+.Em $PIZAUTH_ACCOUNT
+is set to the account name.
+If
+.Em shell-cmd
+returns a zero exit code, the transient errors are ignored.
+If
+.Em shell-cmd
+returns a non-zero exit code, or exceeds a 3 minute timeout, pizauth treats
+the errors as permanent: the access token is invalidated (forcing the user
+to later reauthenicate).
+Defaults to ignoring non-fatal errors if not specified.
 .El
 .Pp
 An
