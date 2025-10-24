@@ -41,6 +41,7 @@ pub struct Config {
     refresh_at_least: Option<Duration>,
     refresh_before_expiry: Option<Duration>,
     refresh_retry: Option<Duration>,
+    pub startup_cmd: Option<String>,
     pub token_event_cmd: Option<String>,
 }
 
@@ -77,6 +78,7 @@ impl Config {
         let mut refresh_at_least = None;
         let mut refresh_before_expiry = None;
         let mut refresh_retry = None;
+        let mut startup_cmd = None;
         let mut token_event_cmd = None;
         match astopt {
             Some(Ok(opts)) => {
@@ -183,6 +185,14 @@ impl Config {
                                 refresh_retry,
                             )?)?)
                         }
+                        config_ast::TopLevel::StartupCmd(span) => {
+                            startup_cmd = Some(check_not_assigned_str(
+                                &lexer,
+                                "startup_cmd",
+                                span,
+                                startup_cmd,
+                            )?)
+                        }
                         config_ast::TopLevel::TokenEventCmd(span) => {
                             token_event_cmd = Some(check_not_assigned_str(
                                 &lexer,
@@ -235,6 +245,7 @@ impl Config {
             refresh_at_least,
             refresh_before_expiry,
             refresh_retry,
+            startup_cmd,
             token_event_cmd,
         })
     }
