@@ -24,6 +24,7 @@ TopLevel -> Result<TopLevel, ()>:
   | "REFRESH_AT_LEAST" "=" "TIME" ";" { Ok(TopLevel::RefreshAtLeast(map_err($3)?)) }
   | "REFRESH_BEFORE_EXPIRY" "=" "TIME" ";" { Ok(TopLevel::RefreshBeforeExpiry(map_err($3)?)) }
   | "REFRESH_RETRY" "=" "TIME" ";" { Ok(TopLevel::RefreshRetry(map_err($3)?)) }
+  | "STARTUP_CMD" "=" "STRING" ";" { Ok(TopLevel::StartupCmd(map_err($3)?)) }
   | "TOKEN_EVENT_CMD" "=" "STRING" ";" { Ok(TopLevel::TokenEventCmd(map_err($3)?)) }
   ;
 
