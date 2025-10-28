@@ -8,6 +8,7 @@ Requires=gpg-agent.socket
 [Service]
 # Since we're using credentials, we can't use Type=simple
 Type=exec
+RemainAfterExit=yes
 # This unit needs to be configured before it's usable!
 # To use this unit, use systemctl --user edit pizauth-state-gpg.service to
 # create a drop-in configuration file. In it, set

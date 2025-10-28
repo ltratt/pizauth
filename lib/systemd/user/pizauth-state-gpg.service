@@ -7,6 +7,7 @@ Requires=gpg-agent.socket
 
 [Service]
 Type=simple
+RemainAfterExit=yes
 # This unit needs to be configured before it's usable!
 # To use this unit, use systemctl --user edit pizauth-state-age.service to
 # create a drop-in configuration file. In it, set

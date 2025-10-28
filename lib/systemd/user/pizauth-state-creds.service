@@ -6,6 +6,7 @@ ReloadPropagatedFrom=pizauth.service
 
 [Service]
 Type=simple
+RemainAfterExit=yes
 Environment="PIZAUTH_STATE_FILE=%S/%N.dump"
 ExecStart=-sh -c 'systemd-creds --user decrypt $PIZAUTH_STATE_FILE | pizauth restore'
 ExecReload=-sh -c 'systemd-creds --user decrypt $PIZAUTH_STATE_FILE | pizauth restore'
