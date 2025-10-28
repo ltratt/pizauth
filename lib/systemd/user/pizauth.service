@@ -2,7 +2,7 @@
 Description=Pizauth OAuth2 token manager
 Documentation=man:pizauth(1) man:pizauth.conf(5)
 Documentation=https://github.com/ltratt/pizauth/blob/master/README.md
-Documentation=https://github.com/ltratt/pizauth/blob/master/README.Linux.md
+Documentation=https://github.com/ltratt/pizauth/blob/master/README.systemd.md
 
 [Service]
 Type=notify

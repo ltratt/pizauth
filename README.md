@@ -92,7 +92,7 @@ is opened in the user's default web browser.
 ### Running pizauth
 
 You need to start the pizauth server (alternatively, start `pizauth.service`,
-see [Linux/systemd-unit](README.Linux.md#systemd-unit)):
+see [systemd-unit](README.systemd.md#systemd-unit)):
 
 ```sh
 $ pizauth server

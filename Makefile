@@ -51,7 +51,7 @@ distrib:
 	  && mkdir pizauth-$$v \
 	  && cp -rp Makefile build.rs Cargo.lock Cargo.toml \
 	    COPYRIGHT LICENSE-APACHE LICENSE-MIT \
-	    CHANGES.md README.md README.Linux.md \
+	    CHANGES.md README.md README.systemd.md \
 	    pizauth.1 pizauth.conf.5 \
 	    examples lib share src \
 	      pizauth-$$v \
