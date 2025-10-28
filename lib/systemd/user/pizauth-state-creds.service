@@ -1,0 +1,15 @@
+[Unit]
+Description=pizauth dump/restore backend (encryption: systemd-creds)
+BindsTo=pizauth.service
+After=pizauth.service
+ReloadPropagatedFrom=pizauth.service
+
+[Service]
+Type=simple
+Environment="PIZAUTH_STATE_FILE=%S/%N.dump"
+ExecStart=-sh -c 'systemd-creds --user decrypt $PIZAUTH_STATE_FILE | pizauth restore'
+ExecReload=-sh -c 'systemd-creds --user decrypt $PIZAUTH_STATE_FILE | pizauth restore'
+ExecStop=-sh -c 'pizauth dump | systemd-creds --user encrypt - $PIZAUTH_STATE_FILE'
+
+[Install]
+WantedBy=pizauth.service

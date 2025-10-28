@@ -34,9 +34,11 @@ install: target/release/pizauth
 ifeq ($(PLATFORM), Linux)
 	install -d ${DESTDIR}${LIBDIR}/systemd/user
 	install -c -m 444 lib/systemd/user/pizauth.service ${DESTDIR}${LIBDIR}/systemd/user/pizauth.service
-	install -d ${DESTDIR}${EXAMPLESDIR}/pizauth/systemd-dropins
-	install -c -m 444 examples/systemd-dropins/age.conf ${DESTDIR}${EXAMPLESDIR}/pizauth/systemd-dropins/age.conf
-	install -c -m 444 examples/systemd-dropins/gpg-dump.conf ${DESTDIR}${EXAMPLESDIR}/pizauth/systemd-dropins/gpg-dump.conf
+	install -c -m 444 lib/systemd/user/pizauth-state-creds.service ${DESTDIR}${LIBDIR}/systemd/user/pizauth-state-creds.service
+	install -c -m 444 lib/systemd/user/pizauth-state-age.service ${DESTDIR}${LIBDIR}/systemd/user/pizauth-state-age.service
+	install -c -m 444 lib/systemd/user/pizauth-state-gpg.service ${DESTDIR}${LIBDIR}/systemd/user/pizauth-state-gpg.service
+	install -c -m 444 lib/systemd/user/pizauth-state-gpg-passphrase.service ${DESTDIR}${LIBDIR}/systemd/user/pizauth-state-gpg-passphrase.service
+	install -c -m 444 examples/pizauth-state-custom.service ${DESTDIR}${EXAMPLESDIR}/pizauth/pizauth-state-custom.service
 endif
 
 test:

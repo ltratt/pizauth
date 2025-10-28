@@ -1,0 +1,21 @@
+[Unit]
+Description=pizauth dump/restore backend (encryption: gpg)
+BindsTo=pizauth.service
+After=pizauth.service
+ReloadPropagatedFrom=pizauth.service
+Requires=gpg-agent.socket
+
+[Service]
+Type=simple
+# This unit needs to be configured before it's usable!
+# To use this unit, use systemctl --user edit pizauth-state-age.service to
+# create a drop-in configuration file. In it, set
+# Environment="PIZAUTH_KEY_ID=public key you want to encrypt with"
+Environment="PIZAUTH_KEY_ID="
+Environment="PIZAUTH_STATE_FILE=%S/%N.dump"
+ExecStart=-sh -c 'gpg --batch --decrypt "$PIZAUTH_STATE_FILE" | pizauth restore'
+ExecReload=-sh -c 'gpg --batch --decrypt "$PIZAUTH_STATE_FILE" | pizauth restore'
+ExecStop=-sh -c 'pizauth dump | gpg --batch --yes --encrypt --recipient $PIZAUTH_KEY_ID -o "$PIZAUTH_STATE_FILE"'
+
+[Install]
+WantedBy=pizauth.service
