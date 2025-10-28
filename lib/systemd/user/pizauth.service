@@ -5,7 +5,10 @@ Documentation=https://github.com/ltratt/pizauth/blob/master/README.md
 Documentation=https://github.com/ltratt/pizauth/blob/master/README.Linux.md
 
 [Service]
-Type=simple
+Type=notify
+# Allow all processes in the cgroup to set the service status, needed to be able
+# to set status via eg startup_cmd, token_event_cmd, etc
+NotifyAccess=all
 ExecStart=/usr/bin/pizauth server -vvvv -d
 ExecReload=/usr/bin/pizauth reload
 ExecStop=/usr/bin/pizauth shutdown
