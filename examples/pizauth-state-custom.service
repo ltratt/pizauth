@@ -1,0 +1,38 @@
+# In case the supplied pizauth-state-*.service files don't suit your needs,
+# this is the template for a new pizauth-state-*.service file.
+# See systemd.service(5), systemd.unit(5), systemd.exec(5) for more details.
+#
+# We pull out the dump/restore feature as its own unit since under the systemd
+# semantics, it makes more sense -- as indicated by the fact that were we to
+# try to configure this directly in the pizauth unit, we'd need to prepend to
+# ExecStop. Moreover, pizauth *works* without dump/restore -- this is an
+# additional feature on top of it.
+#
+# Hence, we have a separate dump/restore unit that gets started after pizauth
+# and torn down before it, and which is responsible for managing the state file
+# upon these events.
+
+[Unit]
+Description=Custom pizauth dump/restore backend
+# Makes the start event for this unit propagate to pizauth,
+# and makes the stop/abort events for pizauth propagate to this unit
+BindsTo=pizauth.service
+# Orders this unit to run its start commands after pizauth, and run its stop
+# commands before pizauth
+After=pizauth.service
+# Makes the config-reload event for pizauth propagate to this unit
+ReloadPropagatedFrom=pizauth.service
+
+[Service]
+Type=simple
+Environment="PIZAUTH_STATE_FILE=%S/%N.dump"
+# replace io by whatever program you have to read/write to the state file
+# (could be encryption software, could be sending/retrieving to a server, etc)
+ExecStart=-sh -c 'io --read "$PIZAUTH_STATE_FILE" | pizauth restore'
+ExecReload=-sh -c 'io --read "$PIZAUTH_STATE_FILE" | pizauth restore'
+ExecStop=-sh -c 'pizauth dump | io --write "$PIZAUTH_STATE_FILE"'
+
+[Install]
+# Makes systemctl --user enable pizauth-state-custom.service cause that the
+# start event for pizauth will propagate to this unit
+WantedBy=pizauth.service

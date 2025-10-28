@@ -1,0 +1,40 @@
+[Unit]
+Description=pizauth dump/restore backend (encryption: gpg, passphrase in systemd-creds)
+BindsTo=pizauth.service
+After=pizauth.service
+ReloadPropagatedFrom=pizauth.service
+Requires=gpg-agent.socket
+
+[Service]
+# Since we're using credentials, we can't use Type=simple
+Type=exec
+# This unit needs to be configured before it's usable!
+# To use this unit, use systemctl --user edit pizauth-state-gpg.service to
+# create a drop-in configuration file. In it, set
+# Environment="PIZAUTH_KEY_ID=public key you want to encrypt with"
+# and then either
+# LoadCredentialEncrypted=pizauth-gpg-passphrase:CREDENTIALFILE
+# or
+# SetCredentialEncrypted=pizauth-gpg-passphrase: \
+#         ..................................................................... \
+#         ...
+#
+# In either case, you will need to store the passphrase for the GPG key
+# encrypted. If you plan on storing the credential at CREDENTIALFILE, run
+# systemd-ask-password \
+#   | systemd-creds encrypt --name pizauth-gpg-passphrase - CREDENTIALFILE
+# If you want to store the credential in the drop-in configuration, run
+# systemd-ask-password \
+#   | systemd-creds encrypt --name pizauth-gpg-passphrase -p - -
+# This will print the SetCredentialEncrypted config you'll need to paste in the
+# drop-in configuration
+Environment="PIZAUTH_KEY_ID="
+Environment="PIZAUTH_STATE_FILE=%S/%N.dump"
+ExecStart=-sh -c ' gpg --passphrase-file %d/pizauth-gpg-passphrase --pinentry-mode loopback --batch --decrypt "$PIZAUTH_STATE_FILE" \
+    | pizauth restore'
+ExecReload=-sh -c ' gpg --passphrase-file %d/pizauth-gpg-passphrase --pinentry-mode loopback --batch --decrypt "$PIZAUTH_STATE_FILE" \
+    | pizauth restore'
+ExecStop=-sh -c 'pizauth dump | gpg --batch --yes --encrypt --recipient $PIZAUTH_KEY_ID -o "$PIZAUTH_STATE_FILE"'
+
+[Install]
+WantedBy=pizauth.service
