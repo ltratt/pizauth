@@ -14,6 +14,7 @@ at least one `account`, which tells pizauth how to authenticate against a
 particular OAuth2 setup. Most users will also want to receive asynchronous
 notifications of authorisation requests and errors, which requires setting
 `auth_notify_cmd` and `error_notify_cmd`.
+See [the bundled example configuration](examples/pizauth.conf) for more details.
 
 
 ### Account setup
@@ -91,7 +92,7 @@ is opened in the user's default web browser.
 ### Running pizauth
 
 You need to start the pizauth server (alternatively, start `pizauth.service`,
-see [systemd-unit](#systemd-unit) below):
+see [Linux/systemd-unit](README.Linux.md#systemd-unit)):
 
 ```sh
 $ pizauth server

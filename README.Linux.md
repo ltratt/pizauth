@@ -1,4 +1,4 @@
-# pizauth on Linux
+# Systemd unit
 
 Pizauth comes with a systemd unit and example configurations. To start pizauth:
 

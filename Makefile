@@ -47,8 +47,11 @@ distrib:
 	test "X`git status --porcelain`" = "X"
 	@read v?'pizauth version: ' \
 	  && mkdir pizauth-$$v \
-	  && cp -rp Cargo.lock Cargo.toml COPYRIGHT LICENSE-APACHE LICENSE-MIT \
-	    Makefile CHANGES.md README.md build.rs pizauth.1 pizauth.conf.5 \
-	    examples lib share src pizauth-$$v \
+	  && cp -rp Makefile build.rs Cargo.lock Cargo.toml \
+	    COPYRIGHT LICENSE-APACHE LICENSE-MIT \
+	    CHANGES.md README.md README.Linux.md \
+	    pizauth.1 pizauth.conf.5 \
+	    examples lib share src \
+	      pizauth-$$v \
 	  && tar cfz pizauth-$$v.tgz pizauth-$$v \
 	  && rm -rf pizauth-$$v
