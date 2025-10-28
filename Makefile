@@ -16,9 +16,16 @@ all: target/release/pizauth
 target/release/pizauth:
 	cargo build --release
 
-PLATFORM=$(shell uname)
+RUNNINGSYSTEMD=$(shell test -d /run/systemd/system/ && echo yes || no)
+ifeq ($(USESYSTEMD), 0)
+	INSTALLSYSTEMD :=
+else ifneq ($(RUNNINGSYSTEMD), yes)
+	INSTALLSYSTEMD :=
+else
+	INSTALLSYSTEMD := install-systemd
+endif
 
-install: target/release/pizauth
+install: target/release/pizauth ${INSTALLSYSTEMD}
 	install -d ${DESTDIR}${BINDIR}
 	install -c -m 555 target/release/pizauth ${DESTDIR}${BINDIR}/pizauth
 	install -d ${DESTDIR}${MANDIR}/man1
@@ -31,15 +38,16 @@ install: target/release/pizauth
 	install -c -m 444 share/bash/completion.bash ${DESTDIR}${SHAREDIR}/bash-completion/completions/pizauth
 	install -d ${DESTDIR}${SHAREDIR}/fish/vendor_completions.d
 	install -c -m 444 share/fish/pizauth.fish ${DESTDIR}${SHAREDIR}/fish/vendor_completions.d
-ifeq ($(PLATFORM), Linux)
+
+install-systemd:
 	install -d ${DESTDIR}${LIBDIR}/systemd/user
 	install -c -m 444 lib/systemd/user/pizauth.service ${DESTDIR}${LIBDIR}/systemd/user/pizauth.service
 	install -c -m 444 lib/systemd/user/pizauth-state-creds.service ${DESTDIR}${LIBDIR}/systemd/user/pizauth-state-creds.service
 	install -c -m 444 lib/systemd/user/pizauth-state-age.service ${DESTDIR}${LIBDIR}/systemd/user/pizauth-state-age.service
 	install -c -m 444 lib/systemd/user/pizauth-state-gpg.service ${DESTDIR}${LIBDIR}/systemd/user/pizauth-state-gpg.service
 	install -c -m 444 lib/systemd/user/pizauth-state-gpg-passphrase.service ${DESTDIR}${LIBDIR}/systemd/user/pizauth-state-gpg-passphrase.service
+	install -d ${DESTDIR}${EXAMPLESDIR}/pizauth
 	install -c -m 444 examples/pizauth-state-custom.service ${DESTDIR}${EXAMPLESDIR}/pizauth/pizauth-state-custom.service
-endif
 
 test:
 	cargo test
