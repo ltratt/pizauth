@@ -1,3 +1,17 @@
+# pizauth NEXT (YYYY-MM-DD)
+
+- Upgrade note: For users using the shipped `pizauth.service`, it has changed to
+  `Type=notify` to reflect this change. Such users must either (recommended)
+  configure `startup_cmd` in `pizauth.conf` to notify `systemd` (see
+  `README.systemd.md` for details), or can override this change by running
+  `systemctl --user edit pizauth.service` and inserting the following lines in
+  the file this opens:
+
+    ```ini
+    [Service]
+    Type=simple
+    ```
+
 # pizauth 1.0.8 (2025-11-02)
 
 * Add `startup_cmd` configuration option: this shell command is run after
