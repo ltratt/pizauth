@@ -2,8 +2,8 @@
 
 Pizauth comes with a systemd unit. In order for it to communicate properly with
 `systemd`, your `startup_cmd` in `pizauth.conf` must at some point run
-`systemd-notify --ready` -- this will tell `systemd` that `pizauth` has started
-up.
+`systemd-notify --ready --pid=parent` -- this will tell `systemd` that `pizauth`
+has started up.
 
 To start pizauth:
 
