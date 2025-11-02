@@ -16,7 +16,7 @@ all: target/release/pizauth
 target/release/pizauth:
 	cargo build --release
 
-RUNNINGSYSTEMD=$(shell test -d /run/systemd/system/ && echo yes || no)
+RUNNINGSYSTEMD=$(shell test -d /run/systemd/system/ && echo yes || echo no)
 ifeq ($(USESYSTEMD), 0)
 	INSTALLSYSTEMD :=
 else ifneq ($(RUNNINGSYSTEMD), yes)

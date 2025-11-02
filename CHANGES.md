@@ -1,3 +1,12 @@
+# pizauth 1.0.8 (2025-11-02)
+
+* Add `startup_cmd` configuration option: this shell command is run after
+  pizauth's server is fully up and running. It can be used, for example, as a
+  callback, safe in the knowledge that the server can respond.
+
+* Add Fish completion.
+
+
 # pizauth 1.0.7 (2025-02-08)
 
 * Add an upper limit to the size of HTTP requests pizauth accepts. In the
