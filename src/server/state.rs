@@ -149,24 +149,33 @@ impl AuthenticatorState {
 /// invariant is relied upon by a number of `unwrap` calls which assume that if a key `x` was found
 /// in one of these sets it is guaranteed to be found in the other.
 struct LockedState {
-    account_count: u128,
     config: Config,
     details: Vec<(String, AccountId, TokenState)>,
+    /// The next [AccountId] we'll hand out.
+    ///
+    // The account ID may change frequently, and if it wraps, we lose correctness, so we use a
+    // ludicrously large type. On my current desktop machine a quick measurement suggests that if
+    // this was incremented at the maximum possible continuous rate, it would take about
+    // 4,522,155,402,651,803,058,176 years before this wrapped. In contrast if we were to,
+    // recklessly, use a u64 it could wrap in a blink-and-you-miss-it 245 years.
+    next_account_id: u128,
 }
 
 impl LockedState {
     fn new(config: Config) -> Self {
         let mut details = Vec::with_capacity(config.accounts.len());
 
-        let mut account_count = 0;
+        let mut next_account_id = 0;
         for act_name in config.accounts.keys() {
-            let act_id = AccountId { id: account_count };
-            account_count += 1;
+            let act_id = AccountId {
+                id: next_account_id,
+            };
+            next_account_id += 1;
             details.push((act_name.to_owned(), act_id, TokenState::Empty));
         }
 
         LockedState {
-            account_count,
+            next_account_id,
             config,
             details,
         }
@@ -195,10 +204,18 @@ impl LockedState {
                     // update its status, even though multiple other updates have happened in the
                     // interim. Incrementing the version implicitly invalidates whatever (slow...)
                     // calculation it has performed.
-                    details.push((act_name.to_owned(), AccountId::new(self), TokenState::Empty));
+                    details.push((
+                        act_name.to_owned(),
+                        self.next_account_id(),
+                        TokenState::Empty,
+                    ));
                 }
             } else {
-                details.push((act_name.to_owned(), AccountId::new(self), TokenState::Empty));
+                details.push((
+                    act_name.to_owned(),
+                    self.next_account_id(),
+                    TokenState::Empty,
+                ));
             }
         }
 
@@ -259,11 +276,20 @@ impl LockedState {
                 .iter()
                 .position(|(n, _, _)| n == &act_name)
                 .unwrap();
-            self.details[ts_idx].1 = AccountId::new(self);
+            self.details[ts_idx].1 = self.next_account_id();
             self.details[ts_idx].2 = ts;
         }
 
         Ok(())
+    }
+
+    /// Returns a unique [AccountId].
+    fn next_account_id(&mut self) -> AccountId {
+        let new_id = AccountId {
+            id: self.next_account_id,
+        };
+        self.next_account_id += 1;
+        new_id
     }
 }
 
@@ -369,7 +395,7 @@ impl<'a> CTGuard<'a> {
             .position(|x| x.1 == act_id)
             .unwrap();
 
-        let new_id = AccountId::new(&mut self.guard);
+        let new_id = self.guard.next_account_id();
         let ts = &mut self.guard.details[i];
         if let TokenState::Active {
             ref mut ongoing_refresh,
@@ -400,31 +426,17 @@ impl<'a> CTGuard<'a> {
             .iter()
             .position(|x| x.1 == act_id)
             .unwrap();
-        let new_id = AccountId::new(&mut self.guard);
+        let new_id = self.guard.next_account_id();
         self.guard.details[i].1 = new_id;
         self.guard.details[i].2 = new_tokenstate;
         new_id
     }
 }
 
+/// An account ID. Must be created by [LockedState::next_account_id].
 #[derive(Copy, Clone, Debug, Eq, Hash, PartialEq)]
 pub struct AccountId {
-    // The account ID may change frequently, and if it wraps, we lose correctness, so we use a
-    // ludicrously large type. On my current desktop machine a quick measurement suggests that if
-    // this was incremented at the maximum possible continuous rate, it would take about
-    // 4,522,155,402,651,803,058,176 years before this wrapped. In contrast if we were to,
-    // recklessly, use a u64 it could wrap in a blink-and-you-miss-it 245 years.
     id: u128,
-}
-
-impl AccountId {
-    fn new(guard: &mut LockedState) -> Self {
-        let new_id = Self {
-            id: guard.account_count,
-        };
-        guard.account_count += 1;
-        new_id
-    }
 }
 
 #[derive(Clone, Debug)]
