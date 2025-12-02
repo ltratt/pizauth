@@ -214,6 +214,7 @@ impl Refresher {
         mut ct_lk: CTGuard,
         mut act_id: AccountId,
     ) -> RefreshKind {
+        info!("starting inner refresh");
         let mut new_ts = ct_lk.tokenstate(act_id).clone();
         let refresh_token = match new_ts {
             TokenState::Active {
@@ -249,11 +250,11 @@ impl Refresher {
         }
 
         drop(ct_lk);
-        let body = match ureq::AgentBuilder::new()
+        let body = match dbg!(ureq::AgentBuilder::new()
             .timeout(UREQ_TIMEOUT)
             .build()
             .post(token_uri.as_str())
-            .send_form(&pairs)
+            .send_form(&pairs))
         {
             Ok(response) => match response.into_string() {
                 Ok(s) => s,
