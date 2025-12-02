@@ -12,7 +12,7 @@ use log::warn;
 use serde_json::Value;
 use url::Url;
 
-use rcgen::{generate_simple_self_signed, CertifiedKey};
+use rcgen::{generate_simple_self_signed, CertifiedKey, KeyPair};
 use rustls::{
     pki_types::{PrivateKeyDer, PrivatePkcs8KeyDer},
     ServerConfig,
@@ -395,7 +395,7 @@ pub fn http_server(
 
 pub fn https_server_setup(
     conf: &Config,
-) -> Result<Option<(u16, TcpListener, CertifiedKey)>, Box<dyn Error>> {
+) -> Result<Option<(u16, TcpListener, CertifiedKey<KeyPair>)>, Box<dyn Error>> {
     match &conf.https_listen {
         Some(https_listen) => {
             // Set a process wide default crypto provider.
@@ -425,14 +425,14 @@ pub fn https_server_setup(
 pub fn https_server(
     pstate: Arc<AuthenticatorState>,
     listener: TcpListener,
-    cert: CertifiedKey,
+    cert: CertifiedKey<KeyPair>,
 ) -> Result<(), Box<dyn Error>> {
     // Build TLS configuration.
     let mut server_config = ServerConfig::builder()
         .with_no_client_auth()
         .with_single_cert(
             vec![cert.cert.into()],
-            PrivateKeyDer::Pkcs8(PrivatePkcs8KeyDer::from(cert.key_pair.serialize_der())),
+            PrivateKeyDer::Pkcs8(PrivatePkcs8KeyDer::from(cert.signing_key.serialize_der())),
         )
         .map_err(|e| e.to_string())?;
 
