@@ -250,23 +250,19 @@ impl Refresher {
         }
 
         drop(ct_lk);
-        let body = match dbg!(ureq::AgentBuilder::new()
-            .timeout(UREQ_TIMEOUT)
-            .build()
+        let agent_conf = ureq::Agent::config_builder()
+            .timeout_global(Some(UREQ_TIMEOUT))
+            .build();
+        let body = match ureq::Agent::new_with_config(agent_conf)
             .post(token_uri.as_str())
-            .send_form(&pairs))
+            .send_form(pairs)
         {
-            Ok(response) => match response.into_string() {
+            Ok(response) => match response.into_body().read_to_string() {
                 Ok(s) => s,
-                Err(e) => {
-                    return RefreshKind::TransitoryError(act_id, e.to_string());
-                }
+                Err(e) => return RefreshKind::TransitoryError(act_id, e.to_string()),
             },
-            Err(ureq::Error::Status(code, response)) => {
-                let reason = match response.into_string() {
-                    Ok(r) => format!("{code:}: {r:}"),
-                    Err(_) => format!("{code:}"),
-                };
+            Err(ureq::Error::StatusCode(code)) => {
+                let reason = format!("HTTP code {code}");
                 let mut ct_lk = pstate.ct_lock();
                 if ct_lk.is_act_id_valid(act_id) {
                     ct_lk.tokenstate_replace(act_id, TokenState::Empty);
@@ -275,13 +271,12 @@ impl Refresher {
                     return RefreshKind::AccountOrTokenStateChanged;
                 }
             }
-            Err(ref e @ ureq::Error::Transport(ref t))
-                if t.kind() == ureq::ErrorKind::ConnectionFailed
-                    || t.kind() == ureq::ErrorKind::Dns
-                    || t.kind() == ureq::ErrorKind::Io =>
-            {
-                return RefreshKind::TransitoryError(act_id, e.to_string())
-            }
+            Err(
+                e @ ureq::Error::ConnectionFailed
+                | e @ ureq::Error::HostNotFound
+                | e @ ureq::Error::Io(_)
+                | e @ ureq::Error::Timeout(_),
+            ) => return RefreshKind::TransitoryError(act_id, e.to_string()),
             Err(e) => {
                 let mut ct_lk = pstate.ct_lock();
                 if ct_lk.is_act_id_valid(act_id) {
