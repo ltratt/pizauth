@@ -393,7 +393,7 @@ pub fn server(conf_path: PathBuf, conf: Config, cache_path: &Path) -> Result<(),
     let refresher = Refresher::new();
 
     let pub_key_str = certified_key.as_ref().map(|x| {
-        x.key_pair
+        x.signing_key
             .public_key_raw()
             .iter()
             .map(|x| format!("{x:02X}"))

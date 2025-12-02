@@ -12,7 +12,7 @@ use log::warn;
 use serde_json::Value;
 use url::Url;
 
-use rcgen::{generate_simple_self_signed, CertifiedKey};
+use rcgen::{generate_simple_self_signed, CertifiedKey, KeyPair};
 use rustls::{
     pki_types::{PrivateKeyDer, PrivatePkcs8KeyDer},
     ServerConfig,
@@ -155,28 +155,22 @@ fn request<T: Read + Write>(
     // request that partially makes a connection but does not then fully succeed is an error (since
     // we can't reuse authentication codes), and we'll have to start again entirely.
     let mut body = None;
+    let agent_conf = ureq::Agent::config_builder()
+        .timeout_global(Some(UREQ_TIMEOUT))
+        .build();
     for _ in 0..RETRY_POST {
-        match ureq::AgentBuilder::new()
-            .timeout(UREQ_TIMEOUT)
-            .build()
+        match ureq::Agent::new_with_config(agent_conf.clone())
             .post(token_uri.as_str())
-            .send_form(&pairs)
+            .send_form(pairs.clone())
         {
-            Ok(response) => match response.into_string() {
-                Ok(s) => {
+            Ok(response) => {
+                if let Ok(s) = response.into_body().read_to_string() {
                     body = Some(s);
                     break;
                 }
-                Err(e) => {
-                    fail(pstate, act_id, &e.to_string())?;
-                    return Ok(());
-                }
-            },
-            Err(ureq::Error::Status(code, response)) => {
-                let reason = match response.into_string() {
-                    Ok(r) => format!("{code:}: {r:}"),
-                    Err(_) => format!("{code:}"),
-                };
+            }
+            Err(ureq::Error::StatusCode(code)) => {
+                let reason = format!("HTTP code {code}");
                 fail(pstate, act_id, &reason)?;
                 return Ok(());
             }
@@ -401,7 +395,7 @@ pub fn http_server(
 
 pub fn https_server_setup(
     conf: &Config,
-) -> Result<Option<(u16, TcpListener, CertifiedKey)>, Box<dyn Error>> {
+) -> Result<Option<(u16, TcpListener, CertifiedKey<KeyPair>)>, Box<dyn Error>> {
     match &conf.https_listen {
         Some(https_listen) => {
             // Set a process wide default crypto provider.
@@ -431,14 +425,14 @@ pub fn https_server_setup(
 pub fn https_server(
     pstate: Arc<AuthenticatorState>,
     listener: TcpListener,
-    cert: CertifiedKey,
+    cert: CertifiedKey<KeyPair>,
 ) -> Result<(), Box<dyn Error>> {
     // Build TLS configuration.
     let mut server_config = ServerConfig::builder()
         .with_no_client_auth()
         .with_single_cert(
             vec![cert.cert.into()],
-            PrivateKeyDer::Pkcs8(PrivatePkcs8KeyDer::from(cert.key_pair.serialize_der())),
+            PrivateKeyDer::Pkcs8(PrivatePkcs8KeyDer::from(cert.signing_key.serialize_der())),
         )
         .map_err(|e| e.to_string())?;
 
