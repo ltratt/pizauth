@@ -1,3 +1,8 @@
+# pizauth 1.0.9 (2025-12-13)
+
+* Update dependencies with breaking changes.
+
+
 # pizauth 1.0.8 (2025-11-02)
 
 * Add `startup_cmd` configuration option: this shell command is run after
