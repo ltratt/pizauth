@@ -448,7 +448,7 @@ impl Refresher {
                     Some(t) => match t.checked_duration_since(Instant::now()) {
                         Some(d) => {
                             #[cfg(debug_assertions)]
-                            debug!("Refresher: next wakeup {}", d.as_secs().to_string());
+                            debug!("Refresher: next wakeup {}", d.as_secs());
                             refresh_lk = refresher.condvar.wait_timeout(refresh_lk, d).unwrap().0
                         }
                         None => break,

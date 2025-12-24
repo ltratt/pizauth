@@ -39,7 +39,7 @@ impl Notifier {
                     Some(t) => match t.checked_duration_since(Instant::now()) {
                         Some(d) => {
                             #[cfg(debug_assertions)]
-                            debug!("Notifier: next wakeup {}", d.as_secs().to_string());
+                            debug!("Notifier: next wakeup {}", d.as_secs());
                             notify_lk = self.condvar.wait_timeout(notify_lk, d).unwrap().0
                         }
                         None => break,
