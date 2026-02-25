@@ -1,3 +1,9 @@
+# pizauth 1.0.10 (2026-02-25)
+
+* Remove `tmppath` pledge on OpenBSD. This doesn't do anything useful in
+  pizauth, and support for it will be removed in OpenBSD.
+
+
 # pizauth 1.0.9 (2025-12-13)
 
 * Update dependencies with breaking changes.
