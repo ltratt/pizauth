@@ -132,7 +132,7 @@ fn main() {
     // these further.
     #[cfg(target_os = "openbsd")]
     pledge(
-        "stdio rpath wpath cpath tmppath inet fattr flock unix dns proc ps exec unveil",
+        "stdio rpath wpath cpath inet fattr flock unix dns proc ps exec unveil",
         None,
     )
     .unwrap();
