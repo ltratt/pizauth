@@ -1,3 +1,9 @@
+# pizauth 1.0.11 (2026-03-10)
+
+* Mark certain HTTP error codes as transitory, allowing pizauth to retry rather
+  than immediately give up.
+
+
 # pizauth 1.0.10 (2026-02-25)
 
 * Remove `tmppath` pledge on OpenBSD. This doesn't do anything useful in
