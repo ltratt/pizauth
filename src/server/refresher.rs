@@ -263,12 +263,16 @@ impl Refresher {
             },
             Err(ureq::Error::StatusCode(code)) => {
                 let reason = format!("HTTP code {code}");
-                let mut ct_lk = pstate.ct_lock();
-                if ct_lk.is_act_id_valid(act_id) {
-                    ct_lk.tokenstate_replace(act_id, TokenState::Empty);
-                    return RefreshKind::PermanentError(reason);
+                if let 408 | 429 | 500 | 502 | 503 | 504 = code {
+                    return RefreshKind::TransitoryError(act_id, reason);
                 } else {
-                    return RefreshKind::AccountOrTokenStateChanged;
+                    let mut ct_lk = pstate.ct_lock();
+                    if ct_lk.is_act_id_valid(act_id) {
+                        ct_lk.tokenstate_replace(act_id, TokenState::Empty);
+                        return RefreshKind::PermanentError(reason);
+                    } else {
+                        return RefreshKind::AccountOrTokenStateChanged;
+                    }
                 }
             }
             Err(
