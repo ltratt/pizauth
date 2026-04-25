@@ -14,8 +14,8 @@ use wait_timeout::ChildExt;
 
 use super::AuthenticatorState;
 
-/// How long to run `not_transient_error_if` commands before killing them?
-const NEW_ACCESS_TOKEN_CMD_TIMEOUT: Duration = Duration::from_secs(30);
+/// How long to run `token_event_cmd`s before killing them?
+const TOKEN_EVENT_CMD_TIMEOUT: Duration = Duration::from_secs(10);
 
 pub enum TokenEvent {
     Invalidated,
@@ -81,8 +81,7 @@ impl Eventer {
                             .args(["-c", &token_event_cmd])
                             .spawn()
                         {
-                            Ok(mut child) => match child.wait_timeout(NEW_ACCESS_TOKEN_CMD_TIMEOUT)
-                            {
+                            Ok(mut child) => match child.wait_timeout(TOKEN_EVENT_CMD_TIMEOUT) {
                                 Ok(Some(status)) => {
                                     if !status.success() {
                                         error!(

@@ -1,3 +1,10 @@
+# pizauth 1.1.0 (2026-XX-XX)
+
+* `auth_notify_cmd` is now subject to a 10 second timeout. If you previously
+  relied on the command being run taking an arbitrary amount of time, you will
+  need to run it to ensure it is not affected by the timeout.
+
+
 # pizauth 1.0.11 (2026-03-10)
 
 * Mark certain HTTP error codes as transitory, allowing pizauth to retry rather
