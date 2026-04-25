@@ -82,10 +82,7 @@ fn request<T: Read + Write>(
     // matched the redirect URI we expected for that account.
     let act = ct_lk.account(act_id);
     let expected_uri = act.redirect_uri(pstate.http_port, pstate.https_port)?;
-    if expected_uri.scheme() != uri.scheme()
-        || expected_uri.host_str() != uri.host_str()
-        || expected_uri.port() != uri.port()
-    {
+    if !redirect_uri_matches(&expected_uri, &uri) {
         // If the redirect URI doesn't match then all we can do is 404.
         drop(ct_lk);
         http_404(stream);
@@ -365,6 +362,28 @@ fn http_400<T: Read + Write>(mut stream: T) {
     stream.write_all(b"HTTP/1.1 400\r\n\r\n").ok();
 }
 
+/// Return `true` if `actual` matches `expected` or `false` otherwise.
+fn redirect_uri_matches(expected: &Url, actual: &Url) -> bool {
+    assert!(expected.fragment().is_none());
+    if expected.scheme() != actual.scheme()
+        || expected.host_str() != actual.host_str()
+        || expected.port() != actual.port()
+        || expected.path() != actual.path()
+        || actual.fragment().is_some()
+    {
+        return false;
+    }
+
+    let actual_pairs = actual.query_pairs().collect::<Vec<_>>();
+    for x in expected.query_pairs() {
+        if !actual_pairs.contains(&x) {
+            return false;
+        }
+    }
+
+    true
+}
+
 pub fn http_server_setup(conf: &Config) -> Result<Option<(u16, TcpListener)>, Box<dyn Error>> {
     // Bind TCP port for HTTP
     match &conf.http_listen {
@@ -460,4 +479,30 @@ pub fn https_server(
         }
     });
     Ok(())
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn redirect_uri_matching() {
+        fn t(expected: &str, actual: &str) -> bool {
+            redirect_uri_matches(&Url::parse(expected).unwrap(), &Url::parse(actual).unwrap())
+        }
+
+        assert!(t("http://a.com/b", "http://a.com/b"));
+        assert!(!t("http://a.com/b", "http://b.com/b"));
+        assert!(!t("http://a.com/b", "http://a.com/c"));
+
+        assert!(t("http://a.com:1234/b", "http://a.com:1234/b"));
+        assert!(!t("http://a.com:1234/b", "http://a.com:123/b"));
+
+        assert!(t("http://a.com/b?c=d", "http://a.com/b?c=d"));
+        assert!(!t("http://a.com:1234/b?c=d", "http://a.com:1234/b"));
+
+        assert!(t("http://a.com/b", "http://a.com/b?c=d"));
+
+        assert!(!t("http://a.com/b", "http://a.com/b#c"));
+    }
 }
