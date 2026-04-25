@@ -136,8 +136,10 @@ impl AuthenticatorState {
             .decrypt(Nonce::from_slice(nonce), encrypted.as_ref())
             .map_err(|_| "Restoring dump failed")?;
 
-        let lk = self.locked_state.lock().unwrap().restore(d);
-        drop(lk);
+        {
+            let mut lk = self.locked_state.lock().unwrap();
+            lk.restore(d)?;
+        }
         self.notifier.notify_changes();
         self.refresher.notify_changes();
         Ok(())
@@ -852,5 +854,108 @@ mod test {
             assert_ne!(old_x_id, x_id);
             assert!(matches!(ct_lk.tokenstate(x_id), TokenState::Active { .. }));
         }
+    }
+
+    #[test]
+    fn dump_restore_error() {
+        // Check that if restore fails (a) this is reported correctly (b) it does not perturb the
+        // running state.
+
+        let conf_str = r#"
+            account "x" {
+                auth_uri = "http://a.com";
+                client_id = "b";
+                client_secret = "c";
+                scopes = ["d", "e"];
+                redirect_uri = "http://f.com";
+                token_uri = "http://g.com";
+            }
+            "#;
+
+        let conf = Config::from_str(conf_str).unwrap();
+        let eventer = Arc::new(Eventer::new().unwrap());
+        let notifier = Arc::new(Notifier::new().unwrap());
+        let pstate = AuthenticatorState::new(
+            PathBuf::new(),
+            conf,
+            Some(0),
+            Some(0),
+            Some("".to_string()),
+            eventer,
+            notifier,
+            Refresher::new(),
+        );
+
+        {
+            let mut ct_lk = pstate.ct_lock();
+            let act_id = ct_lk.validate_act_name("x").unwrap();
+            ct_lk.tokenstate_replace(
+                act_id,
+                TokenState::Active {
+                    access_token: "abc".to_owned(),
+                    access_token_obtained: Instant::now(),
+                    access_token_expiry: Instant::now()
+                        .checked_add(Duration::from_secs(60))
+                        .unwrap(),
+                    refresh_token: Some("refresh".to_owned()),
+                    ongoing_refresh: false,
+                    consecutive_refresh_fails: 0,
+                    last_refresh_attempt: None,
+                },
+            );
+        }
+
+        let mut accounts = HashMap::new();
+        {
+            let ct_lk = pstate.ct_lock();
+            for (act_name, _, ts) in &ct_lk.guard.details {
+                accounts.insert(
+                    act_name.to_owned(),
+                    (
+                        ct_lk.guard.config.accounts[act_name.as_str()].dump(),
+                        ts.dump(),
+                    ),
+                );
+            }
+        }
+        // Create a dump file with an unsupported version number.
+        let plaintext = bincode::serde::encode_to_vec(
+            &Dump {
+                version: DUMP_VERSION + 1,
+                accounts,
+            },
+            bincode::config::legacy(),
+        )
+        .unwrap();
+        let key = Key::from_slice(CHACHA20_KEY);
+        let cipher = ChaCha20Poly1305::new(key);
+        let nonce = Nonce::from_slice(&[0; NONCE_LEN]);
+        let mut dump = nonce.as_slice().to_vec();
+        dump.extend(cipher.encrypt(nonce, &*plaintext).unwrap());
+
+        // Move `x` from Active -> Pending. This is a paranoid sanity check that even though
+        // `restore` returns an error, no state has been updated.
+        {
+            let mut ct_lk = pstate.ct_lock();
+            let act_id = ct_lk.validate_act_name("x").unwrap();
+            ct_lk.tokenstate_replace(
+                act_id,
+                TokenState::Pending {
+                    code_verifier: "abc".to_owned(),
+                    last_notification: None,
+                    state: "xyz".to_string(),
+                    url: Url::parse("http://a.com/").unwrap(),
+                },
+            );
+        }
+
+        assert!(pstate.restore(dump).is_err());
+
+        let ct_lk = pstate.ct_lock();
+        let act_id = ct_lk.validate_act_name("x").unwrap();
+        assert!(matches!(
+            ct_lk.tokenstate(act_id),
+            TokenState::Pending { .. }
+        ));
     }
 }
