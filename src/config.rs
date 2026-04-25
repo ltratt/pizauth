@@ -310,7 +310,13 @@ fn check_not_assigned_uri<T>(
             let s = unescape_str(lexer.span_str(span));
             match Url::parse(&s) {
                 Ok(x) => {
-                    if x.scheme() == "http" || x.scheme() == "https" {
+                    if x.fragment().is_some() {
+                        Err(error_at_span(
+                            lexer,
+                            span,
+                            "URI fragments ('#...') are not allowed",
+                        ))
+                    } else if x.scheme() == "http" || x.scheme() == "https" {
                         Ok(s)
                     } else {
                         Err(error_at_span(lexer, span, "not a valid HTTP or HTTPS URI"))
@@ -1204,6 +1210,35 @@ mod test {
           }"#;
         match Config::from_str(c) {
             Err(e) if e.contains("Both the 'login_hint' attribute and a 'auth_uri_fields' field with the name 'login_hint' are specified. The 'login_hint' attribute is deprecated so remove it.") => (),
+            Err(e) => panic!("{e:}"),
+            _ => panic!(),
+        }
+    }
+
+    #[test]
+    fn endpoints_no_fragment() {
+        let c = r#"account "x" {
+            auth_uri = "http://a.com/#a";
+            auth_uri_fields = { "login_hint": "e" };
+            client_id = "b";
+            token_uri = "https://c.com/";
+            login_hint = "d";
+          }"#;
+        match Config::from_str(c) {
+            Err(e) if e.contains("URI fragments ('#...') are not allowed") => (),
+            Err(e) => panic!("{e:}"),
+            _ => panic!(),
+        }
+
+        let c = r#"account "x" {
+            auth_uri = "http://a.com/";
+            auth_uri_fields = { "login_hint": "e" };
+            client_id = "b";
+            token_uri = "https://c.com/#c";
+            login_hint = "d";
+          }"#;
+        match Config::from_str(c) {
+            Err(e) if e.contains("URI fragments ('#...') are not allowed") => (),
             Err(e) => panic!("{e:}"),
             _ => panic!(),
         }
