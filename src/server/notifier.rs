@@ -11,8 +11,12 @@ use boot_time::Instant;
 #[cfg(debug_assertions)]
 use log::debug;
 use log::error;
+use wait_timeout::ChildExt;
 
 use super::{AccountId, AuthenticatorState, CTGuard, TokenState, MAX_WAIT_SECS};
+
+/// How long to run `auth_notify_cmd`s before killing them?
+const AUTH_NOTIFY_CMD_TIMEOUT: Duration = Duration::from_secs(10);
 
 pub struct Notifier {
     pred: Mutex<bool>,
@@ -85,28 +89,38 @@ impl Notifier {
             drop(ct_lk);
 
             for (act_name, cmd, url) in auth_cmds.into_iter() {
-                thread::spawn(move || match env::var("SHELL") {
+                match env::var("SHELL") {
                     Ok(s) => {
                         match Command::new(s)
                             .env("PIZAUTH_ACCOUNT", act_name.as_str())
                             .env("PIZAUTH_URL", url.as_str())
                             .args(["-c", &cmd])
-                            .output()
+                            .spawn()
                         {
-                            Ok(output) => {
-                                if !output.status.success() {
-                                    error!(
-                                        "{act_name:}: error when running '{cmd:}': {}",
-                                        std::str::from_utf8(&output.stdout)
-                                            .unwrap_or("<stderr not representable as UTF-8")
-                                    );
+                            Ok(mut child) => match child.wait_timeout(AUTH_NOTIFY_CMD_TIMEOUT) {
+                                Ok(Some(status)) => {
+                                    if !status.success() {
+                                        error!(
+                                            "'{cmd:}' returned {}",
+                                            status
+                                                .code()
+                                                .map(|x| x.to_string())
+                                                .unwrap_or_else(|| "<Unknown exit code".to_string())
+                                        );
+                                    }
                                 }
-                            }
-                            Err(e) => error!("{act_name:}: error when running '{cmd:}': {e:}"),
+                                Ok(None) => {
+                                    child.kill().ok();
+                                    child.wait().ok();
+                                    error!("'{cmd:}' exceeded timeout");
+                                }
+                                Err(e) => error!("Waiting on '{cmd:}' failed: {e:}"),
+                            },
+                            Err(e) => error!("Couldn't execute '{cmd:}': {e:}"),
                         }
                     }
                     Err(e) => error!("{e:}"),
-                });
+                }
             }
         });
 
