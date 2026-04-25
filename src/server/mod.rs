@@ -40,8 +40,11 @@ const CODE_VERIFIER_LEN: usize = 64;
 /// The timeout for ureq HTTP requests. It is recommended to make this value lower than
 /// REFRESH_RETRY_DEFAULT to reduce the likelihood that refresh requests overlap.
 pub const UREQ_TIMEOUT: Duration = Duration::from_secs(30);
-/// Length of the OAuth state in bytes.
-const STATE_LEN: usize = 8;
+/// Length of the OAuth "state" in bytes: this is a string we send when requesting a token that is
+/// echoed back to us, allowing us to distinguish different request. There's no fixed size for
+/// this, and indeed one can go perhaps up to at least a kilobyte, but that's probably not going to
+/// give us useful additional security, and it makes request URLs even longer.
+const STATE_LEN: usize = 32;
 /// When waiting to do something (e.g. in the notifier or refresher), we have the problem that when
 /// we ask to be woken up in "X seconds from now", operating systems do not interpret that as "wake
 /// you up in X seconds of wall-clock time". For example, if a machine is suspended then resumed,
