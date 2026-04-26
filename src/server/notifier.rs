@@ -1,7 +1,6 @@
 use std::{
-    cmp, env,
+    cmp,
     error::Error,
-    process::Command,
     sync::{Arc, Condvar, Mutex},
     thread,
     time::Duration,
@@ -11,12 +10,16 @@ use boot_time::Instant;
 #[cfg(debug_assertions)]
 use log::debug;
 use log::error;
-use wait_timeout::ChildExt;
 
-use super::{AccountId, AuthenticatorState, CTGuard, TokenState, MAX_WAIT_SECS};
+use crate::{
+    server::{AccountId, AuthenticatorState, CTGuard, TokenState, MAX_WAIT_SECS},
+    shell_cmd::shell_cmd,
+};
 
 /// How long to run `auth_notify_cmd`s before killing them?
 const AUTH_NOTIFY_CMD_TIMEOUT: Duration = Duration::from_secs(10);
+/// How long to run `error_notify_cmd`s before killing them?
+const ERROR_NOTIFY_CMD_TIMEOUT: Duration = Duration::from_secs(10);
 
 pub struct Notifier {
     pred: Mutex<bool>,
@@ -89,37 +92,15 @@ impl Notifier {
             drop(ct_lk);
 
             for (act_name, cmd, url) in auth_cmds.into_iter() {
-                match env::var("SHELL") {
-                    Ok(s) => {
-                        match Command::new(s)
-                            .env("PIZAUTH_ACCOUNT", act_name.as_str())
-                            .env("PIZAUTH_URL", url.as_str())
-                            .args(["-c", &cmd])
-                            .spawn()
-                        {
-                            Ok(mut child) => match child.wait_timeout(AUTH_NOTIFY_CMD_TIMEOUT) {
-                                Ok(Some(status)) => {
-                                    if !status.success() {
-                                        error!(
-                                            "'{cmd:}' returned {}",
-                                            status
-                                                .code()
-                                                .map(|x| x.to_string())
-                                                .unwrap_or_else(|| "<Unknown exit code".to_string())
-                                        );
-                                    }
-                                }
-                                Ok(None) => {
-                                    child.kill().ok();
-                                    child.wait().ok();
-                                    error!("'{cmd:}' exceeded timeout");
-                                }
-                                Err(e) => error!("Waiting on '{cmd:}' failed: {e:}"),
-                            },
-                            Err(e) => error!("Couldn't execute '{cmd:}': {e:}"),
-                        }
-                    }
-                    Err(e) => error!("{e:}"),
+                if let Err(e) = shell_cmd(
+                    &cmd,
+                    [
+                        ("PIZAUTH_ACCOUNT", act_name.as_str()),
+                        ("PIZAUTH_URL", url.as_str()),
+                    ],
+                    AUTH_NOTIFY_CMD_TIMEOUT,
+                ) {
+                    error!("{e}")
                 }
             }
         });
@@ -157,32 +138,17 @@ impl Notifier {
             let ct_lk = pstate.ct_lock();
             ct_lk.config().error_notify_cmd.clone()
         };
-        match cmd {
-            Some(cmd) => {
-                thread::spawn(move || match env::var("SHELL") {
-                    Ok(s) => {
-                        match Command::new(s)
-                            .env("PIZAUTH_ACCOUNT", act_name.as_str())
-                            .env("PIZAUTH_MSG", msg)
-                            .args(["-c", &cmd])
-                            .output()
-                        {
-                            Ok(output) => {
-                                if !output.status.success() {
-                                    error!(
-                                        "{act_name:}: error when running '{cmd:}': {}",
-                                        std::str::from_utf8(&output.stdout)
-                                            .unwrap_or("<stderr not representable as UTF-8>")
-                                    );
-                                }
-                            }
-                            Err(e) => error!("{act_name:}: error when running '{cmd:}': {e:}"),
-                        }
-                    }
-                    Err(e) => error!("{e:}"),
-                });
+        if let Some(cmd) = cmd {
+            if let Err(e) = shell_cmd(
+                &cmd,
+                [
+                    ("PIZAUTH_ACCOUNT", act_name.as_str()),
+                    ("PIZAUTH_MSG", &msg),
+                ],
+                ERROR_NOTIFY_CMD_TIMEOUT,
+            ) {
+                error!("{e}")
             }
-            None => error!("{act_name:}: {msg:}"),
         }
         Ok(())
     }

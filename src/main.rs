@@ -6,6 +6,7 @@ mod compat;
 mod config;
 mod config_ast;
 mod server;
+mod shell_cmd;
 mod user_sender;
 
 use std::{

@@ -1,18 +1,15 @@
 use std::{
     collections::VecDeque,
-    env,
     error::Error,
     fmt::{self, Display, Formatter},
-    process::Command,
     sync::{Arc, Condvar, Mutex},
     thread,
     time::Duration,
 };
 
 use log::error;
-use wait_timeout::ChildExt;
 
-use super::AuthenticatorState;
+use crate::{server::AuthenticatorState, shell_cmd::shell_cmd};
 
 /// How long to run `token_event_cmd`s before killing them?
 const TOKEN_EVENT_CMD_TIMEOUT: Duration = Duration::from_secs(10);
@@ -73,37 +70,15 @@ impl Eventer {
                 } else {
                     break;
                 };
-                match env::var("SHELL") {
-                    Ok(s) => {
-                        match Command::new(s)
-                            .env("PIZAUTH_ACCOUNT", act_name.as_str())
-                            .env("PIZAUTH_EVENT", event.to_string())
-                            .args(["-c", &token_event_cmd])
-                            .spawn()
-                        {
-                            Ok(mut child) => match child.wait_timeout(TOKEN_EVENT_CMD_TIMEOUT) {
-                                Ok(Some(status)) => {
-                                    if !status.success() {
-                                        error!(
-                                            "'{token_event_cmd:}' returned {}",
-                                            status
-                                                .code()
-                                                .map(|x| x.to_string())
-                                                .unwrap_or_else(|| "<Unknown exit code".to_string())
-                                        );
-                                    }
-                                }
-                                Ok(None) => {
-                                    child.kill().ok();
-                                    child.wait().ok();
-                                    error!("'{token_event_cmd:}' exceeded timeout");
-                                }
-                                Err(e) => error!("Waiting on '{token_event_cmd:}' failed: {e:}"),
-                            },
-                            Err(e) => error!("Couldn't execute '{token_event_cmd:}': {e:}"),
-                        }
-                    }
-                    Err(e) => error!("{e:}"),
+                if let Err(e) = shell_cmd(
+                    &token_event_cmd,
+                    [
+                        ("PIZAUTH_ACCOUNT", act_name.as_str()),
+                        ("PIZAUTH_EVENT", &event.to_string()),
+                    ],
+                    TOKEN_EVENT_CMD_TIMEOUT,
+                ) {
+                    error!("{e}");
                 }
             }
         });

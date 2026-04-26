@@ -1,9 +1,7 @@
 use std::{
     cmp,
     collections::HashSet,
-    env,
     error::Error,
-    process::{Command, Stdio},
     sync::{Arc, Condvar, Mutex},
     thread,
     time::Duration,
@@ -12,13 +10,15 @@ use std::{
 use boot_time::Instant;
 #[cfg(debug_assertions)]
 use log::debug;
-use log::info;
+use log::{error, info};
 use serde_json::Value;
-use wait_timeout::ChildExt;
 
-use super::{
-    eventer::TokenEvent, expiry_instant, AccountId, AuthenticatorState, CTGuard, TokenState,
-    MAX_WAIT_SECS, UREQ_TIMEOUT,
+use crate::{
+    server::{
+        eventer::TokenEvent, expiry_instant, AccountId, AuthenticatorState, CTGuard, TokenState,
+        MAX_WAIT_SECS, UREQ_TIMEOUT,
+    },
+    shell_cmd::shell_cmd,
 };
 
 /// How many times can a transient error be encountered before we try `not_transient_error_if`?
@@ -105,9 +105,10 @@ impl Refresher {
                                             {
                                                 let cmd = cmd.to_owned();
                                                 drop(ct_lk);
-                                                match refresher.run_not_transient_error_if(
-                                                    cmd,
-                                                    act_name.as_str(),
+                                                match shell_cmd(
+                                                    &cmd,
+                                                    [("PIZAUTH_ACCOUNT", act_name.as_str())],
+                                                    TRANSIENT_ERROR_IF_CMD_TIMEOUT,
                                                 ) {
                                                     Ok(()) => {
                                                         ct_lk = pstate.ct_lock();
@@ -127,7 +128,7 @@ impl Refresher {
                                                             );
                                                         }
                                                         drop(ct_lk);
-                                                        info!("Permanent refresh error for {act_name} : {e}");
+                                                        error!("Permanent refresh error for {act_name}: {e}");
                                                         pstate.eventer.token_event(
                                                             act_name,
                                                             TokenEvent::Invalidated,
@@ -137,14 +138,12 @@ impl Refresher {
                                             } else {
                                                 ct_lk.tokenstate_set_ongoing_refresh(act_id, false);
                                                 drop(ct_lk);
-                                                info!("Transitory refresh error for {act_name} : {msg}");
+                                                info!("Transitory refresh error for {act_name}: {msg}");
                                             }
                                         } else {
                                             ct_lk.tokenstate_set_ongoing_refresh(act_id, false);
                                             drop(ct_lk);
-                                            info!(
-                                                "Transitory refresh error for {act_name} : {msg}"
-                                            );
+                                            info!("Transitory refresh error for {act_name}: {msg}");
                                         }
                                     } else {
                                         unreachable!();
@@ -162,43 +161,6 @@ impl Refresher {
                 }
             }
         });
-    }
-
-    fn run_not_transient_error_if(&self, cmd: String, act_name: &str) -> Result<(), String> {
-        match env::var("SHELL") {
-            Ok(s) => match Command::new(s)
-                .stdin(Stdio::null())
-                .stdout(Stdio::null())
-                .stderr(Stdio::null())
-                .env("PIZAUTH_ACCOUNT", act_name)
-                .args(["-c", &cmd])
-                .spawn()
-            {
-                Ok(mut child) => match child.wait_timeout(TRANSIENT_ERROR_IF_CMD_TIMEOUT) {
-                    Ok(Some(status)) => {
-                        if status.success() {
-                            Ok(())
-                        } else {
-                            Err(format!(
-                                "'{cmd:}' returned {}",
-                                status
-                                    .code()
-                                    .map(|x| x.to_string())
-                                    .unwrap_or_else(|| "<Unknown exit code>".to_string())
-                            ))
-                        }
-                    }
-                    Ok(None) => {
-                        child.kill().ok();
-                        child.wait().ok();
-                        Err(format!("'{cmd:}' exceeded timeout"))
-                    }
-                    Err(e) => Err(format!("Waiting on '{cmd:}' failed: {e:}")),
-                },
-                Err(e) => Err(format!("Couldn't execute '{cmd:}': {e:}")),
-            },
-            Err(e) => Err(format!("{e:}")),
-        }
     }
 
     /// For a [TokenState::Active] token for `act_id`, refresh it, blocking until the token is
