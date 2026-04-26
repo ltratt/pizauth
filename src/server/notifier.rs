@@ -153,7 +153,11 @@ impl Notifier {
         act_name: String,
         msg: String,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        match pstate.ct_lock().config().error_notify_cmd.clone() {
+        let cmd = {
+            let ct_lk = pstate.ct_lock();
+            ct_lk.config().error_notify_cmd.clone()
+        };
+        match cmd {
             Some(cmd) => {
                 thread::spawn(move || match env::var("SHELL") {
                     Ok(s) => {
