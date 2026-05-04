@@ -21,9 +21,12 @@ use std::{
 
 use getopts::Options;
 use log::error;
-use nix::sys::{
-    stat::{utimensat, UtimensatFlags},
-    time::TimeSpec,
+use nix::{
+    fcntl::AT_FDCWD,
+    sys::{
+        stat::{utimensat, UtimensatFlags},
+        time::TimeSpec,
+    },
 };
 #[cfg(target_os = "openbsd")]
 use pledge::pledge;
@@ -77,7 +80,10 @@ fn cache_path() -> PathBuf {
                 Some(s) => p.push(s),
                 None => p.push("/tmp"),
             }
-            p.push(format!("runtime-{}", username()));
+            p.push(format!(
+                "runtime-{}",
+                username().unwrap_or_else(|_| "unknown-user".to_owned())
+            ));
         }
     }
 
@@ -311,7 +317,7 @@ fn main() {
             thread::spawn(move || loop {
                 thread::sleep(Duration::from_secs(6 * 60 * 60));
                 let _ = utimensat(
-                    None,
+                    AT_FDCWD,
                     &sock_path_cl,
                     &TimeSpec::UTIME_NOW,
                     &TimeSpec::UTIME_NOW,
