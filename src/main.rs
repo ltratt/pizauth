@@ -80,7 +80,10 @@ fn cache_path() -> PathBuf {
                 Some(s) => p.push(s),
                 None => p.push("/tmp"),
             }
-            p.push(format!("runtime-{}", username()));
+            p.push(format!(
+                "runtime-{}",
+                username().unwrap_or_else(|_| "unknown-user".to_owned())
+            ));
         }
     }
 
