@@ -38,6 +38,8 @@ install: target/release/pizauth ${INSTALLSYSTEMD}
 	install -c -m 444 share/bash/completion.bash ${DESTDIR}${SHAREDIR}/bash-completion/completions/pizauth
 	install -d ${DESTDIR}${SHAREDIR}/fish/vendor_completions.d
 	install -c -m 444 share/fish/pizauth.fish ${DESTDIR}${SHAREDIR}/fish/vendor_completions.d
+	install -d ${DESTDIR}${SHAREDIR}/zsh/site-functions
+	install -c -m 444 share/zsh/_pizauth ${DESTDIR}${SHAREDIR}/zsh/site-functions/_pizauth
 
 install-systemd:
 	install -d ${DESTDIR}${LIBDIR}/systemd/user
