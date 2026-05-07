@@ -35,7 +35,7 @@ complete -c pizauth -n "__fish_seen_subcommand_from refresh show" -a "(__fish_pi
 complete -c pizauth -n "__fish_seen_subcommand_from revoke" -a "(__fish_pizauth_accounts)"
 
 # pizauth server [-c config-file] [-dv]
-complete -c pizauth -n "__fish_seen_subcommand_from server" -l config -s c -r -F -d "Config file"
+complete -c pizauth -n "__fish_seen_subcommand_from server" -s c -r -F -d "Config file"
 complete -c pizauth -n "__fish_seen_subcommand_from server" -s d -d "Do not daemonise"
 complete -c pizauth -n "__fish_seen_subcommand_from server" -o v -d "Verbose"
 complete -c pizauth -n "__fish_seen_subcommand_from server" -o vv -d "Verboser"
