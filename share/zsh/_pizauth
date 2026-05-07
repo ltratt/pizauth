@@ -1,0 +1,60 @@
+#compdef pizauth
+
+_pizauth_accounts() {
+  local config account
+  local -a accounts
+  accounts=("${(@f)$(pizauth status 2>/dev/null | cut -d ':' -f 1)}")
+  (( ${#accounts} )) || return 1
+  _wanted accounts expl 'account' compadd "$expl[@]" -a accounts
+}
+
+_pizauth() {
+  local curcontext="$curcontext" state line ret=1
+  local -a commands
+  typeset -A opt_args
+
+  commands=(
+    'dump:write internal state to stdout for later restore'
+    'info:write config information to stdout'
+    'refresh:request refresh of an access token'
+    'reload:reload server config'
+    'restore:read previously dumped state from stdin'
+    'revoke:remove local access token'
+    'server:start the server'
+    'show:write access token to stdout'
+    'shutdown:shut server down'
+    'status:write accounts state to stdout'
+  )
+
+  _arguments -C \
+    '1:command:->command' \
+    '*::argument:->argument' && ret=0
+
+  case "$state" in
+    command) _describe -t commands 'pizauth command' commands && ret=0 ;;
+    argument)
+      curcontext="${curcontext%:*:*}:pizauth-${words[1]}:"
+      case $words[1] in
+        dump|reload|restore|shutdown|status) _message 'no more arguments' ;;
+        info) _arguments '-j[write JSON output]' ;;
+        refresh|show)
+          _arguments \
+            '-u[do not include an authorization URL in errors]' \
+            '1:account:_pizauth_accounts'
+          ;;
+        revoke) _arguments '1:account:_pizauth_accounts' ;;
+        server)
+          _arguments \
+            '-c[config file]:config file:_files' \
+            '-d[do not daemonise]' \
+            '*-v[verbose: repeat for greater verbosity]'
+          ;;
+        *) _message 'unknown pizauth command' ;;
+      esac
+      ;;
+  esac
+
+  return ret
+}
+
+_pizauth "$@"
