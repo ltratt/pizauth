@@ -10,31 +10,29 @@ pub fn shell_cmd<const T: usize>(
     env: [(&str, &str); T],
     timeout: Duration,
 ) -> Result<(), Box<dyn Error>> {
-    match env::var("SHELL") {
-        Ok(s) => match Command::new(s).envs(env).args(["-c", cmd]).spawn() {
-            Ok(mut child) => match child.wait_timeout(timeout) {
-                Ok(Some(status)) => {
-                    if !status.success() {
-                        return Err(format!(
-                            "'{cmd:}' returned {}",
-                            status
-                                .code()
-                                .map(|x| x.to_string())
-                                .unwrap_or_else(|| "<Unknown exit code".to_string())
-                        )
-                        .into());
-                    }
-                }
-                Ok(None) => {
-                    child.kill().ok();
-                    child.wait().ok();
-                    return Err(format!("'{cmd:}' exceeded timeout").into());
-                }
-                Err(e) => return Err(format!("Waiting on '{cmd:}' failed: {e:}").into()),
-            },
-            Err(e) => return Err(format!("Couldn't execute '{cmd:}': {e:}").into()),
-        },
-        Err(e) => return Err(format!("{e:}").into()),
+    let s = env::var("SHELL").map_err(|e| format!("{e:}"))?;
+    let mut child = Command::new(s)
+        .envs(env)
+        .args(["-c", cmd])
+        .spawn()
+        .map_err(|e| format!("Couldn't execute '{cmd:}': {e:}"))?;
+    let s = child
+        .wait_timeout(timeout)
+        .map_err(|e| format!("Waiting on '{cmd:}' failed: {e:}"))?;
+    match s {
+        Some(status) if !status.success() => Err(format!(
+            "'{cmd:}' returned {}",
+            status
+                .code()
+                .map(|x| x.to_string())
+                .unwrap_or_else(|| "<Unknown exit code".to_string())
+        )
+        .into()),
+        None => {
+            child.kill().ok();
+            child.wait().ok();
+            Err(format!("'{cmd:}' exceeded timeout").into())
+        }
+        _ => Ok(()),
     }
-    Ok(())
 }
