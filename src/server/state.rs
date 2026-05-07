@@ -27,6 +27,7 @@ use chacha20poly1305::{
 use rand::{rng, RngExt};
 use serde::{Deserialize, Serialize};
 use url::Url;
+use wincode::{deserialize, serialize, SchemaRead, SchemaWrite};
 
 use super::{eventer::Eventer, notifier::Notifier, refresher::Refresher};
 use crate::config::{Account, AccountDump, Config};
@@ -234,17 +235,14 @@ impl LockedState {
             );
         }
 
-        Ok(bincode::serde::encode_to_vec(
-            &Dump {
-                version: DUMP_VERSION,
-                accounts: acts,
-            },
-            bincode::config::legacy(),
-        )?)
+        Ok(serialize(&Dump {
+            version: DUMP_VERSION,
+            accounts: acts,
+        })?)
     }
 
     fn restore(&mut self, dump: Vec<u8>) -> Result<(), Box<dyn Error>> {
-        let d: Dump = bincode::serde::decode_from_slice(&dump, bincode::config::legacy())?.0;
+        let d: Dump = deserialize(&dump)?;
         if d.version != DUMP_VERSION {
             return Err("Unknown dump version".into());
         }
@@ -295,7 +293,7 @@ impl LockedState {
     }
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, SchemaRead, SchemaWrite)]
 struct Dump {
     version: u64,
     accounts: HashMap<String, (AccountDump, TokenStateDump)>,
@@ -473,7 +471,7 @@ pub enum TokenState {
     },
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, SchemaRead, SchemaWrite)]
 /// The format of a dumped [TokenState]. Note that [std::time::Instant] instances are translated to
 /// [std::time::SystemTime] instances: there is no guarantee that we can precisely represent the
 /// latter as the former, so when conversions fail we default to setting values to
@@ -919,13 +917,10 @@ mod test {
             }
         }
         // Create a dump file with an unsupported version number.
-        let plaintext = bincode::serde::encode_to_vec(
-            &Dump {
-                version: DUMP_VERSION + 1,
-                accounts,
-            },
-            bincode::config::legacy(),
-        )
+        let plaintext = serialize(&Dump {
+            version: DUMP_VERSION + 1,
+            accounts,
+        })
         .unwrap();
         let key = Key::from_slice(CHACHA20_KEY);
         let cipher = ChaCha20Poly1305::new(key);
