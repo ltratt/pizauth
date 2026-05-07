@@ -6,6 +6,7 @@ use lrlex::{lrlex_mod, DefaultLexerTypes, LRNonStreamingLexer};
 use lrpar::{lrpar_mod, NonStreamingLexer, Span};
 use serde::{Deserialize, Serialize};
 use url::Url;
+use wincode::{SchemaRead, SchemaWrite};
 
 use crate::config_ast;
 
@@ -597,7 +598,7 @@ impl Account {
     }
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, SchemaRead, SchemaWrite)]
 pub struct AccountDump {
     auth_uri: String,
     auth_uri_fields: Vec<(String, String)>,

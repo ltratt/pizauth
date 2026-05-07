@@ -18,7 +18,6 @@ rerun_except = "1"
 
 [dependencies]
 base64 = "0.22"
-bincode = { version="2", features=["serde"] }
 boot-time = "0.1.2"
 cfgrammar = "0.14"
 chacha20poly1305 = "0.10"
@@ -41,6 +40,7 @@ wait-timeout = "0.2"
 whoami = "2.1.2"
 rustls = { version = "0.23.12", features = ["ring", "std"], default-features = false }
 rcgen = { version = "0.14.5", features = ["crypto", "ring"], default-features = false }
+wincode = { version = "0.5.3", features = ["derive"] }
 
 [target.'cfg(target_os="openbsd")'.dependencies]
 pledge = "0.4"
