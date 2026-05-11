@@ -62,3 +62,59 @@ codegen-units = 1
 panic = 'abort'
 incremental = false
 overflow-checks = true
+
+[lints.rust]
+future_incompatible = "warn"
+keyword_idents = "warn"
+nonstandard_style = "warn"
+rust_2018_compatibility = "deny"
+rust_2018_idioms = "deny"
+rust_2021_compatibility = "deny"
+rust_2024_compatibility = "deny"
+let_underscore = "warn"
+
+## TODO, disabled since they currently fail
+elided_lifetimes_in_paths = { level = "allow", priority = 1 }
+rust_2024_incompatible_pat = { level = "allow", priority = 1 }
+let_underscore_drop = { level = "allow", priority = 1 }
+tail_expr_drop_order = { level = "allow", priority = 1 }
+if_let_rescope = { level = "allow", priority = 1 }
+
+[lints.clippy]
+pedantic = "warn"
+## TODO, disabled since they currently fail
+similar_names = { level = "allow", priority = 1 }
+redundant_else = { level = "allow", priority = 1 }
+too_many_lines = { level = "allow", priority = 1 }
+manual_let_else = { level = "allow", priority = 1 } # pervasive if we want to be consistent
+single_match_else = { level = "allow", priority = 1 }
+implicit_clone = { level = "allow", priority = 1 }
+unnecessary_wraps = { level = "allow", priority = 1 }
+duration_suboptimal_units = { level = "allow", priority = 1 }
+doc_markdown = { level = "allow", priority = 1 }
+unnecessary_debug_formatting = { level = "allow", priority = 1 }
+use_self = { level = "allow", priority = 1 }
+uninlined_format_args = { level = "allow", priority = 1 }
+needless_pass_by_value = { level = "allow", priority = 1 }
+ignored_unit_patterns = { level = "allow", priority = 1 }
+redundant_closure_for_method_calls = { level = "allow", priority = 1 }
+unused_self = { level = "allow", priority = 1 }
+
+nursery = "warn"
+## TODO, disabled since they currently fail
+redundant_clone = { level = "allow", priority = 1 }
+significant_drop_in_scrutinee = { level = "allow", priority = 1 }
+significant_drop_tightening = { level = "allow", priority = 1 }
+needless_collect = { level = "allow", priority = 1 }
+explicit_into_iter_loop = { level = "allow", priority = 1 }
+explicit_iter_loop = { level = "allow", priority = 1 }
+missing_const_for_fn = { level = "allow", priority = 1 }
+inconsistent_struct_constructor = { level = "allow", priority = 1 }
+string_lit_as_bytes = { level = "allow", priority = 1 }
+path_buf_push_overwrite = { level = "allow", priority = 1 }
+unnested_or_patterns = { level = "allow", priority = 1 }
+map_unwrap_or = { level = "allow", priority = 1 }
+semicolon_if_nothing_returned = { level = "allow", priority = 1 }
+equatable_if_let = { level = "allow", priority = 1 }
+option_if_let_else = { level = "allow", priority = 1 }
+match_same_arms = { level = "allow", priority = 1 }
