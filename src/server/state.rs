@@ -178,9 +178,9 @@ impl LockedState {
         }
 
         Self {
-            next_account_id,
             config,
             details,
+            next_account_id,
         }
     }
 
