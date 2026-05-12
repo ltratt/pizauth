@@ -209,7 +209,7 @@ impl Config {
             _ => unreachable!(),
         }
 
-        if let (&Some(None), &Some(None)) = (&http_listen, &https_listen) {
+        if (&http_listen, &https_listen) == (&Some(None), &Some(None)) {
             return Err("Cannot set both http_listen and https_listen to 'none'".into());
         }
 

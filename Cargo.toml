@@ -107,5 +107,4 @@ explicit_iter_loop = { level = "allow", priority = 1 }
 missing_const_for_fn = { level = "allow", priority = 1 }
 path_buf_push_overwrite = { level = "allow", priority = 1 }
 map_unwrap_or = { level = "allow", priority = 1 }
-equatable_if_let = { level = "allow", priority = 1 }
 option_if_let_else = { level = "allow", priority = 1 }
