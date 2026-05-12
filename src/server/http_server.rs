@@ -235,7 +235,7 @@ fn request<T: Read + Write>(
 }
 
 /// If a request to an OAuth server has failed then notify the user of that failure and mark the
-/// tokenstate as [TokenState::Empty] unless the config has changed or the user has initiated a new
+/// tokenstate as [`TokenState::Empty`] unless the config has changed or the user has initiated a new
 /// request while we've been trying (unsuccessfully) with the OAuth server.
 fn fail(
     pstate: Arc<AuthenticatorState>,

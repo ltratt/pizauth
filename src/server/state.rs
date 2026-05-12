@@ -1,15 +1,15 @@
-//! This module contains pizauth's core central state. [AuthenticatorState] is the global state,
-//! but mostly what one is interested in are [Account]s and [TokenState]s. These are (literally)
-//! locked together: every [Account] has a [TokenState] and vice versa. However, a challenge is
+//! This module contains pizauth's core central state. [`AuthenticatorState`] is the global state,
+//! but mostly what one is interested in are [`Account`]s and [`TokenState`]s. These are (literally)
+//! locked together: every [`Account`] has a [`TokenState`] and vice versa. However, a challenge is
 //! that we allow users to reload their config at any point: we have to be very careful about
-//! associating an [Account] with a [TokenState], as we don't want to hand out credentials for an
+//! associating an [`Account`] with a [`TokenState`], as we don't want to hand out credentials for an
 //! old version of an account.
 //!
-//! To that end, we provide an abstraction [AccountId] which is a sort-of "the current version of
-//! an [Account]". Any change to the user's configuration of an [Account] *or* a change to an
-//! [Account]'s associated [TokenState] will cause the [AccountId] to change. Every time a
-//! [CTGuard] is dropped/reacquired, or [tokenstate_replace] is called, [AccountId]s must be
-//! revalidated. Failing to do so will cause panics.
+//! To that end, we provide an abstraction [`AccountId`] which is a sort-of "the current version of
+//! an [`Account`]". Any change to the user's configuration of an [`Account`] *or* a change to an
+//! [`Account`]'s associated [`TokenState`] will cause the [`AccountId`] to change. Every time a
+//! [`CTGuard`] is dropped/reacquired, or [`tokenstate_replace`](CTGuard::tokenstate_replace) is called,
+//! [`AccountId`]s must be revalidated. Failing to do so will cause panics.
 
 use std::{
     collections::HashMap,
@@ -44,8 +44,8 @@ const DUMP_VERSION: u64 = 1;
 /// pizauth's global state.
 pub struct AuthenticatorState {
     pub conf_path: PathBuf,
-    /// The "global lock" protecting the config and current [TokenState]s. Can only be accessed via
-    /// [AuthenticatorState::ct_lock].
+    /// The "global lock" protecting the config and current [`TokenState`]s. Can only be accessed via
+    /// [`AuthenticatorState::ct_lock`].
     locked_state: Mutex<LockedState>,
     /// Port of the HTTP server required by OAuth.
     pub http_port: Option<u16>,
@@ -154,7 +154,7 @@ impl AuthenticatorState {
 struct LockedState {
     config: Config,
     details: Vec<(String, AccountId, TokenState)>,
-    /// The next [AccountId] we'll hand out.
+    /// The next [`AccountId`] we'll hand out.
     ///
     // The account ID may change frequently, and if it wraps, we lose correctness, so we use a
     // ludicrously large type. On my current desktop machine a quick measurement suggests that if
@@ -283,7 +283,7 @@ impl LockedState {
         Ok(())
     }
 
-    /// Returns a unique [AccountId].
+    /// Returns a unique [`AccountId`].
     fn next_account_id(&mut self) -> AccountId {
         let new_id = AccountId {
             id: self.next_account_id,
@@ -299,11 +299,11 @@ struct Dump {
     accounts: HashMap<String, (AccountDump, TokenStateDump)>,
 }
 
-/// A lock guard around the [Config] and tokens. When this guard is dropped:
+/// A lock guard around the [`Config`] and tokens. When this guard is dropped:
 ///
 ///   1. the config lock will be released.
-///   2. any [AccountId] instances created from this [CTGuard] will no longer by valid
-///      i.e. they will not be able to access [Account]s or [TokenState]s until they are
+///   2. any [`AccountId`] instances created from this [`CTGuard`] will no longer by valid
+///      i.e. they will not be able to access [`Account`]s or [`TokenState`]s until they are
 ///      revalidated.
 pub struct CTGuard<'a> {
     guard: MutexGuard<'a, LockedState>,
@@ -318,7 +318,7 @@ impl<'a> CTGuard<'a> {
         &self.guard.config
     }
 
-    /// If `act_name` references a current account, return a [AccountId].
+    /// If `act_name` references a current account, return a [`AccountId`].
     pub fn validate_act_name(&self, act_name: &str) -> Option<AccountId> {
         self.guard
             .details
@@ -327,17 +327,17 @@ impl<'a> CTGuard<'a> {
             .map(|x| x.1)
     }
 
-    /// Is `act_id` still a valid [AccountId]?
+    /// Is `act_id` still a valid [`AccountId`]?
     pub fn is_act_id_valid(&self, act_id: AccountId) -> bool {
         self.guard.details.iter().any(|x| x.1 == act_id)
     }
 
-    /// An iterator that will produce one [AccountId] for each currently active account.
+    /// An iterator that will produce one [`AccountId`] for each currently active account.
     pub fn act_ids(&self) -> impl Iterator<Item = AccountId> + '_ {
         self.guard.details.iter().map(|x| x.1)
     }
 
-    /// Return the [AccountId] with state `state`.
+    /// Return the [`AccountId`] with state `state`.
     pub fn act_id_matching_token_state(&self, state: &str) -> Option<AccountId> {
         self.guard
             .details
@@ -362,8 +362,8 @@ impl<'a> CTGuard<'a> {
         &self.guard.config.accounts[act_name]
     }
 
-    /// Return a reference to the [TokenState] of `act_id`. The user must have validated `act_id`
-    /// under the current [CTGuard].
+    /// Return a reference to the [`TokenState`] of `act_id`. The user must have validated `act_id`
+    /// under the current [`CTGuard`].
     ///
     /// # Panics
     ///
@@ -409,7 +409,7 @@ impl<'a> CTGuard<'a> {
         unreachable!();
     }
 
-    /// Update the tokenstate for `act_id` to `new_tokenstate` returning a new [AccountId]
+    /// Update the tokenstate for `act_id` to `new_tokenstate` returning a new [`AccountId`]
     /// valid for the new tokenstate, updating the tokenstate version.
     ///
     /// # Panics
@@ -433,7 +433,7 @@ impl<'a> CTGuard<'a> {
     }
 }
 
-/// An account ID. Must be created by [LockedState::next_account_id].
+/// An account ID. Must be created by [`LockedState::next_account_id`].
 #[derive(Copy, Clone, Debug, Eq, Hash, PartialEq)]
 pub struct AccountId {
     id: u128,
@@ -453,7 +453,7 @@ pub enum TokenState {
     /// There is an active token (and, possibly, also an active refresh token).
     Active {
         access_token: String,
-        /// When did we obtain the current access_token?
+        /// When did we obtain the current `access_token`?
         access_token_obtained: Instant,
         /// When does the current access token expire?
         access_token_expiry: Instant,
@@ -472,10 +472,10 @@ pub enum TokenState {
 }
 
 #[derive(Deserialize, Serialize, SchemaRead, SchemaWrite)]
-/// The format of a dumped [TokenState]. Note that [std::time::Instant] instances are translated to
-/// [std::time::SystemTime] instances: there is no guarantee that we can precisely represent the
+/// The format of a dumped [`TokenState`]. Note that [`std::time::Instant`] instances are translated to
+/// [`std::time::SystemTime`] instances: there is no guarantee that we can precisely represent the
 /// latter as the former, so when conversions fail we default to setting values to
-/// [std::time::Instant::now()] or [std::time::SystemTime::now()], as appropriate, as a safe
+/// [`std::time::Instant::now()`] or [`std::time::SystemTime::now()`], as appropriate, as a safe
 /// fallback.
 pub enum TokenStateDump {
     Empty,

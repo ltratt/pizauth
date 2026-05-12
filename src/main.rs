@@ -38,11 +38,11 @@ use compat::daemon;
 use config::Config;
 use user_sender::show_token;
 
-/// Name of cache directory within $XDG_DATA_HOME.
+/// Name of cache directory within `$XDG_DATA_HOME`.
 const PIZAUTH_CACHE_LEAF: &str = "pizauth";
-/// Name of socket file within $XDG_DATA_HOME/PIZAUTH_CACHE_LEAF.
+/// Name of socket file within `$XDG_DATA_HOME/PIZAUTH_CACHE_LEAF`.
 const PIZAUTH_CACHE_SOCK_LEAF: &str = "pizauth.sock";
-/// Name of `pizauth.conf` file relative to $XDG_CONFIG_HOME.
+/// Name of `pizauth.conf` file relative to `$XDG_CONFIG_HOME`.
 const PIZAUTH_CONF_LEAF: &str = "pizauth.conf";
 
 fn progname() -> String {

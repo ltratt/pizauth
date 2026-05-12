@@ -25,9 +25,9 @@ const REFRESH_RETRY_DEFAULT: Duration = Duration::from_secs(40);
 /// How many seconds do we raise a notification if it only contains authorisations that have been
 /// shown before?
 const AUTH_NOTIFY_INTERVAL_DEFAULT: u64 = 15 * 60;
-/// What is the default bind() address for the HTTP server?
+/// What is the default `bind()` address for the HTTP server?
 const HTTP_LISTEN_DEFAULT: &str = "127.0.0.1:0";
-/// What is the default bind() address for the HTTPS server?
+/// What is the default `bind()` address for the HTTPS server?
 const HTTPS_LISTEN_DEFAULT: &str = "127.0.0.1:0";
 
 #[derive(Debug)]
@@ -548,10 +548,10 @@ impl Account {
         }
     }
 
-    /// Can this account's tokenstate safely be restored from an [AccountDump] `act_dump`? Roughly
+    /// Can this account's tokenstate safely be restored from `act_dump`? Roughly
     /// speaking, if `act_dump` was converted into an `Account`, would that new `Account` compare
-    /// equal with `secure_eq` to `self`? If `true`, then it is safe to restore the (`self`)
-    /// `Account`'s tokenstate from a dump.
+    /// equal with `secure_eq` to `self`? If `true`, then it is safe to restore `self`'s
+    /// tokenstate from `act_dump`.
     pub fn secure_restorable(&self, act_dump: &AccountDump) -> bool {
         self.auth_uri == act_dump.auth_uri
             && self.auth_uri_fields == act_dump.auth_uri_fields

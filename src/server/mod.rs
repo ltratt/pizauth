@@ -38,7 +38,7 @@ use state::{AccountId, AuthenticatorState, CTGuard, TokenState};
 /// Length of the PKCE code verifier in bytes.
 const CODE_VERIFIER_LEN: usize = 64;
 /// The timeout for ureq HTTP requests. It is recommended to make this value lower than
-/// REFRESH_RETRY_DEFAULT to reduce the likelihood that refresh requests overlap.
+/// `REFRESH_RETRY_DEFAULT` to reduce the likelihood that refresh requests overlap.
 pub const UREQ_TIMEOUT: Duration = Duration::from_secs(30);
 /// Length of the OAuth "state" in bytes: this is a string we send when requesting a token that is
 /// echoed back to us, allowing us to distinguish different request. There's no fixed size for
@@ -327,7 +327,7 @@ fn instant_fmt(i: Instant) -> String {
     "<unknown time>".into()
 }
 
-/// If [Config::startup_cmd] is non-`None`, call this function to run that command (in a thread, so
+/// If [`Config::startup_cmd`] is non-`None`, call this function to run that command (in a thread, so
 /// this is non-blocking).
 fn startup_cmd(cmd: String) {
     thread::spawn(move || match env::var("SHELL") {

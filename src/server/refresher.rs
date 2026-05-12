@@ -163,13 +163,13 @@ impl Refresher {
         });
     }
 
-    /// For a [TokenState::Active] token for `act_id`, refresh it, blocking until the token is
-    /// refreshed or an error occurred. This function must be called with a [TokenState::Active]
+    /// For a [`TokenState::Active`] token for `act_id`, refresh it, blocking until the token is
+    /// refreshed or an error occurred. This function must be called with a [`TokenState::Active`]
     /// tokenstate.
     ///
     /// # Panics
     ///
-    /// If the tokenstate is not [TokenState::Active].
+    /// If the tokenstate is not [`TokenState::Active`].
     fn inner_refresh(
         &self,
         pstate: &AuthenticatorState,
@@ -392,8 +392,8 @@ impl Refresher {
             )
     }
 
-    /// Notify the refresher that one or more [TokenState]s is likely to have changed in a way that
-    /// effects the refresher.
+    /// Notify the refresher that one or more [`TokenState`]s is likely to have changed in a way that
+    /// affects the refresher.
     pub fn notify_changes(&self) {
         let mut refresh_lk = self.pred.lock().unwrap();
         *refresh_lk = true;

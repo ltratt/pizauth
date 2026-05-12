@@ -90,7 +90,6 @@ single_match_else = { level = "allow", priority = 1 }
 implicit_clone = { level = "allow", priority = 1 }
 unnecessary_wraps = { level = "allow", priority = 1 }
 duration_suboptimal_units = { level = "allow", priority = 1 }
-doc_markdown = { level = "allow", priority = 1 }
 unnecessary_debug_formatting = { level = "allow", priority = 1 }
 use_self = { level = "allow", priority = 1 }
 uninlined_format_args = { level = "allow", priority = 1 }
