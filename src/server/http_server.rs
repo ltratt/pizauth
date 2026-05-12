@@ -416,7 +416,9 @@ pub fn https_server_setup(
     match &conf.https_listen {
         Some(https_listen) => {
             // Set a process wide default crypto provider.
-            let _ = rustls::crypto::ring::default_provider().install_default();
+            rustls::crypto::ring::default_provider()
+                .install_default()
+                .map_err(|_| "Failed to install rustls crypto provider")?;
 
             // Generate self-signed certificate
             let mut names = vec![
