@@ -69,7 +69,7 @@ impl AuthenticatorState {
         notifier: Arc<Notifier>,
         refresher: Arc<Refresher>,
     ) -> Self {
-        AuthenticatorState {
+        Self {
             conf_path,
             locked_state: Mutex::new(LockedState::new(conf)),
             http_port,
@@ -177,7 +177,7 @@ impl LockedState {
             details.push((act_name.to_owned(), act_id, TokenState::Empty));
         }
 
-        LockedState {
+        Self {
             next_account_id,
             config,
             details,
@@ -310,7 +310,7 @@ pub struct CTGuard<'a> {
 }
 
 impl<'a> CTGuard<'a> {
-    fn new(guard: MutexGuard<'a, LockedState>) -> CTGuard<'a> {
+    fn new(guard: MutexGuard<'a, LockedState>) -> Self {
         CTGuard { guard }
     }
 
@@ -504,8 +504,8 @@ impl TokenState {
         }
 
         match self {
-            TokenState::Empty | TokenState::Pending { .. } => TokenStateDump::Empty,
-            TokenState::Active {
+            Self::Empty | Self::Pending { .. } => TokenStateDump::Empty,
+            Self::Active {
                 access_token,
                 access_token_obtained,
                 access_token_expiry,
@@ -522,7 +522,7 @@ impl TokenState {
         }
     }
 
-    pub fn restore(tsd: &TokenStateDump) -> TokenState {
+    pub fn restore(tsd: &TokenStateDump) -> Self {
         fn restore_instant(t: &SystemTime) -> Instant {
             let i;
             if let Ok(d) = t.duration_since(SystemTime::now()) {
@@ -538,13 +538,13 @@ impl TokenState {
         }
 
         match tsd {
-            TokenStateDump::Empty => TokenState::Empty,
+            TokenStateDump::Empty => Self::Empty,
             TokenStateDump::Active {
                 access_token,
                 access_token_obtained,
                 access_token_expiry,
                 refresh_token,
-            } => TokenState::Active {
+            } => Self::Active {
                 access_token: access_token.clone(),
                 access_token_obtained: restore_instant(access_token_obtained),
                 access_token_expiry: restore_instant(access_token_expiry),

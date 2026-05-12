@@ -54,7 +54,7 @@ impl Config {
             Ok(s) => s,
             Err(e) => return Err(format!("Can't read {:?}: {}", conf_path, e)),
         };
-        Config::from_str(&input)
+        Self::from_str(&input)
     }
 
     pub fn from_str(input: &str) -> Result<Self, String> {
@@ -235,7 +235,7 @@ impl Config {
             }
         }
 
-        Ok(Config {
+        Ok(Self {
             accounts,
             auth_notify_cmd,
             auth_notify_interval: auth_notify_interval
@@ -501,7 +501,7 @@ impl Account {
             }
         }
 
-        Ok(Account {
+        Ok(Self {
             name,
             auth_uri,
             auth_uri_fields: auth_uri_fields.unwrap_or_default(),

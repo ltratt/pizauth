@@ -48,7 +48,7 @@ pub struct Refresher {
 
 impl Refresher {
     pub fn new() -> Arc<Self> {
-        Arc::new(Refresher {
+        Arc::new(Self {
             pred: Mutex::new(false),
             condvar: Condvar::new(),
         })

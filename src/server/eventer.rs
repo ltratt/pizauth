@@ -24,10 +24,10 @@ pub enum TokenEvent {
 impl Display for TokenEvent {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            TokenEvent::Invalidated => write!(f, "token_invalidated"),
-            TokenEvent::New => write!(f, "token_new"),
-            TokenEvent::Refresh => write!(f, "token_refreshed"),
-            TokenEvent::Revoked => write!(f, "token_revoked"),
+            Self::Invalidated => write!(f, "token_invalidated"),
+            Self::New => write!(f, "token_new"),
+            Self::Refresh => write!(f, "token_refreshed"),
+            Self::Revoked => write!(f, "token_revoked"),
         }
     }
 }
@@ -40,7 +40,7 @@ pub struct Eventer {
 
 impl Eventer {
     pub fn new() -> Result<Self, Box<dyn Error>> {
-        Ok(Eventer {
+        Ok(Self {
             pred: Mutex::new(false),
             condvar: Condvar::new(),
             event_queue: Mutex::new(VecDeque::new()),

@@ -27,8 +27,8 @@ pub struct Notifier {
 }
 
 impl Notifier {
-    pub fn new() -> Result<Notifier, Box<dyn Error>> {
-        Ok(Notifier {
+    pub fn new() -> Result<Self, Box<dyn Error>> {
+        Ok(Self {
             pred: Mutex::new(false),
             condvar: Condvar::new(),
         })
