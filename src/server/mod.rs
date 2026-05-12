@@ -132,7 +132,7 @@ fn request(pstate: Arc<AuthenticatorState>, mut stream: UnixStream) -> Result<()
             match Config::from_path(&pstate.conf_path) {
                 Ok(new_conf) => {
                     pstate.update_conf(new_conf);
-                    stream.write_all(b"ok:")?
+                    stream.write_all(b"ok:")?;
                 }
                 Err(e) => stream.write_all(format!("error:{e:}").as_bytes())?,
             }

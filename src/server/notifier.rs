@@ -47,7 +47,7 @@ impl Notifier {
                         Some(d) => {
                             #[cfg(debug_assertions)]
                             debug!("Notifier: next wakeup {}", d.as_secs());
-                            notify_lk = self.condvar.wait_timeout(notify_lk, d).unwrap().0
+                            notify_lk = self.condvar.wait_timeout(notify_lk, d).unwrap().0;
                         }
                         None => break,
                     },
@@ -100,7 +100,7 @@ impl Notifier {
                     ],
                     AUTH_NOTIFY_CMD_TIMEOUT,
                 ) {
-                    error!("{e}")
+                    error!("{e}");
                 }
             }
         });
@@ -147,7 +147,7 @@ impl Notifier {
                 ],
                 ERROR_NOTIFY_CMD_TIMEOUT,
             ) {
-                error!("{e}")
+                error!("{e}");
             }
         }
         Ok(())

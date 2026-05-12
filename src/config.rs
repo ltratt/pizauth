@@ -110,7 +110,7 @@ impl Config {
                                 "auth_notify_cmd",
                                 span,
                                 auth_notify_cmd,
-                            )?)
+                            )?);
                         }
                         config_ast::TopLevel::AuthNotifyInterval(span) => {
                             auth_notify_interval =
@@ -119,7 +119,7 @@ impl Config {
                                     "auth_notify_interval",
                                     span,
                                     auth_notify_interval,
-                                )?)?)
+                                )?)?);
                         }
                         config_ast::TopLevel::ErrorNotifyCmd(span) => {
                             error_notify_cmd = Some(check_not_assigned_str(
@@ -127,7 +127,7 @@ impl Config {
                                 "error_notify_cmd",
                                 span,
                                 error_notify_cmd,
-                            )?)
+                            )?);
                         }
                         config_ast::TopLevel::HttpListen(span) => {
                             http_listen = Some(Some(check_not_assigned_str(
@@ -135,11 +135,11 @@ impl Config {
                                 "http_listen",
                                 span,
                                 http_listen,
-                            )?))
+                            )?));
                         }
                         config_ast::TopLevel::HttpListenNone(span) => {
                             check_not_assigned(&lexer, "http_listen", span, http_listen)?;
-                            http_listen = Some(None)
+                            http_listen = Some(None);
                         }
                         config_ast::TopLevel::HttpsListen(span) => {
                             https_listen = Some(Some(check_not_assigned_str(
@@ -147,11 +147,11 @@ impl Config {
                                 "https_listen",
                                 span,
                                 https_listen,
-                            )?))
+                            )?));
                         }
                         config_ast::TopLevel::HttpsListenNone(span) => {
                             check_not_assigned(&lexer, "https_listen", span, https_listen)?;
-                            https_listen = Some(None)
+                            https_listen = Some(None);
                         }
                         config_ast::TopLevel::TransientErrorIfCmd(span) => {
                             transient_error_if_cmd = Some(check_not_assigned_str(
@@ -159,15 +159,16 @@ impl Config {
                                 "transient_error_if_cmd",
                                 span,
                                 transient_error_if_cmd,
-                            )?)
+                            )?);
                         }
                         config_ast::TopLevel::RefreshAtLeast(span) => {
-                            refresh_at_least = Some(time_str_to_duration(check_not_assigned_time(
-                                &lexer,
-                                "refresh_at_least",
-                                span,
-                                refresh_at_least,
-                            )?)?)
+                            refresh_at_least =
+                                Some(time_str_to_duration(check_not_assigned_time(
+                                    &lexer,
+                                    "refresh_at_least",
+                                    span,
+                                    refresh_at_least,
+                                )?)?);
                         }
                         config_ast::TopLevel::RefreshBeforeExpiry(span) => {
                             refresh_before_expiry =
@@ -176,7 +177,7 @@ impl Config {
                                     "refresh_before_expiry",
                                     span,
                                     refresh_before_expiry,
-                                )?)?)
+                                )?)?);
                         }
                         config_ast::TopLevel::RefreshRetry(span) => {
                             refresh_retry = Some(time_str_to_duration(check_not_assigned_time(
@@ -184,7 +185,7 @@ impl Config {
                                 "refresh_retry",
                                 span,
                                 refresh_retry,
-                            )?)?)
+                            )?)?);
                         }
                         config_ast::TopLevel::StartupCmd(span) => {
                             startup_cmd = Some(check_not_assigned_str(
@@ -192,7 +193,7 @@ impl Config {
                                 "startup_cmd",
                                 span,
                                 startup_cmd,
-                            )?)
+                            )?);
                         }
                         config_ast::TopLevel::TokenEventCmd(span) => {
                             token_event_cmd = Some(check_not_assigned_str(
@@ -200,7 +201,7 @@ impl Config {
                                 "token_event_cmd",
                                 span,
                                 token_event_cmd,
-                            )?)
+                            )?);
                         }
                     }
                 }
@@ -396,7 +397,7 @@ impl Account {
         for f in fields {
             match f {
                 config_ast::AccountField::AuthUri(span) => {
-                    auth_uri = Some(check_not_assigned_uri(lexer, "auth_uri", span, auth_uri)?)
+                    auth_uri = Some(check_not_assigned_uri(lexer, "auth_uri", span, auth_uri)?);
                 }
                 config_ast::AccountField::AuthUriFields(span, spans) => {
                     if auth_uri_fields.is_some() {
@@ -420,7 +421,7 @@ impl Account {
                     );
                 }
                 config_ast::AccountField::ClientId(span) => {
-                    client_id = Some(check_not_assigned_str(lexer, "client_id", span, client_id)?)
+                    client_id = Some(check_not_assigned_str(lexer, "client_id", span, client_id)?);
                 }
                 config_ast::AccountField::ClientSecret(span) => {
                     client_secret = Some(check_not_assigned_str(
@@ -428,7 +429,7 @@ impl Account {
                         "client_secret",
                         span,
                         client_secret,
-                    )?)
+                    )?);
                 }
                 config_ast::AccountField::LoginHint(span) => {
                     login_hint = Some(check_not_assigned_str(
@@ -436,11 +437,11 @@ impl Account {
                         "login_hint",
                         span,
                         login_hint,
-                    )?)
+                    )?);
                 }
                 config_ast::AccountField::RedirectUri(span) => {
                     let uri = check_not_assigned_uri(lexer, "redirect_uri", span, redirect_uri)?;
-                    redirect_uri = Some(uri)
+                    redirect_uri = Some(uri);
                 }
                 config_ast::AccountField::RefreshAtLeast(span) => {
                     refresh_at_least = Some(time_str_to_duration(check_not_assigned_time(
@@ -448,7 +449,7 @@ impl Account {
                         "refresh_at_least",
                         span,
                         refresh_at_least,
-                    )?)?)
+                    )?)?);
                 }
                 config_ast::AccountField::RefreshBeforeExpiry(span) => {
                     refresh_before_expiry = Some(time_str_to_duration(check_not_assigned_time(
@@ -456,7 +457,7 @@ impl Account {
                         "refresh_before_expiry",
                         span,
                         refresh_before_expiry,
-                    )?)?)
+                    )?)?);
                 }
                 config_ast::AccountField::RefreshRetry(span) => {
                     refresh_retry = Some(time_str_to_duration(check_not_assigned_time(
@@ -464,7 +465,7 @@ impl Account {
                         "refresh_retry",
                         span,
                         refresh_retry,
-                    )?)?)
+                    )?)?);
                 }
                 config_ast::AccountField::Scopes(span, spans) => {
                     if scopes.is_some() {
@@ -483,7 +484,7 @@ impl Account {
                     );
                 }
                 config_ast::AccountField::TokenUri(span) => {
-                    token_uri = Some(check_not_assigned_uri(lexer, "token_uri", span, token_uri)?)
+                    token_uri = Some(check_not_assigned_uri(lexer, "token_uri", span, token_uri)?);
                 }
             }
         }

@@ -415,7 +415,7 @@ impl Refresher {
                         Some(d) => {
                             #[cfg(debug_assertions)]
                             debug!("Refresher: next wakeup {}", d.as_secs());
-                            refresh_lk = refresher.condvar.wait_timeout(refresh_lk, d).unwrap().0
+                            refresh_lk = refresher.condvar.wait_timeout(refresh_lk, d).unwrap().0;
                         }
                         None => break,
                     },

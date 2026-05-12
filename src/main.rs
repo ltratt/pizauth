@@ -117,7 +117,7 @@ fn conf_path(matches: &getopts::Matches) -> PathBuf {
                 None => match env::var_os("HOME") {
                     Some(s) => {
                         p.push(s);
-                        p.push(".config")
+                        p.push(".config");
                     }
                     None => fatal("Neither $XDG_CONFIG_HOME or $HOME set"),
                 },
