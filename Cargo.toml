@@ -76,7 +76,6 @@ let_underscore = "warn"
 ## TODO, disabled since they currently fail
 elided_lifetimes_in_paths = { level = "allow", priority = 1 }
 tail_expr_drop_order = { level = "allow", priority = 1 }
-if_let_rescope = { level = "allow", priority = 1 }
 
 [lints.clippy]
 pedantic = "warn"
@@ -97,7 +96,6 @@ unused_self = { level = "allow", priority = 1 }
 nursery = "warn"
 ## TODO, disabled since they currently fail
 redundant_clone = { level = "allow", priority = 1 }
-significant_drop_in_scrutinee = { level = "allow", priority = 1 }
 significant_drop_tightening = { level = "allow", priority = 1 }
 needless_collect = { level = "allow", priority = 1 }
 missing_const_for_fn = { level = "allow", priority = 1 }
