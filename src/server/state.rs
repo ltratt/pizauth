@@ -257,14 +257,14 @@ impl LockedState {
                         (
                             &TokenState::Empty | &TokenState::Pending { .. },
                             &TokenState::Empty | &TokenState::Pending { .. },
-                        ) => (),
+                        )
+                        | (&TokenState::Active { .. }, _) => (),
                         (
                             &TokenState::Empty | &TokenState::Pending { .. },
                             &TokenState::Active { .. },
                         ) => {
                             restore.insert(act_name.to_owned(), new_ts);
                         }
-                        (&TokenState::Active { .. }, _) => (),
                     }
                 }
             }
@@ -504,8 +504,7 @@ impl TokenState {
         }
 
         match self {
-            TokenState::Empty => TokenStateDump::Empty,
-            TokenState::Pending { .. } => TokenStateDump::Empty,
+            TokenState::Empty | TokenState::Pending { .. } => TokenStateDump::Empty,
             TokenState::Active {
                 access_token,
                 access_token_obtained,

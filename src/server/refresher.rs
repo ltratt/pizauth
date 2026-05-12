@@ -70,8 +70,8 @@ impl Refresher {
                         let act_id = ct_lk.tokenstate_replace(act_id, new_ts);
                         let act_name = ct_lk.account(act_id).name.clone();
                         match refresher.inner_refresh(&pstate, ct_lk, act_id) {
-                            RefreshKind::AccountOrTokenStateChanged => (),
-                            RefreshKind::NoRefreshToken => (),
+                            RefreshKind::AccountOrTokenStateChanged
+                            | RefreshKind::NoRefreshToken => (),
                             RefreshKind::PermanentError(msg) => {
                                 info!("Permanent refresh error for {act_name}: {msg}");
                                 pstate
@@ -238,10 +238,10 @@ impl Refresher {
                 }
             }
             Err(
-                e @ ureq::Error::ConnectionFailed
-                | e @ ureq::Error::HostNotFound
-                | e @ ureq::Error::Io(_)
-                | e @ ureq::Error::Timeout(_),
+                e @ (ureq::Error::ConnectionFailed
+                | ureq::Error::HostNotFound
+                | ureq::Error::Io(_)
+                | ureq::Error::Timeout(_)),
             ) => return RefreshKind::TransitoryError(act_id, e.to_string()),
             Err(e) => {
                 let mut ct_lk = pstate.ct_lock();

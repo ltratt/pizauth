@@ -296,7 +296,7 @@ fn parse_get<T: Read + Write>(stream: &mut T, is_https: bool) -> Result<Url, Box
         }
         http_req_size += line.len();
         match line.chars().next() {
-            Some(' ') | Some('\t') => {
+            Some(' ' | '\t') => {
                 // Continuation of previous header
                 match req.last_mut() {
                     Some(x) => {
