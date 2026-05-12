@@ -117,9 +117,7 @@ fn request<T: Read + Write>(
     };
 
     let code_verifier = match ct_lk.tokenstate(act_id) {
-        TokenState::Pending {
-            ref code_verifier, ..
-        } => code_verifier.clone(),
+        TokenState::Pending { code_verifier, .. } => code_verifier.clone(),
         _ => unreachable!(),
     };
     let token_uri = act.token_uri.clone();

@@ -217,7 +217,7 @@ fn request(pstate: Arc<AuthenticatorState>, mut stream: UnixStream) -> Result<()
                             stream.write_all(b"pending:")?;
                         }
                     }
-                    TokenState::Pending { ref url, .. } => {
+                    TokenState::Pending { url, .. } => {
                         let response = if *with_url == "withurl" {
                             format!("pending:{url:}")
                         } else {
