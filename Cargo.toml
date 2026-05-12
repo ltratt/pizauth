@@ -91,7 +91,6 @@ implicit_clone = { level = "allow", priority = 1 }
 unnecessary_wraps = { level = "allow", priority = 1 }
 duration_suboptimal_units = { level = "allow", priority = 1 }
 unnecessary_debug_formatting = { level = "allow", priority = 1 }
-uninlined_format_args = { level = "allow", priority = 1 }
 needless_pass_by_value = { level = "allow", priority = 1 }
 ignored_unit_patterns = { level = "allow", priority = 1 }
 redundant_closure_for_method_calls = { level = "allow", priority = 1 }

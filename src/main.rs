@@ -208,7 +208,7 @@ fn main() {
                 j.as_object_mut()
                     .unwrap()
                     .extend(svj.as_object().unwrap().clone());
-                println!("{}", j);
+                println!("{j}");
             } else {
                 println!("{progname} version {ver}:\n  cache directory: {cache_path}\n  config file: {conf_path}");
                 if let Some(svj) = svj {

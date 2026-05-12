@@ -52,7 +52,7 @@ impl Config {
     pub fn from_path(conf_path: &Path) -> Result<Self, String> {
         let input = match read_to_string(conf_path) {
             Ok(s) => s,
-            Err(e) => return Err(format!("Can't read {:?}: {}", conf_path, e)),
+            Err(e) => return Err(format!("Can't read {conf_path:?}: {e}")),
         };
         Self::from_str(&input)
     }
