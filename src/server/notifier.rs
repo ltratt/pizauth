@@ -91,7 +91,7 @@ impl Notifier {
             }
             drop(ct_lk);
 
-            for (act_name, cmd, url) in auth_cmds.into_iter() {
+            for (act_name, cmd, url) in auth_cmds {
                 if let Err(e) = shell_cmd(
                     &cmd,
                     [

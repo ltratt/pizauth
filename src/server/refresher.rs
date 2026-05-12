@@ -443,7 +443,7 @@ impl Refresher {
                 .collect::<HashSet<_>>();
             drop(ct_lk);
 
-            for act_id in to_refresh.iter() {
+            for act_id in &to_refresh {
                 refresher.sched_refresh(Arc::clone(&pstate), *act_id);
             }
         });

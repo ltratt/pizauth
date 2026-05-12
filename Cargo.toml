@@ -102,8 +102,6 @@ redundant_clone = { level = "allow", priority = 1 }
 significant_drop_in_scrutinee = { level = "allow", priority = 1 }
 significant_drop_tightening = { level = "allow", priority = 1 }
 needless_collect = { level = "allow", priority = 1 }
-explicit_into_iter_loop = { level = "allow", priority = 1 }
-explicit_iter_loop = { level = "allow", priority = 1 }
 missing_const_for_fn = { level = "allow", priority = 1 }
 path_buf_push_overwrite = { level = "allow", priority = 1 }
 map_unwrap_or = { level = "allow", priority = 1 }
