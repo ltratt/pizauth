@@ -11,6 +11,7 @@ mod user_sender;
 
 use std::{
     env::{self, current_exe},
+    ffi::OsString,
     fs,
     io::{stdout, Write},
     os::unix::{fs::PermissionsExt, net::UnixStream},
@@ -76,10 +77,7 @@ fn cache_path() -> PathBuf {
     match env::var_os("XDG_RUNTIME_DIR") {
         Some(s) => p.push(s),
         None => {
-            match env::var_os("TMPDIR") {
-                Some(s) => p.push(s),
-                None => p.push("/tmp"),
-            }
+            p.push(env::var_os("TMPDIR").unwrap_or_else(|| OsString::from("/tmp")));
             p.push(format!(
                 "runtime-{}",
                 username().unwrap_or_else(|_| "unknown-user".to_owned())
@@ -126,7 +124,7 @@ fn conf_path(matches: &getopts::Matches) -> PathBuf {
             if !p.is_file() {
                 fatal(&format!(
                     "No config file found at {}",
-                    p.to_str().unwrap_or("pizauth.conf")
+                    p.to_str().unwrap_or(PIZAUTH_CONF_LEAF)
                 ));
             }
             p
