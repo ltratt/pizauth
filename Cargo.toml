@@ -74,29 +74,39 @@ rust_2024_compatibility = "deny"
 let_underscore = "warn"
 
 ## TODO, disabled since they currently fail
+### Would change style
 elided_lifetimes_in_paths = { level = "allow", priority = 1 }
+### Needs analysis + oversight for correctness
 tail_expr_drop_order = { level = "allow", priority = 1 }
 
 [lints.clippy]
 pedantic = "warn"
 ## TODO, disabled since they currently fail
+### Straightforward fix, for next PR
+ignored_unit_patterns = { level = "allow", priority = 1 }
+implicit_clone = { level = "allow", priority = 1 }
+unused_self = { level = "allow", priority = 1 }
+### Lint guidance seems wrong, needs decision
 similar_names = { level = "allow", priority = 1 }
-redundant_else = { level = "allow", priority = 1 }
+unnecessary_debug_formatting = { level = "allow", priority = 1 }
+redundant_closure_for_method_calls = { level = "allow", priority = 1 }
+#### Straightforward, depending on design decisions
+unnecessary_wraps = { level = "allow", priority = 1 }
+### Heavy changes, each of these needs its own PR
 too_many_lines = { level = "allow", priority = 1 }
 manual_let_else = { level = "allow", priority = 1 } # pervasive if we want to be consistent
 single_match_else = { level = "allow", priority = 1 }
-implicit_clone = { level = "allow", priority = 1 }
-unnecessary_wraps = { level = "allow", priority = 1 }
-unnecessary_debug_formatting = { level = "allow", priority = 1 }
+redundant_else = { level = "allow", priority = 1 }
+### Needs analysis + oversight for correctness
 needless_pass_by_value = { level = "allow", priority = 1 }
-ignored_unit_patterns = { level = "allow", priority = 1 }
-redundant_closure_for_method_calls = { level = "allow", priority = 1 }
-unused_self = { level = "allow", priority = 1 }
 
 nursery = "warn"
 ## TODO, disabled since they currently fail
+### Straightforward fix, for next PR
 redundant_clone = { level = "allow", priority = 1 }
-significant_drop_tightening = { level = "allow", priority = 1 }
 needless_collect = { level = "allow", priority = 1 }
-missing_const_for_fn = { level = "allow", priority = 1 }
+### Would change style, need buy-in + style guide
 option_if_let_else = { level = "allow", priority = 1 }
+### Needs analysis + oversight for correctness
+missing_const_for_fn = { level = "allow", priority = 1 }
+significant_drop_tightening = { level = "allow", priority = 1 }
