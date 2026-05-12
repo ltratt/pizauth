@@ -19,7 +19,7 @@ type StorageT = u8;
 const REFRESH_BEFORE_EXPIRY_DEFAULT: Duration = Duration::from_secs(90);
 /// How many seconds before we forcibly try refreshing an access token, even if it's not yet
 /// expired?
-const REFRESH_AT_LEAST_DEFAULT: Duration = Duration::from_secs(90 * 60);
+const REFRESH_AT_LEAST_DEFAULT: Duration = Duration::from_mins(90);
 /// How many seconds after a refresh failed in a non-permanent way before we retry refreshing?
 const REFRESH_RETRY_DEFAULT: Duration = Duration::from_secs(40);
 /// How many seconds do we raise a notification if it only contains authorisations that have been

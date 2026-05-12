@@ -24,7 +24,7 @@ use crate::{
 /// How many times can a transient error be encountered before we try `not_transient_error_if`?
 const TRANSIENT_ERROR_RETRIES: u64 = 6;
 /// How long to run `transient_error_if_cmd` commands before killing them?
-const TRANSIENT_ERROR_IF_CMD_TIMEOUT: Duration = Duration::from_secs(3 * 60);
+const TRANSIENT_ERROR_IF_CMD_TIMEOUT: Duration = Duration::from_mins(3);
 
 /// The outcome of an attempted refresh.
 #[derive(Debug)]

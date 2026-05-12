@@ -315,7 +315,7 @@ fn main() {
             //   6 hours of monotonic time
             let sock_path_cl = sock_path.clone();
             thread::spawn(move || loop {
-                thread::sleep(Duration::from_secs(6 * 60 * 60));
+                thread::sleep(Duration::from_hours(6));
                 let _ = utimensat(
                     AT_FDCWD,
                     &sock_path_cl,

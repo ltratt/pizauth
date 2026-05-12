@@ -89,7 +89,6 @@ manual_let_else = { level = "allow", priority = 1 } # pervasive if we want to be
 single_match_else = { level = "allow", priority = 1 }
 implicit_clone = { level = "allow", priority = 1 }
 unnecessary_wraps = { level = "allow", priority = 1 }
-duration_suboptimal_units = { level = "allow", priority = 1 }
 unnecessary_debug_formatting = { level = "allow", priority = 1 }
 needless_pass_by_value = { level = "allow", priority = 1 }
 ignored_unit_patterns = { level = "allow", priority = 1 }
