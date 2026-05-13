@@ -87,7 +87,6 @@ no_effect = { level = "allow", priority = 1 }
 pedantic = "warn"
 ## TODO, disabled since they currently fail
 ### Straightforward fix, for next PR
-manual_string_new = { level = "allow", priority = 1 }
 items_after_statements = { level = "allow", priority = 1 }
 ignored_unit_patterns = { level = "allow", priority = 1 }
 implicit_clone = { level = "allow", priority = 1 }
