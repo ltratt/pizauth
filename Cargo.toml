@@ -105,8 +105,6 @@ needless_pass_by_value = { level = "allow", priority = 1 }
 
 nursery = "warn"
 ## TODO, disabled since they currently fail
-### Straightforward fix, for next PR
-needless_collect = { level = "allow", priority = 1 }
 ### Would change style, need buy-in + style guide
 option_if_let_else = { level = "allow", priority = 1 }
 ### Needs analysis + oversight for correctness

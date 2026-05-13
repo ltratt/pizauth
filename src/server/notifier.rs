@@ -65,6 +65,8 @@ impl Notifier {
             let mut ct_lk = pstate.ct_lock();
             let now = Instant::now();
             let notify_interval = ct_lk.config().auth_notify_interval; // Pulled out to avoid borrow checker problems.
+            // Clippy is wrong here, need collect to permit the mutation in tokenstate_replace
+            #[expect(clippy::needless_collect)]
             for act_id in ct_lk.act_ids().collect::<Vec<_>>() {
                 let mut ts = ct_lk.tokenstate(act_id).clone();
                 if let TokenState::Pending {
