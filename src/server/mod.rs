@@ -337,10 +337,10 @@ fn startup_cmd(cmd: String) {
                     if !status.success() {
                         error!(
                             "'{cmd:}' returned {}",
-                            status
-                                .code()
-                                .map(|x| x.to_string())
-                                .unwrap_or_else(|| "<Unknown exit code".to_string())
+                            status.code().map_or_else(
+                                || "<Unknown exit code>".to_string(),
+                                |x| x.to_string()
+                            )
                         );
                     }
                 }

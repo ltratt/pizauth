@@ -24,8 +24,7 @@ pub fn shell_cmd<const T: usize>(
             "'{cmd:}' returned {}",
             status
                 .code()
-                .map(|x| x.to_string())
-                .unwrap_or_else(|| "<Unknown exit code".to_string())
+                .map_or_else(|| "<Unknown exit code".to_string(), |x| x.to_string())
         )
         .into()),
         None => {

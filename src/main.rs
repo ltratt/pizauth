@@ -50,8 +50,7 @@ fn progname() -> String {
     match current_exe() {
         Ok(p) => p
             .file_name()
-            .map(|x| x.to_str().unwrap_or("pizauth"))
-            .unwrap_or("pizauth")
+            .map_or("pizauth", |x| x.to_str().unwrap_or("pizauth"))
             .to_owned(),
         Err(_) => "pizauth".to_owned(),
     }
@@ -341,9 +340,10 @@ fn main() {
                     3 => log::LevelFilter::Debug,
                     _ => log::LevelFilter::Trace,
                 };
-                log::set_boxed_logger(Box::new(syslog::BasicLogger::new(logger)))
-                    .map(|()| log::set_max_level(levelfilter))
-                    .unwrap_or_else(|e| fatal(&format!("Cannot set logger: {e:}")));
+                log::set_boxed_logger(Box::new(syslog::BasicLogger::new(logger))).map_or_else(
+                    |e| fatal(&format!("Cannot set logger: {e:}")),
+                    |()| log::set_max_level(levelfilter),
+                );
                 daemon(true, false).unwrap_or_else(|e| fatal(&format!("Cannot daemonise: {e:}")));
             } else {
                 stderrlog::new()
