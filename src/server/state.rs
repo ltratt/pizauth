@@ -801,7 +801,7 @@ mod test {
                     access_token: "abc".to_owned(),
                     access_token_obtained: Instant::now(),
                     access_token_expiry: Instant::now()
-                        .checked_add(Duration::from_secs(60))
+                        .checked_add(Duration::from_mins(1))
                         .unwrap(),
                     refresh_token: None,
                     ongoing_refresh: false,
@@ -892,7 +892,7 @@ mod test {
                     access_token: "abc".to_owned(),
                     access_token_obtained: Instant::now(),
                     access_token_expiry: Instant::now()
-                        .checked_add(Duration::from_secs(60))
+                        .checked_add(Duration::from_mins(1))
                         .unwrap(),
                     refresh_token: Some("refresh".to_owned()),
                     ongoing_refresh: false,
