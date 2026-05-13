@@ -39,7 +39,7 @@ impl PizauthServer {
             thread::sleep(Duration::from_millis(25));
         }
         assert!(readyp.exists());
-        PizauthServer {
+        Self {
             child,
             xdg_dir: xdg_dir.to_owned(),
         }
@@ -77,7 +77,7 @@ impl OAuthServer {
             })
         };
 
-        OAuthServer {
+        Self {
             addr,
             thread: Some(thread),
         }
@@ -246,7 +246,7 @@ impl HttpRequest {
         reader.read_exact(&mut body).unwrap();
         let stream = reader.into_inner();
 
-        HttpRequest {
+        Self {
             stream,
             method,
             target,
