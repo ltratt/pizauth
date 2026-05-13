@@ -74,7 +74,6 @@ rust_2024_compatibility = "deny"
 let_underscore = "warn"
 
 ## TODO, disabled since they currently fail
-let_underscore_drop = { level = "allow", priority = 1 }
 ### Would change style
 elided_lifetimes_in_paths = { level = "allow", priority = 1 }
 ### Needs analysis + oversight for correctness

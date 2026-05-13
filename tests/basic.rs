@@ -52,7 +52,7 @@ impl Drop for PizauthServer {
         assert!(cmd.unwrap().status.success());
         // Currently we kill the main server with SIGTERM, so this `wait` would return an error if
         // we checked!
-        let _ = self.child.wait();
+        drop(self.child.wait());
     }
 }
 
