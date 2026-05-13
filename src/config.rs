@@ -936,7 +936,7 @@ mod test {
                     "Account x has an 'http' redirect but the HTTP server is set to 'none'",
                 ) =>
             {
-                ()
+                ();
             }
             Err(e) => panic!("{e:?}"),
             _ => panic!(),
@@ -957,7 +957,7 @@ mod test {
                     "Account x has an 'https' redirect but the HTTPS server is set to 'none'",
                 ) =>
             {
-                ()
+                ();
             }
             Err(e) => panic!("{e:?}"),
             _ => panic!(),
