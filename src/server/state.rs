@@ -784,7 +784,7 @@ mod test {
         }
 
         {
-            pstate.restore(dump.clone()).unwrap();
+            pstate.restore(dump).unwrap();
 
             let ct_lk = pstate.ct_lock();
             let x_id = ct_lk.validate_act_name("x").unwrap();
@@ -843,7 +843,7 @@ mod test {
         }
 
         {
-            pstate.restore(dump.clone()).unwrap();
+            pstate.restore(dump).unwrap();
 
             let ct_lk = pstate.ct_lock();
             let x_id = ct_lk.validate_act_name("x").unwrap();
