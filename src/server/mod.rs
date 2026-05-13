@@ -170,7 +170,7 @@ fn request(pstate: Arc<AuthenticatorState>, mut stream: UnixStream) -> Result<()
         }
         "restore" => {
             match pstate.restore(rest.to_vec()) {
-                Ok(_) => stream.write_all(b"ok:")?,
+                Ok(()) => stream.write_all(b"ok:")?,
                 Err(e) => stream.write_all(format!("error:{e:}").as_bytes())?,
             }
             return Ok(());

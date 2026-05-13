@@ -88,7 +88,6 @@ pedantic = "warn"
 ## TODO, disabled since they currently fail
 ### Straightforward fix, for next PR
 items_after_statements = { level = "allow", priority = 1 }
-ignored_unit_patterns = { level = "allow", priority = 1 }
 implicit_clone = { level = "allow", priority = 1 }
 unused_self = { level = "allow", priority = 1 }
 ### Lint guidance seems wrong, needs decision

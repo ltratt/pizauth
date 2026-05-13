@@ -572,10 +572,10 @@ impl Account {
         let mut url = Url::parse(&self.redirect_uri)?;
         if https_port.is_some() && self.redirect_uri.to_lowercase().starts_with("https") {
             url.set_port(https_port)
-                .map_err(|_| "Cannot set https port")?;
+                .map_err(|()| "Cannot set https port")?;
         } else {
             url.set_port(http_port)
-                .map_err(|_| "Cannot set http port")?;
+                .map_err(|()| "Cannot set http port")?;
         }
         Ok(url)
     }
