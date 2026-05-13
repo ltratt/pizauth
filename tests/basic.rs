@@ -240,8 +240,7 @@ impl HttpRequest {
 
         let content_length = headers
             .get("content-length")
-            .map(|x| x.parse::<usize>().unwrap())
-            .unwrap_or(0);
+            .map_or(0, |x| x.parse::<usize>().unwrap());
         let mut body = vec![0; content_length];
         reader.read_exact(&mut body).unwrap();
         let stream = reader.into_inner();
