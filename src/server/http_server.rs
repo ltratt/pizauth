@@ -117,9 +117,7 @@ fn request<T: Read + Write>(
     };
 
     let code_verifier = match ct_lk.tokenstate(act_id) {
-        TokenState::Pending {
-            ref code_verifier, ..
-        } => code_verifier.clone(),
+        TokenState::Pending { code_verifier, .. } => code_verifier.clone(),
         _ => unreachable!(),
     };
     let token_uri = act.token_uri.clone();
@@ -237,7 +235,7 @@ fn request<T: Read + Write>(
 }
 
 /// If a request to an OAuth server has failed then notify the user of that failure and mark the
-/// tokenstate as [TokenState::Empty] unless the config has changed or the user has initiated a new
+/// tokenstate as [`TokenState::Empty`] unless the config has changed or the user has initiated a new
 /// request while we've been trying (unsuccessfully) with the OAuth server.
 fn fail(
     pstate: Arc<AuthenticatorState>,
@@ -298,7 +296,7 @@ fn parse_get<T: Read + Write>(stream: &mut T, is_https: bool) -> Result<Url, Box
         }
         http_req_size += line.len();
         match line.chars().next() {
-            Some(' ') | Some('\t') => {
+            Some(' ' | '\t') => {
                 // Continuation of previous header
                 match req.last_mut() {
                     Some(x) => {
@@ -418,7 +416,9 @@ pub fn https_server_setup(
     match &conf.https_listen {
         Some(https_listen) => {
             // Set a process wide default crypto provider.
-            let _ = rustls::crypto::ring::default_provider().install_default();
+            rustls::crypto::ring::default_provider()
+                .install_default()
+                .map_err(|_| "Failed to install rustls crypto provider")?;
 
             // Generate self-signed certificate
             let mut names = vec![

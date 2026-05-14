@@ -27,8 +27,8 @@ pub struct Notifier {
 }
 
 impl Notifier {
-    pub fn new() -> Result<Notifier, Box<dyn Error>> {
-        Ok(Notifier {
+    pub fn new() -> Result<Self, Box<dyn Error>> {
+        Ok(Self {
             pred: Mutex::new(false),
             condvar: Condvar::new(),
         })
@@ -47,7 +47,7 @@ impl Notifier {
                         Some(d) => {
                             #[cfg(debug_assertions)]
                             debug!("Notifier: next wakeup {}", d.as_secs());
-                            notify_lk = self.condvar.wait_timeout(notify_lk, d).unwrap().0
+                            notify_lk = self.condvar.wait_timeout(notify_lk, d).unwrap().0;
                         }
                         None => break,
                     },
@@ -91,7 +91,7 @@ impl Notifier {
             }
             drop(ct_lk);
 
-            for (act_name, cmd, url) in auth_cmds.into_iter() {
+            for (act_name, cmd, url) in auth_cmds {
                 if let Err(e) = shell_cmd(
                     &cmd,
                     [
@@ -100,7 +100,7 @@ impl Notifier {
                     ],
                     AUTH_NOTIFY_CMD_TIMEOUT,
                 ) {
-                    error!("{e}")
+                    error!("{e}");
                 }
             }
         });
@@ -147,7 +147,7 @@ impl Notifier {
                 ],
                 ERROR_NOTIFY_CMD_TIMEOUT,
             ) {
-                error!("{e}")
+                error!("{e}");
             }
         }
         Ok(())

@@ -11,6 +11,7 @@ mod user_sender;
 
 use std::{
     env::{self, current_exe},
+    ffi::OsString,
     fs,
     io::{stdout, Write},
     os::unix::{fs::PermissionsExt, net::UnixStream},
@@ -38,19 +39,18 @@ use compat::daemon;
 use config::Config;
 use user_sender::show_token;
 
-/// Name of cache directory within $XDG_DATA_HOME.
+/// Name of cache directory within `$XDG_DATA_HOME`.
 const PIZAUTH_CACHE_LEAF: &str = "pizauth";
-/// Name of socket file within $XDG_DATA_HOME/PIZAUTH_CACHE_LEAF.
+/// Name of socket file within `$XDG_DATA_HOME/PIZAUTH_CACHE_LEAF`.
 const PIZAUTH_CACHE_SOCK_LEAF: &str = "pizauth.sock";
-/// Name of `pizauth.conf` file relative to $XDG_CONFIG_HOME.
+/// Name of `pizauth.conf` file relative to `$XDG_CONFIG_HOME`.
 const PIZAUTH_CONF_LEAF: &str = "pizauth.conf";
 
 fn progname() -> String {
     match current_exe() {
         Ok(p) => p
             .file_name()
-            .map(|x| x.to_str().unwrap_or("pizauth"))
-            .unwrap_or("pizauth")
+            .map_or("pizauth", |x| x.to_str().unwrap_or("pizauth"))
             .to_owned(),
         Err(_) => "pizauth".to_owned(),
     }
@@ -76,10 +76,7 @@ fn cache_path() -> PathBuf {
     match env::var_os("XDG_RUNTIME_DIR") {
         Some(s) => p.push(s),
         None => {
-            match env::var_os("TMPDIR") {
-                Some(s) => p.push(s),
-                None => p.push("/tmp"),
-            }
+            p.push(env::var_os("TMPDIR").unwrap_or_else(|| OsString::from("/tmp")));
             p.push(format!(
                 "runtime-{}",
                 username().unwrap_or_else(|_| "unknown-user".to_owned())
@@ -117,7 +114,7 @@ fn conf_path(matches: &getopts::Matches) -> PathBuf {
                 None => match env::var_os("HOME") {
                     Some(s) => {
                         p.push(s);
-                        p.push(".config")
+                        p.push(".config");
                     }
                     None => fatal("Neither $XDG_CONFIG_HOME or $HOME set"),
                 },
@@ -126,7 +123,7 @@ fn conf_path(matches: &getopts::Matches) -> PathBuf {
             if !p.is_file() {
                 fatal(&format!(
                     "No config file found at {}",
-                    p.to_str().unwrap_or("pizauth.conf")
+                    p.to_str().unwrap_or(PIZAUTH_CONF_LEAF)
                 ));
             }
             p
@@ -208,7 +205,7 @@ fn main() {
                 j.as_object_mut()
                     .unwrap()
                     .extend(svj.as_object().unwrap().clone());
-                println!("{}", j);
+                println!("{j}");
             } else {
                 println!("{progname} version {ver}:\n  cache directory: {cache_path}\n  config file: {conf_path}");
                 if let Some(svj) = svj {
@@ -315,7 +312,7 @@ fn main() {
             //   6 hours of monotonic time
             let sock_path_cl = sock_path.clone();
             thread::spawn(move || loop {
-                thread::sleep(Duration::from_secs(6 * 60 * 60));
+                thread::sleep(Duration::from_hours(6));
                 let _ = utimensat(
                     AT_FDCWD,
                     &sock_path_cl,
@@ -343,9 +340,10 @@ fn main() {
                     3 => log::LevelFilter::Debug,
                     _ => log::LevelFilter::Trace,
                 };
-                log::set_boxed_logger(Box::new(syslog::BasicLogger::new(logger)))
-                    .map(|()| log::set_max_level(levelfilter))
-                    .unwrap_or_else(|e| fatal(&format!("Cannot set logger: {e:}")));
+                log::set_boxed_logger(Box::new(syslog::BasicLogger::new(logger))).map_or_else(
+                    |e| fatal(&format!("Cannot set logger: {e:}")),
+                    |()| log::set_max_level(levelfilter),
+                );
                 daemon(true, false).unwrap_or_else(|e| fatal(&format!("Cannot daemonise: {e:}")));
             } else {
                 stderrlog::new()

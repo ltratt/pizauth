@@ -24,7 +24,7 @@ use crate::{
 /// How many times can a transient error be encountered before we try `not_transient_error_if`?
 const TRANSIENT_ERROR_RETRIES: u64 = 6;
 /// How long to run `transient_error_if_cmd` commands before killing them?
-const TRANSIENT_ERROR_IF_CMD_TIMEOUT: Duration = Duration::from_secs(3 * 60);
+const TRANSIENT_ERROR_IF_CMD_TIMEOUT: Duration = Duration::from_mins(3);
 
 /// The outcome of an attempted refresh.
 #[derive(Debug)]
@@ -48,7 +48,7 @@ pub struct Refresher {
 
 impl Refresher {
     pub fn new() -> Arc<Self> {
-        Arc::new(Refresher {
+        Arc::new(Self {
             pred: Mutex::new(false),
             condvar: Condvar::new(),
         })
@@ -70,8 +70,8 @@ impl Refresher {
                         let act_id = ct_lk.tokenstate_replace(act_id, new_ts);
                         let act_name = ct_lk.account(act_id).name.clone();
                         match refresher.inner_refresh(&pstate, ct_lk, act_id) {
-                            RefreshKind::AccountOrTokenStateChanged => (),
-                            RefreshKind::NoRefreshToken => (),
+                            RefreshKind::AccountOrTokenStateChanged
+                            | RefreshKind::NoRefreshToken => (),
                             RefreshKind::PermanentError(msg) => {
                                 info!("Permanent refresh error for {act_name}: {msg}");
                                 pstate
@@ -163,13 +163,13 @@ impl Refresher {
         });
     }
 
-    /// For a [TokenState::Active] token for `act_id`, refresh it, blocking until the token is
-    /// refreshed or an error occurred. This function must be called with a [TokenState::Active]
+    /// For a [`TokenState::Active`] token for `act_id`, refresh it, blocking until the token is
+    /// refreshed or an error occurred. This function must be called with a [`TokenState::Active`]
     /// tokenstate.
     ///
     /// # Panics
     ///
-    /// If the tokenstate is not [TokenState::Active].
+    /// If the tokenstate is not [`TokenState::Active`].
     fn inner_refresh(
         &self,
         pstate: &AuthenticatorState,
@@ -238,10 +238,10 @@ impl Refresher {
                 }
             }
             Err(
-                e @ ureq::Error::ConnectionFailed
-                | e @ ureq::Error::HostNotFound
-                | e @ ureq::Error::Io(_)
-                | e @ ureq::Error::Timeout(_),
+                e @ (ureq::Error::ConnectionFailed
+                | ureq::Error::HostNotFound
+                | ureq::Error::Io(_)
+                | ureq::Error::Timeout(_)),
             ) => return RefreshKind::TransitoryError(act_id, e.to_string()),
             Err(e) => {
                 let mut ct_lk = pstate.ct_lock();
@@ -392,8 +392,8 @@ impl Refresher {
             )
     }
 
-    /// Notify the refresher that one or more [TokenState]s is likely to have changed in a way that
-    /// effects the refresher.
+    /// Notify the refresher that one or more [`TokenState`]s is likely to have changed in a way that
+    /// affects the refresher.
     pub fn notify_changes(&self) {
         let mut refresh_lk = self.pred.lock().unwrap();
         *refresh_lk = true;
@@ -415,7 +415,7 @@ impl Refresher {
                         Some(d) => {
                             #[cfg(debug_assertions)]
                             debug!("Refresher: next wakeup {}", d.as_secs());
-                            refresh_lk = refresher.condvar.wait_timeout(refresh_lk, d).unwrap().0
+                            refresh_lk = refresher.condvar.wait_timeout(refresh_lk, d).unwrap().0;
                         }
                         None => break,
                     },
@@ -443,7 +443,7 @@ impl Refresher {
                 .collect::<HashSet<_>>();
             drop(ct_lk);
 
-            for act_id in to_refresh.iter() {
+            for act_id in &to_refresh {
                 refresher.sched_refresh(Arc::clone(&pstate), *act_id);
             }
         });

@@ -38,7 +38,7 @@ use state::{AccountId, AuthenticatorState, CTGuard, TokenState};
 /// Length of the PKCE code verifier in bytes.
 const CODE_VERIFIER_LEN: usize = 64;
 /// The timeout for ureq HTTP requests. It is recommended to make this value lower than
-/// REFRESH_RETRY_DEFAULT to reduce the likelihood that refresh requests overlap.
+/// `REFRESH_RETRY_DEFAULT` to reduce the likelihood that refresh requests overlap.
 pub const UREQ_TIMEOUT: Duration = Duration::from_secs(30);
 /// Length of the OAuth "state" in bytes: this is a string we send when requesting a token that is
 /// echoed back to us, allowing us to distinguish different request. There's no fixed size for
@@ -94,7 +94,7 @@ fn request(pstate: Arc<AuthenticatorState>, mut stream: UnixStream) -> Result<()
         if len == buf.len() {
             return Err(format!(
                 "Syntactically invalid request '{}'",
-                std::str::from_utf8(&buf).unwrap_or("<can't represent as UTF-8")
+                std::str::from_utf8(&buf).unwrap_or("<can't represent as UTF-8>")
             )
             .into());
         }
@@ -132,7 +132,7 @@ fn request(pstate: Arc<AuthenticatorState>, mut stream: UnixStream) -> Result<()
             match Config::from_path(&pstate.conf_path) {
                 Ok(new_conf) => {
                     pstate.update_conf(new_conf);
-                    stream.write_all(b"ok:")?
+                    stream.write_all(b"ok:")?;
                 }
                 Err(e) => stream.write_all(format!("error:{e:}").as_bytes())?,
             }
@@ -217,7 +217,7 @@ fn request(pstate: Arc<AuthenticatorState>, mut stream: UnixStream) -> Result<()
                             stream.write_all(b"pending:")?;
                         }
                     }
-                    TokenState::Pending { ref url, .. } => {
+                    TokenState::Pending { url, .. } => {
                         let response = if *with_url == "withurl" {
                             format!("pending:{url:}")
                         } else {
@@ -327,7 +327,7 @@ fn instant_fmt(i: Instant) -> String {
     "<unknown time>".into()
 }
 
-/// If [Config::startup_cmd] is non-`None`, call this function to run that command (in a thread, so
+/// If [`Config::startup_cmd`] is non-`None`, call this function to run that command (in a thread, so
 /// this is non-blocking).
 fn startup_cmd(cmd: String) {
     thread::spawn(move || match env::var("SHELL") {
@@ -337,10 +337,10 @@ fn startup_cmd(cmd: String) {
                     if !status.success() {
                         error!(
                             "'{cmd:}' returned {}",
-                            status
-                                .code()
-                                .map(|x| x.to_string())
-                                .unwrap_or_else(|| "<Unknown exit code".to_string())
+                            status.code().map_or_else(
+                                || "<Unknown exit code>".to_string(),
+                                |x| x.to_string()
+                            )
                         );
                     }
                 }

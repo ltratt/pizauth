@@ -13,7 +13,7 @@ pub fn dump(cache_path: &Path) -> Result<Vec<u8>, Box<dyn Error>> {
     let mut stream = UnixStream::connect(sock_path)
         .map_err(|_| "pizauth authenticator not running or not responding")?;
     stream
-        .write_all("dump:".as_bytes())
+        .write_all(b"dump:")
         .map_err(|_| "Socket not writeable")?;
     stream.shutdown(Shutdown::Write)?;
 
@@ -27,7 +27,7 @@ pub fn server_info(cache_path: &Path) -> Result<serde_json::Value, Box<dyn Error
     let mut stream = UnixStream::connect(sock_path)
         .map_err(|_| "pizauth authenticator not running or not responding")?;
     stream
-        .write_all("info:".as_bytes())
+        .write_all(b"info:")
         .map_err(|_| "Socket not writeable")?;
     stream.shutdown(Shutdown::Write)?;
 
@@ -83,7 +83,7 @@ pub fn restore(cache_path: &Path) -> Result<(), Box<dyn Error>> {
     let mut stream = UnixStream::connect(sock_path)
         .map_err(|_| "pizauth authenticator not running or not responding")?;
     stream
-        .write_all("restore:".as_bytes())
+        .write_all(b"restore:")
         .map_err(|_| "Socket not writeable")?;
     stream.write_all(&buf).map_err(|_| "Socket not writeable")?;
     stream.shutdown(Shutdown::Write)?;
@@ -155,7 +155,7 @@ pub fn status(cache_path: &Path) -> Result<(), Box<dyn Error>> {
     let mut stream = UnixStream::connect(sock_path)
         .map_err(|_| "pizauth authenticator not running or not responding")?;
     stream
-        .write_all("status:".as_bytes())
+        .write_all(b"status:")
         .map_err(|_| "Socket not writeable")?;
     stream.shutdown(Shutdown::Write)?;
 
