@@ -173,7 +173,7 @@ impl Refresher {
     fn inner_refresh(
         &self,
         pstate: &AuthenticatorState,
-        mut ct_lk: CTGuard,
+        mut ct_lk: CTGuard<'_>,
         mut act_id: AccountId,
     ) -> RefreshKind {
         info!("starting inner refresh");
@@ -336,7 +336,7 @@ impl Refresher {
     fn refresh_at(
         &self,
         _pstate: &AuthenticatorState,
-        ct_lk: &CTGuard,
+        ct_lk: &CTGuard<'_>,
         act_id: AccountId,
     ) -> Option<Instant> {
         match ct_lk.tokenstate(act_id) {

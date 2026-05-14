@@ -69,7 +69,7 @@ pub fn sock_path(cache_path: &Path) -> PathBuf {
 /// Calculate the [Instant] that a token will expire at. Returns `Err` if [Instant] cannot
 /// represent the expiry.
 pub fn expiry_instant(
-    ct_lk: &CTGuard,
+    ct_lk: &CTGuard<'_>,
     act_id: AccountId,
     refreshed_at: Instant,
     expires_in: u64,

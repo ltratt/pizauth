@@ -158,7 +158,7 @@ impl Notifier {
 
 /// If `act_id` has a pending token, return the next time when that user should be notified that
 /// it is pending.
-fn notify_at(_pstate: &AuthenticatorState, ct_lk: &CTGuard, act_id: AccountId) -> Option<Instant> {
+fn notify_at(_pstate: &AuthenticatorState, ct_lk: &CTGuard<'_>, act_id: AccountId) -> Option<Instant> {
     match ct_lk.tokenstate(act_id) {
         TokenState::Pending {
             last_notification, ..

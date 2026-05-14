@@ -254,7 +254,7 @@ impl Config {
 }
 
 fn check_not_assigned<T>(
-    lexer: &LRNonStreamingLexer<DefaultLexerTypes<StorageT>>,
+    lexer: &LRNonStreamingLexer<'_, '_, DefaultLexerTypes<StorageT>>,
     name: &str,
     span: Span,
     v: Option<T>,
@@ -270,7 +270,7 @@ fn check_not_assigned<T>(
 }
 
 fn check_not_assigned_str<T>(
-    lexer: &LRNonStreamingLexer<DefaultLexerTypes<StorageT>>,
+    lexer: &LRNonStreamingLexer<'_, '_, DefaultLexerTypes<StorageT>>,
     name: &str,
     span: Span,
     v: Option<T>,
@@ -286,7 +286,7 @@ fn check_not_assigned_str<T>(
 }
 
 fn check_not_assigned_time<'a, T>(
-    lexer: &'a LRNonStreamingLexer<DefaultLexerTypes<StorageT>>,
+    lexer: &'a LRNonStreamingLexer<'_, '_, DefaultLexerTypes<StorageT>>,
     name: &str,
     span: Span,
     v: Option<T>,
@@ -302,7 +302,7 @@ fn check_not_assigned_time<'a, T>(
 }
 
 fn check_not_assigned_uri<T>(
-    lexer: &LRNonStreamingLexer<DefaultLexerTypes<StorageT>>,
+    lexer: &LRNonStreamingLexer<'_, '_, DefaultLexerTypes<StorageT>>,
     name: &str,
     span: Span,
     v: Option<T>,
@@ -336,7 +336,7 @@ fn check_not_assigned_uri<T>(
 }
 
 fn check_assigned<T>(
-    lexer: &LRNonStreamingLexer<DefaultLexerTypes<StorageT>>,
+    lexer: &LRNonStreamingLexer<'_, '_, DefaultLexerTypes<StorageT>>,
     name: &str,
     span: Span,
     v: Option<T>,
@@ -378,7 +378,7 @@ pub struct Account {
 impl Account {
     fn from_fields(
         name: String,
-        lexer: &LRNonStreamingLexer<DefaultLexerTypes<StorageT>>,
+        lexer: &LRNonStreamingLexer<'_, '_, DefaultLexerTypes<StorageT>>,
         overall_span: Span,
         fields: Vec<config_ast::AccountField>,
     ) -> Result<Self, String> {
@@ -666,7 +666,7 @@ fn unescape_str(us: &str) -> String {
 
 /// Return an error message pinpointing `span` as the culprit.
 fn error_at_span(
-    lexer: &LRNonStreamingLexer<DefaultLexerTypes<StorageT>>,
+    lexer: &LRNonStreamingLexer<'_, '_, DefaultLexerTypes<StorageT>>,
     span: Span,
     msg: &str,
 ) -> String {
