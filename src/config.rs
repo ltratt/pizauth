@@ -704,18 +704,12 @@ mod test {
     fn test_time_str_to_duration() {
         assert_eq!(time_str_to_duration("0s").unwrap(), Duration::from_secs(0));
         assert_eq!(time_str_to_duration("1s").unwrap(), Duration::from_secs(1));
-        assert_eq!(time_str_to_duration("1m").unwrap(), Duration::from_secs(60));
-        assert_eq!(
-            time_str_to_duration("2m").unwrap(),
-            Duration::from_secs(120)
-        );
-        assert_eq!(
-            time_str_to_duration("1h").unwrap(),
-            Duration::from_secs(3600)
-        );
+        assert_eq!(time_str_to_duration("1m").unwrap(), Duration::from_mins(1));
+        assert_eq!(time_str_to_duration("2m").unwrap(), Duration::from_mins(2));
+        assert_eq!(time_str_to_duration("1h").unwrap(), Duration::from_hours(1));
         assert_eq!(
             time_str_to_duration("1d").unwrap(),
-            Duration::from_secs(86400)
+            Duration::from_hours(24)
         );
 
         assert!(time_str_to_duration("9223372036854775808m").is_err());
@@ -762,7 +756,7 @@ mod test {
         .unwrap();
         assert_eq!(c.error_notify_cmd, Some("j".to_owned()));
         assert_eq!(c.auth_notify_cmd, Some("g".to_owned()));
-        assert_eq!(c.auth_notify_interval, Duration::from_secs(88 * 60));
+        assert_eq!(c.auth_notify_interval, Duration::from_mins(88));
         assert_eq!(c.http_listen, Some("127.0.0.1:56789".to_owned()));
         assert_eq!(c.transient_error_if_cmd, Some("k".to_owned()));
         assert_eq!(c.token_event_cmd, Some("q".to_owned()));
@@ -782,7 +776,7 @@ mod test {
         assert_eq!(act.redirect_uri, "http://e.com");
         assert_eq!(act.token_uri, "http://f.com");
         assert_eq!(&act.scopes, &["c".to_owned(), "d".to_owned()]);
-        assert_eq!(act.refresh_at_least, Some(Duration::from_secs(43 * 60)));
+        assert_eq!(act.refresh_at_least, Some(Duration::from_mins(43)));
         assert_eq!(act.refresh_before_expiry, Some(Duration::from_secs(42)));
         assert_eq!(act.refresh_retry(&c), Duration::from_secs(33));
     }
@@ -942,7 +936,7 @@ mod test {
                     "Account x has an 'http' redirect but the HTTP server is set to 'none'",
                 ) =>
             {
-                ()
+                ();
             }
             Err(e) => panic!("{e:?}"),
             _ => panic!(),
@@ -963,7 +957,7 @@ mod test {
                     "Account x has an 'https' redirect but the HTTPS server is set to 'none'",
                 ) =>
             {
-                ()
+                ();
             }
             Err(e) => panic!("{e:?}"),
             _ => panic!(),

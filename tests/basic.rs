@@ -39,7 +39,7 @@ impl PizauthServer {
             thread::sleep(Duration::from_millis(25));
         }
         assert!(readyp.exists());
-        PizauthServer {
+        Self {
             child,
             xdg_dir: xdg_dir.to_owned(),
         }
@@ -52,7 +52,7 @@ impl Drop for PizauthServer {
         assert!(cmd.unwrap().status.success());
         // Currently we kill the main server with SIGTERM, so this `wait` would return an error if
         // we checked!
-        let _ = self.child.wait();
+        drop(self.child.wait());
     }
 }
 
@@ -77,7 +77,7 @@ impl OAuthServer {
             })
         };
 
-        OAuthServer {
+        Self {
             addr,
             thread: Some(thread),
         }
@@ -240,13 +240,12 @@ impl HttpRequest {
 
         let content_length = headers
             .get("content-length")
-            .map(|x| x.parse::<usize>().unwrap())
-            .unwrap_or(0);
+            .map_or(0, |x| x.parse::<usize>().unwrap());
         let mut body = vec![0; content_length];
         reader.read_exact(&mut body).unwrap();
         let stream = reader.into_inner();
 
-        HttpRequest {
+        Self {
             stream,
             method,
             target,

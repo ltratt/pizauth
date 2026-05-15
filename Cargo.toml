@@ -80,9 +80,15 @@ elided_lifetimes_in_paths = { level = "allow", priority = 1 }
 tail_expr_drop_order = { level = "allow", priority = 1 }
 
 [lints.clippy]
+## TODO, disabled since they currently fail
+### Straightforward fix, for next PR
+no_effect = { level = "allow", priority = 1 }
+
 pedantic = "warn"
 ## TODO, disabled since they currently fail
 ### Straightforward fix, for next PR
+manual_string_new = { level = "allow", priority = 1 }
+items_after_statements = { level = "allow", priority = 1 }
 ignored_unit_patterns = { level = "allow", priority = 1 }
 implicit_clone = { level = "allow", priority = 1 }
 unused_self = { level = "allow", priority = 1 }
