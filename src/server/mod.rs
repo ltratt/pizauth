@@ -69,7 +69,7 @@ pub fn sock_path(cache_path: &Path) -> PathBuf {
 /// Calculate the [Instant] that a token will expire at. Returns `Err` if [Instant] cannot
 /// represent the expiry.
 pub fn expiry_instant(
-    ct_lk: &CTGuard,
+    ct_lk: &CTGuard<'_>,
     act_id: AccountId,
     refreshed_at: Instant,
     expires_in: u64,
@@ -170,7 +170,7 @@ fn request(pstate: Arc<AuthenticatorState>, mut stream: UnixStream) -> Result<()
         }
         "restore" => {
             match pstate.restore(rest.to_vec()) {
-                Ok(_) => stream.write_all(b"ok:")?,
+                Ok(()) => stream.write_all(b"ok:")?,
                 Err(e) => stream.write_all(format!("error:{e:}").as_bytes())?,
             }
             return Ok(());

@@ -65,6 +65,8 @@ impl Notifier {
             let mut ct_lk = pstate.ct_lock();
             let now = Instant::now();
             let notify_interval = ct_lk.config().auth_notify_interval; // Pulled out to avoid borrow checker problems.
+            // Clippy is wrong here, need collect to permit the mutation in tokenstate_replace
+            #[expect(clippy::needless_collect)]
             for act_id in ct_lk.act_ids().collect::<Vec<_>>() {
                 let mut ts = ct_lk.tokenstate(act_id).clone();
                 if let TokenState::Pending {
@@ -84,7 +86,7 @@ impl Notifier {
                     let url = url.clone();
                     let act = ct_lk.account(act_id);
                     if let Some(ref cmd) = ct_lk.config().auth_notify_cmd {
-                        auth_cmds.push((act.name.to_owned(), cmd.clone(), url));
+                        auth_cmds.push((act.name.clone(), cmd.clone(), url));
                     }
                     ct_lk.tokenstate_replace(act_id, ts);
                 }
@@ -156,7 +158,7 @@ impl Notifier {
 
 /// If `act_id` has a pending token, return the next time when that user should be notified that
 /// it is pending.
-fn notify_at(_pstate: &AuthenticatorState, ct_lk: &CTGuard, act_id: AccountId) -> Option<Instant> {
+fn notify_at(_pstate: &AuthenticatorState, ct_lk: &CTGuard<'_>, act_id: AccountId) -> Option<Instant> {
     match ct_lk.tokenstate(act_id) {
         TokenState::Pending {
             last_notification, ..

@@ -209,7 +209,7 @@ fn request<T: Read + Write>(
         (Some("Bearer"), Some(expires_in), Some(access_token), refresh_token) => {
             let now = Instant::now();
             let expiry = expiry_instant(&ct_lk, act_id, now, expires_in)?;
-            let act_name = ct_lk.account(act_id).name.to_owned();
+            let act_name = ct_lk.account(act_id).name.clone();
             ct_lk.tokenstate_replace(
                 act_id,
                 TokenState::Active {

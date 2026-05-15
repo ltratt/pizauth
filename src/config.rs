@@ -254,7 +254,7 @@ impl Config {
 }
 
 fn check_not_assigned<T>(
-    lexer: &LRNonStreamingLexer<DefaultLexerTypes<StorageT>>,
+    lexer: &LRNonStreamingLexer<'_, '_, DefaultLexerTypes<StorageT>>,
     name: &str,
     span: Span,
     v: Option<T>,
@@ -270,7 +270,7 @@ fn check_not_assigned<T>(
 }
 
 fn check_not_assigned_str<T>(
-    lexer: &LRNonStreamingLexer<DefaultLexerTypes<StorageT>>,
+    lexer: &LRNonStreamingLexer<'_, '_, DefaultLexerTypes<StorageT>>,
     name: &str,
     span: Span,
     v: Option<T>,
@@ -286,7 +286,7 @@ fn check_not_assigned_str<T>(
 }
 
 fn check_not_assigned_time<'a, T>(
-    lexer: &'a LRNonStreamingLexer<DefaultLexerTypes<StorageT>>,
+    lexer: &'a LRNonStreamingLexer<'_, '_, DefaultLexerTypes<StorageT>>,
     name: &str,
     span: Span,
     v: Option<T>,
@@ -302,7 +302,7 @@ fn check_not_assigned_time<'a, T>(
 }
 
 fn check_not_assigned_uri<T>(
-    lexer: &LRNonStreamingLexer<DefaultLexerTypes<StorageT>>,
+    lexer: &LRNonStreamingLexer<'_, '_, DefaultLexerTypes<StorageT>>,
     name: &str,
     span: Span,
     v: Option<T>,
@@ -336,7 +336,7 @@ fn check_not_assigned_uri<T>(
 }
 
 fn check_assigned<T>(
-    lexer: &LRNonStreamingLexer<DefaultLexerTypes<StorageT>>,
+    lexer: &LRNonStreamingLexer<'_, '_, DefaultLexerTypes<StorageT>>,
     name: &str,
     span: Span,
     v: Option<T>,
@@ -378,7 +378,7 @@ pub struct Account {
 impl Account {
     fn from_fields(
         name: String,
-        lexer: &LRNonStreamingLexer<DefaultLexerTypes<StorageT>>,
+        lexer: &LRNonStreamingLexer<'_, '_, DefaultLexerTypes<StorageT>>,
         overall_span: Span,
         fields: Vec<config_ast::AccountField>,
     ) -> Result<Self, String> {
@@ -572,10 +572,10 @@ impl Account {
         let mut url = Url::parse(&self.redirect_uri)?;
         if https_port.is_some() && self.redirect_uri.to_lowercase().starts_with("https") {
             url.set_port(https_port)
-                .map_err(|_| "Cannot set https port")?;
+                .map_err(|()| "Cannot set https port")?;
         } else {
             url.set_port(http_port)
-                .map_err(|_| "Cannot set http port")?;
+                .map_err(|()| "Cannot set http port")?;
         }
         Ok(url)
     }
@@ -666,7 +666,7 @@ fn unescape_str(us: &str) -> String {
 
 /// Return an error message pinpointing `span` as the culprit.
 fn error_at_span(
-    lexer: &LRNonStreamingLexer<DefaultLexerTypes<StorageT>>,
+    lexer: &LRNonStreamingLexer<'_, '_, DefaultLexerTypes<StorageT>>,
     span: Span,
     msg: &str,
 ) -> String {
@@ -934,10 +934,7 @@ mod test {
             Err(e)
                 if e.contains(
                     "Account x has an 'http' redirect but the HTTP server is set to 'none'",
-                ) =>
-            {
-                ();
-            }
+                ) => {}
             Err(e) => panic!("{e:?}"),
             _ => panic!(),
         }
@@ -955,10 +952,7 @@ mod test {
             Err(e)
                 if e.contains(
                     "Account x has an 'https' redirect but the HTTPS server is set to 'none'",
-                ) =>
-            {
-                ();
-            }
+                ) => {}
             Err(e) => panic!("{e:?}"),
             _ => panic!(),
         }

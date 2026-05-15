@@ -74,8 +74,6 @@ rust_2024_compatibility = "deny"
 let_underscore = "warn"
 
 ## TODO, disabled since they currently fail
-### Would change style
-elided_lifetimes_in_paths = { level = "allow", priority = 1 }
 ### Needs analysis + oversight for correctness
 tail_expr_drop_order = { level = "allow", priority = 1 }
 
@@ -87,10 +85,7 @@ no_effect = { level = "allow", priority = 1 }
 pedantic = "warn"
 ## TODO, disabled since they currently fail
 ### Straightforward fix, for next PR
-manual_string_new = { level = "allow", priority = 1 }
 items_after_statements = { level = "allow", priority = 1 }
-ignored_unit_patterns = { level = "allow", priority = 1 }
-implicit_clone = { level = "allow", priority = 1 }
 unused_self = { level = "allow", priority = 1 }
 ### Lint guidance seems wrong, needs decision
 similar_names = { level = "allow", priority = 1 }
@@ -108,11 +103,13 @@ needless_pass_by_value = { level = "allow", priority = 1 }
 
 nursery = "warn"
 ## TODO, disabled since they currently fail
-### Straightforward fix, for next PR
-redundant_clone = { level = "allow", priority = 1 }
-needless_collect = { level = "allow", priority = 1 }
 ### Would change style, need buy-in + style guide
 option_if_let_else = { level = "allow", priority = 1 }
 ### Needs analysis + oversight for correctness
 missing_const_for_fn = { level = "allow", priority = 1 }
 significant_drop_tightening = { level = "allow", priority = 1 }
+
+## Blocked
+### By: https://github.com/softdevteam/grmtools/pull/639
+implicit_clone = { level = "allow", priority = 1 }
+redundant_clone = { level = "allow", priority = 1 }

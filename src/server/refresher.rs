@@ -173,7 +173,7 @@ impl Refresher {
     fn inner_refresh(
         &self,
         pstate: &AuthenticatorState,
-        mut ct_lk: CTGuard,
+        mut ct_lk: CTGuard<'_>,
         mut act_id: AccountId,
     ) -> RefreshKind {
         info!("starting inner refresh");
@@ -336,7 +336,7 @@ impl Refresher {
     fn refresh_at(
         &self,
         _pstate: &AuthenticatorState,
-        ct_lk: &CTGuard,
+        ct_lk: &CTGuard<'_>,
         act_id: AccountId,
     ) -> Option<Instant> {
         match ct_lk.tokenstate(act_id) {
@@ -357,7 +357,7 @@ impl Refresher {
                     // If the second case occurs, we assume that the user knows that the token
                     // really needs refreshing, and we treat the token as if it had expired.
                     if let Some(t) = lra.checked_add(act.refresh_retry(ct_lk.config())) {
-                        return Some(t.to_owned());
+                        return Some(t);
                     }
                 }
 
@@ -372,7 +372,7 @@ impl Refresher {
                 {
                     expiry = cmp::min(expiry, t);
                 }
-                Some(expiry.to_owned())
+                Some(expiry)
             }
             _ => None,
         }

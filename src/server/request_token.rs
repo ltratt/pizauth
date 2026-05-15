@@ -10,7 +10,7 @@ use super::{AccountId, AuthenticatorState, CTGuard, TokenState, CODE_VERIFIER_LE
 /// Request a new token for `act_id`, whose tokenstate must be `Empty`.
 pub fn request_token(
     pstate: Arc<AuthenticatorState>,
-    mut ct_lk: CTGuard,
+    mut ct_lk: CTGuard<'_>,
     act_id: AccountId,
 ) -> Result<Url, Box<dyn Error>> {
     assert!(matches!(

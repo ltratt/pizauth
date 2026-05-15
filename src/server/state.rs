@@ -613,7 +613,7 @@ mod test {
             conf,
             Some(0),
             Some(0),
-            Some("".to_string()),
+            Some(String::new()),
             eventer,
             notifier,
             Refresher::new(),
@@ -747,7 +747,7 @@ mod test {
             conf,
             Some(0),
             Some(0),
-            Some("".to_string()),
+            Some(String::new()),
             eventer,
             notifier,
             Refresher::new(),
@@ -784,7 +784,7 @@ mod test {
         }
 
         {
-            pstate.restore(dump.clone()).unwrap();
+            pstate.restore(dump).unwrap();
 
             let ct_lk = pstate.ct_lock();
             let x_id = ct_lk.validate_act_name("x").unwrap();
@@ -829,7 +829,7 @@ mod test {
             conf,
             Some(0),
             Some(0),
-            Some("".to_string()),
+            Some(String::new()),
             eventer,
             notifier,
             Refresher::new(),
@@ -843,7 +843,7 @@ mod test {
         }
 
         {
-            pstate.restore(dump.clone()).unwrap();
+            pstate.restore(dump).unwrap();
 
             let ct_lk = pstate.ct_lock();
             let x_id = ct_lk.validate_act_name("x").unwrap();
@@ -877,7 +877,7 @@ mod test {
             conf,
             Some(0),
             Some(0),
-            Some("".to_string()),
+            Some(String::new()),
             eventer,
             notifier,
             Refresher::new(),
