@@ -29,6 +29,18 @@ const AUTH_NOTIFY_INTERVAL_DEFAULT: u64 = 15 * 60;
 const HTTP_LISTEN_DEFAULT: &str = "127.0.0.1:0";
 /// What is the default `bind()` address for the HTTPS server?
 const HTTPS_LISTEN_DEFAULT: &str = "127.0.0.1:0";
+/// Keys used by pizauth in queries and which we forbid users from overriding, since doing so is
+/// only going to end in tears.
+const RESERVED_AUTH_URI_KEYS: &[&str] = &[
+    "access_type",
+    "client_id",
+    "code_challenge",
+    "code_challenge_method",
+    "redirect_uri",
+    "response_type",
+    "scope",
+    "state",
+];
 
 #[derive(Debug)]
 pub struct Config {
@@ -408,17 +420,19 @@ impl Account {
                             "Mustn't specify 'auth_uri_fields' more than once",
                         ));
                     }
-                    auth_uri_fields = Some(
-                        spans
-                            .iter()
-                            .map(|(key_sp, val_sp)| {
-                                (
-                                    unescape_str(lexer.span_str(*key_sp)),
-                                    unescape_str(lexer.span_str(*val_sp)),
-                                )
-                            })
-                            .collect::<Vec<(String, String)>>(),
-                    );
+                    let mut fields = Vec::with_capacity(spans.len());
+                    for (key_sp, val_sp) in &spans {
+                        let key = unescape_str(lexer.span_str(*key_sp));
+                        if RESERVED_AUTH_URI_KEYS.contains(&key.as_str()) {
+                            return Err(error_at_span(
+                                lexer,
+                                *key_sp,
+                                &format!("'{key}' is a reserved key"),
+                            ));
+                        }
+                        fields.push((key, unescape_str(lexer.span_str(*val_sp))));
+                    }
+                    auth_uri_fields = Some(fields);
                 }
                 config_ast::AccountField::ClientId(span) => {
                     client_id = Some(check_not_assigned_str(lexer, "client_id", span, client_id)?);
@@ -1212,6 +1226,21 @@ mod test {
           }"#;
         match Config::from_str(c) {
             Err(e) if e.contains("Both the 'login_hint' attribute and a 'auth_uri_fields' field with the name 'login_hint' are specified. The 'login_hint' attribute is deprecated so remove it.") => (),
+            Err(e) => panic!("{e:}"),
+            _ => panic!(),
+        }
+    }
+
+    #[test]
+    fn auth_uri_fields_cannot_use_pizauth_fields() {
+        let c = r#"account "x" {
+            auth_uri = "http://a.com/";
+            auth_uri_fields = { "state": "e" };
+            client_id = "b";
+            token_uri = "https://c.com/";
+          }"#;
+        match Config::from_str(c) {
+            Err(e) if e.contains("'state' is a reserved key") => {}
             Err(e) => panic!("{e:}"),
             _ => panic!(),
         }
