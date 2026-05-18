@@ -847,7 +847,7 @@ mod test {
 
             let ct_lk = pstate.ct_lock();
             let x_id = ct_lk.validate_act_name("x").unwrap();
-            dbg!(ct_lk.tokenstate(x_id));
+            ct_lk.tokenstate(x_id);
             assert_ne!(old_x_id, x_id);
             assert!(matches!(ct_lk.tokenstate(x_id), TokenState::Active { .. }));
         }
