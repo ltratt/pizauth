@@ -310,7 +310,7 @@ fn main() {
             //   Files in this directory MAY be subjected to periodic clean-up. To ensure that your files
             //   are not removed, they should have their access time timestamp modified at least once every
             //   6 hours of monotonic time
-            let sock_path_cl = sock_path.clone();
+            let sock_path_cl = sock_path;
             thread::spawn(move || loop {
                 thread::sleep(Duration::from_hours(6));
                 let _ = utimensat(

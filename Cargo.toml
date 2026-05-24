@@ -72,10 +72,17 @@ rust_2018_idioms = "deny"
 rust_2021_compatibility = "deny"
 rust_2024_compatibility = "deny"
 let_underscore = "warn"
+# Especially heavyweight to resolve, for not much added readability
+# This lint is also being revised, and current direction of travel
+# (as of 2026-05-24) is to allow the fn(ContainsLifetime) -> NoLifetime cases
+# present in the codebase, and to focus on the fn(&T) -> UnclearLifetime case
+# instead. See also
+# https://github.com/rust-lang/rust/issues/91639#issuecomment-2659700523
+# https://github.com/rust-lang/rust/pull/120808
+# https://rust-lang.zulipchat.com/#narrow/channel/213817/near/528092054
+elided_lifetimes_in_paths = { level = "allow", priority = 1 }
 
 ## TODO, disabled since they currently fail
-### Would change style
-elided_lifetimes_in_paths = { level = "allow", priority = 1 }
 ### Needs analysis + oversight for correctness
 tail_expr_drop_order = { level = "allow", priority = 1 }
 
@@ -87,10 +94,7 @@ no_effect = { level = "allow", priority = 1 }
 pedantic = "warn"
 ## TODO, disabled since they currently fail
 ### Straightforward fix, for next PR
-manual_string_new = { level = "allow", priority = 1 }
 items_after_statements = { level = "allow", priority = 1 }
-ignored_unit_patterns = { level = "allow", priority = 1 }
-implicit_clone = { level = "allow", priority = 1 }
 unused_self = { level = "allow", priority = 1 }
 ### Lint guidance seems wrong, needs decision
 similar_names = { level = "allow", priority = 1 }
@@ -107,12 +111,18 @@ redundant_else = { level = "allow", priority = 1 }
 needless_pass_by_value = { level = "allow", priority = 1 }
 
 nursery = "warn"
-## TODO, disabled since they currently fail
-### Straightforward fix, for next PR
-redundant_clone = { level = "allow", priority = 1 }
+# Overzealous, false positives suggest broken code, see
+# https://github.com/rust-lang/rust-clippy/issues/6066 and refs there
 needless_collect = { level = "allow", priority = 1 }
+
+## TODO, disabled since they currently fail
 ### Would change style, need buy-in + style guide
 option_if_let_else = { level = "allow", priority = 1 }
 ### Needs analysis + oversight for correctness
 missing_const_for_fn = { level = "allow", priority = 1 }
 significant_drop_tightening = { level = "allow", priority = 1 }
+
+## Blocked
+### By: https://github.com/softdevteam/grmtools/pull/639
+implicit_clone = { level = "allow", priority = 1 }
+redundant_clone = { level = "allow", priority = 1 }

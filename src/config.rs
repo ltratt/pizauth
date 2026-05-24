@@ -586,10 +586,10 @@ impl Account {
         let mut url = Url::parse(&self.redirect_uri)?;
         if https_port.is_some() && self.redirect_uri.to_lowercase().starts_with("https") {
             url.set_port(https_port)
-                .map_err(|_| "Cannot set https port")?;
+                .map_err(|()| "Cannot set https port")?;
         } else {
             url.set_port(http_port)
-                .map_err(|_| "Cannot set http port")?;
+                .map_err(|()| "Cannot set http port")?;
         }
         Ok(url)
     }
@@ -948,10 +948,7 @@ mod test {
             Err(e)
                 if e.contains(
                     "Account x has an 'http' redirect but the HTTP server is set to 'none'",
-                ) =>
-            {
-                ();
-            }
+                ) => {}
             Err(e) => panic!("{e:?}"),
             _ => panic!(),
         }
@@ -969,10 +966,7 @@ mod test {
             Err(e)
                 if e.contains(
                     "Account x has an 'https' redirect but the HTTPS server is set to 'none'",
-                ) =>
-            {
-                ();
-            }
+                ) => {}
             Err(e) => panic!("{e:?}"),
             _ => panic!(),
         }
