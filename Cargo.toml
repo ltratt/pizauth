@@ -72,10 +72,17 @@ rust_2018_idioms = "deny"
 rust_2021_compatibility = "deny"
 rust_2024_compatibility = "deny"
 let_underscore = "warn"
+# Especially heavyweight to resolve, for not much added readability
+# This lint is also being revised, and current direction of travel
+# (as of 2026-05-24) is to allow the fn(ContainsLifetime) -> NoLifetime cases
+# present in the codebase, and to focus on the fn(&T) -> UnclearLifetime case
+# instead. See also
+# https://github.com/rust-lang/rust/issues/91639#issuecomment-2659700523
+# https://github.com/rust-lang/rust/pull/120808
+# https://rust-lang.zulipchat.com/#narrow/channel/213817/near/528092054
+elided_lifetimes_in_paths = { level = "allow", priority = 1 }
 
 ## TODO, disabled since they currently fail
-### Would change style
-elided_lifetimes_in_paths = { level = "allow", priority = 1 }
 ### Needs analysis + oversight for correctness
 tail_expr_drop_order = { level = "allow", priority = 1 }
 
