@@ -104,9 +104,11 @@ redundant_else = { level = "allow", priority = 1 }
 needless_pass_by_value = { level = "allow", priority = 1 }
 
 nursery = "warn"
-## TODO, disabled since they currently fail
-### Straightforward fix, for next PR
+# Overzealous, false positives suggest broken code, see
+# https://github.com/rust-lang/rust-clippy/issues/6066 and refs there
 needless_collect = { level = "allow", priority = 1 }
+
+## TODO, disabled since they currently fail
 ### Would change style, need buy-in + style guide
 option_if_let_else = { level = "allow", priority = 1 }
 ### Needs analysis + oversight for correctness
