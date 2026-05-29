@@ -44,12 +44,6 @@ install: target/release/pizauth ${INSTALLSYSTEMD}
 install-systemd:
 	install -d ${DESTDIR}${LIBDIR}/systemd/user
 	install -c -m 444 lib/systemd/user/pizauth.service ${DESTDIR}${LIBDIR}/systemd/user/pizauth.service
-	install -c -m 444 lib/systemd/user/pizauth-state-creds.service ${DESTDIR}${LIBDIR}/systemd/user/pizauth-state-creds.service
-	install -c -m 444 lib/systemd/user/pizauth-state-age.service ${DESTDIR}${LIBDIR}/systemd/user/pizauth-state-age.service
-	install -c -m 444 lib/systemd/user/pizauth-state-gpg.service ${DESTDIR}${LIBDIR}/systemd/user/pizauth-state-gpg.service
-	install -c -m 444 lib/systemd/user/pizauth-state-gpg-passphrase.service ${DESTDIR}${LIBDIR}/systemd/user/pizauth-state-gpg-passphrase.service
-	install -d ${DESTDIR}${EXAMPLESDIR}/pizauth
-	install -c -m 444 examples/pizauth-state-custom.service ${DESTDIR}${EXAMPLESDIR}/pizauth/pizauth-state-custom.service
 
 test:
 	cargo test
@@ -61,7 +55,7 @@ distrib:
 	  && mkdir pizauth-$$v \
 	  && cp -rp Makefile build.rs Cargo.lock Cargo.toml \
 	    COPYRIGHT LICENSE-APACHE LICENSE-MIT \
-	    CHANGES.md README.md README.systemd.md \
+	    CHANGES.md README.md \
 	    pizauth.1 pizauth.conf.5 \
 	    examples lib share src \
 	      pizauth-$$v \

@@ -5,6 +5,7 @@
   need to run it to ensure it is not affected by the timeout.
 * Systemd support has been improved & simplified:
    - If compiled with the `systemd` feature, `pizauth` automatically notifies Systemd it has started via the `NOTIFY_SOCKET`. With this feature, the `NotifyAccess=all` directive was removed from `pizauth.service`, and there's no need to run `systemd-notify` in `startup_cmd`.
+   - Thanks to the above, there's no longer a need to document Systemd specific instructions, as `{startup,token_event}_cmd` settings should be sufficient. Therefore `README.systemd.md` and `pizauth-state-*.service` files were removed.
 
 
 # pizauth 1.0.11 (2026-03-10)
