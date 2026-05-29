@@ -32,6 +32,8 @@ use eventer::{Eventer, TokenEvent};
 use notifier::Notifier;
 use refresher::Refresher;
 use request_token::request_token;
+#[cfg(feature = "systemd")]
+use sd_notify::{notify, NotifyState};
 use serde_json::json;
 use state::{AccountId, AuthenticatorState, CTGuard, TokenState};
 
@@ -330,25 +332,29 @@ fn instant_fmt(i: Instant) -> String {
 /// If [`Config::startup_cmd`] is non-`None`, call this function to run that command (in a thread, so
 /// this is non-blocking).
 fn startup_cmd(cmd: String) {
-    thread::spawn(move || match env::var("SHELL") {
-        Ok(s) => match Command::new(s).args(["-c", &cmd]).spawn() {
-            Ok(mut child) => match child.wait() {
-                Ok(status) => {
-                    if !status.success() {
-                        error!(
-                            "'{cmd:}' returned {}",
-                            status.code().map_or_else(
-                                || "<Unknown exit code>".to_string(),
-                                |x| x.to_string()
-                            )
-                        );
+    thread::spawn(move || {
+        match env::var("SHELL") {
+            Ok(s) => match Command::new(s).args(["-c", &cmd]).spawn() {
+                Ok(mut child) => match child.wait() {
+                    Ok(status) => {
+                        if !status.success() {
+                            error!(
+                                "'{cmd:}' returned {}",
+                                status.code().map_or_else(
+                                    || "<Unknown exit code>".to_string(),
+                                    |x| x.to_string()
+                                )
+                            );
+                        }
                     }
-                }
-                Err(e) => error!("Waiting on '{cmd:}' failed: {e:}"),
+                    Err(e) => error!("Waiting on '{cmd:}' failed: {e:}"),
+                },
+                Err(e) => error!("Couldn't execute '{cmd:}': {e:}"),
             },
-            Err(e) => error!("Couldn't execute '{cmd:}': {e:}"),
-        },
-        Err(e) => error!("{e:}"),
+            Err(e) => error!("{e:}"),
+        }
+        #[cfg(feature = "systemd")]
+        let _unused = notify(&[NotifyState::Ready]);
     });
 }
 
@@ -426,8 +432,15 @@ pub fn server(conf_path: PathBuf, conf: Config, cache_path: &Path) -> Result<(),
     notifier.notifier(Arc::clone(&pstate))?;
 
     let listener = UnixListener::bind(sock_path)?;
-    if let Some(s) = &pstate.ct_lock().config().startup_cmd {
-        startup_cmd(s.to_owned());
+    match &pstate.ct_lock().config().startup_cmd {
+        Some(s) => {
+            startup_cmd(s.to_owned());
+        }
+        None => {
+            // If no startup_cmd, notify immediately as we are ready
+            #[cfg(feature = "systemd")]
+            let _unused = notify(&[NotifyState::Ready]);
+        }
     }
     for stream in listener.incoming().flatten() {
         let pstate = Arc::clone(&pstate);

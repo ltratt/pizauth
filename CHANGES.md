@@ -3,6 +3,8 @@
 * `auth_notify_cmd` is now subject to a 10 second timeout. If you previously
   relied on the command being run taking an arbitrary amount of time, you will
   need to run it to ensure it is not affected by the timeout.
+* Systemd support has been improved & simplified:
+   - If compiled with the `systemd` feature, `pizauth` automatically notifies Systemd it has started via the `NOTIFY_SOCKET`. With this feature, the `NotifyAccess=all` directive was removed from `pizauth.service`, and there's no need to run `systemd-notify` in `startup_cmd`.
 
 
 # pizauth 1.0.11 (2026-03-10)
