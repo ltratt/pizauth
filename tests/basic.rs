@@ -19,6 +19,7 @@ const CLIENT_ID: &str = "test_client_id";
 const CLIENT_SECRET: &str = "test_secret";
 const CODE: &str = "test_code";
 const ACCESS_TOKEN: &str = "test_access_token";
+const RENEWED_ACCESS_TOKEN: &str = "test_renewed_access_token";
 const REFRESH_TOKEN: &str = "test_refresh_token";
 
 struct PizauthServer {
@@ -62,7 +63,7 @@ struct OAuthServer {
 }
 
 impl OAuthServer {
-    fn start() -> Self {
+    fn new(max_requests: usize, token_expires_in: u64) -> Self {
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
         let addr = listener.local_addr().unwrap().to_string();
         let expected_redirect_uri = Arc::new(Mutex::new(None));
@@ -70,9 +71,9 @@ impl OAuthServer {
         let thread = {
             let expected_redirect_uri = Arc::clone(&expected_redirect_uri);
             thread::spawn(move || {
-                for _ in 0..2 {
+                for _ in 0..max_requests {
                     let (stream, _) = listener.accept().unwrap();
-                    handle_oauth_request(stream, &expected_redirect_uri);
+                    handle_oauth_request(stream, token_expires_in, &expected_redirect_uri);
                 }
             })
         };
@@ -98,7 +99,7 @@ impl OAuthServer {
     }
 }
 
-fn pizauth_config(oauths: &OAuthServer) -> String {
+fn pizauth_config(oauths: &OAuthServer, account_config: &str) -> String {
     let auth_uri = oauths.auth_uri();
     let token_uri = oauths.token_uri();
     format!(
@@ -108,10 +109,11 @@ https_listen = none;
 startup_cmd = "touch ready";
 
 account "{ACCOUNT}" {{
-    auth_uri = "{auth_uri}";
-    token_uri = "{token_uri}";
-    client_id = "{CLIENT_ID}";
-    client_secret = "{CLIENT_SECRET}";
+  auth_uri = "{auth_uri}";
+  token_uri = "{token_uri}";
+  client_id = "{CLIENT_ID}";
+  client_secret = "{CLIENT_SECRET}";
+  {account_config}
 }}
 "#
     )
@@ -136,7 +138,11 @@ where
     cmd
 }
 
-fn handle_oauth_request(stream: TcpStream, expected_redirect_uri: &Mutex<Option<String>>) {
+fn handle_oauth_request(
+    stream: TcpStream,
+    token_expires_in: u64,
+    expected_redirect_uri: &Mutex<Option<String>>,
+) {
     let request = HttpRequest::read(stream);
     let path = request.target.split('?').next().unwrap();
     match (request.method.as_str(), path) {
@@ -173,34 +179,57 @@ fn handle_oauth_request(stream: TcpStream, expected_redirect_uri: &Mutex<Option<
         }
         ("POST", "/token") => {
             let params = form_urlencoded::parse(request.body.as_bytes()).collect::<HashMap<_, _>>();
-            assert_eq!(
-                params.get("grant_type").map(|x| x.as_ref()),
-                Some("authorization_code")
-            );
-            assert_eq!(params.get("code").map(|x| x.as_ref()), Some(CODE));
             assert_eq!(params.get("client_id").map(|x| x.as_ref()), Some(CLIENT_ID));
             assert_eq!(
                 params.get("client_secret").map(|x| x.as_ref()),
                 Some(CLIENT_SECRET)
             );
-            assert!(params.contains_key("code_verifier"));
-            assert_eq!(
-                params.get("redirect_uri").map(|x| x.as_ref()),
-                expected_redirect_uri.lock().unwrap().as_deref()
-            );
 
-            request.respond(
-                200,
-                &[("Content-Type", "application/json")],
-                &format!(
-                    r#"{{
+            match params.get("grant_type").map(|x| x.as_ref()) {
+                Some("authorization_code") => {
+                    assert_eq!(params.get("code").map(|x| x.as_ref()), Some(CODE));
+                    assert!(params.contains_key("code_verifier"));
+                    assert_eq!(
+                        params.get("redirect_uri").map(|x| x.as_ref()),
+                        expected_redirect_uri.lock().unwrap().as_deref()
+                    );
+
+                    request.respond(
+                        200,
+                        &[("Content-Type", "application/json")],
+                        &format!(
+                            r#"{{
                         "token_type": "Bearer",
-                        "expires_in": 3600,
+                        "expires_in": {token_expires_in},
                         "access_token": "{ACCESS_TOKEN}",
                         "refresh_token": "{REFRESH_TOKEN}"
                     }}"#
+                        ),
+                    );
+                }
+                Some("refresh_token") => {
+                    assert_eq!(
+                        params.get("refresh_token").map(|x| x.as_ref()),
+                        Some(REFRESH_TOKEN)
+                    );
+
+                    request.respond(
+                        200,
+                        &[("Content-Type", "application/json")],
+                        &format!(
+                            r#"{{
+                        "token_type": "Bearer",
+                        "expires_in": 3600,
+                        "access_token": "{RENEWED_ACCESS_TOKEN}"
+                    }}"#
+                        ),
+                    );
+                }
+                _ => panic!(
+                    "unexpected OAuth grant_type: {:?}",
+                    params.get("grant_type")
                 ),
-            );
+            }
         }
         _ => panic!(
             "unexpected OAuth request: {} {}",
@@ -314,8 +343,8 @@ fn basic_request_token() {
     let xdg_dir = dir.path().join("runtime");
     let configp = dir.path().join("pizauth.conf");
 
-    let mut oauths = OAuthServer::start();
-    fs::write(&configp, pizauth_config(&oauths)).unwrap();
+    let mut oauths = OAuthServer::new(2, 3600);
+    fs::write(&configp, pizauth_config(&oauths, "")).unwrap();
 
     let _pizauths = PizauthServer::start(dir.path(), &xdg_dir, &configp, &readyp);
 
@@ -346,4 +375,69 @@ fn basic_request_token() {
         String::from_utf8(show.stdout).unwrap(),
         format!("{ACCESS_TOKEN}\n")
     );
+}
+
+#[test]
+fn token_renewal() {
+    let dir = TempDir::new().unwrap();
+    let readyp = dir.path().join("ready");
+    let xdg_dir = dir.path().join("runtime");
+    let configp = dir.path().join("pizauth.conf");
+
+    let mut oauths = OAuthServer::new(3, 1);
+    fs::write(
+        &configp,
+        pizauth_config(&oauths, "refresh_before_expiry = 0s;"),
+    )
+    .unwrap();
+
+    let _pizauths = PizauthServer::start(dir.path(), &xdg_dir, &configp, &readyp);
+
+    let show = pizauth_cmd(&xdg_dir, ["show", ACCOUNT]).output().unwrap();
+    assert!(!show.status.success());
+    let auth_url = pending_auth_url(&show);
+
+    let auth_response = http_get(&auth_url);
+    assert_eq!(auth_response.status, 302);
+    let redirect_url = auth_response
+        .headers
+        .get("location")
+        .unwrap()
+        .parse::<Url>()
+        .unwrap();
+
+    let callback_response = http_get(&redirect_url);
+    assert_eq!(callback_response.status, 200);
+
+    let timeout = Instant::now() + Duration::from_secs(3);
+    loop {
+        let show = pizauth_cmd(&xdg_dir, ["show", ACCOUNT]).output().unwrap();
+        if show.status.success() {
+            assert_eq!(
+                String::from_utf8(show.stdout).unwrap(),
+                format!("{ACCESS_TOKEN}\n")
+            );
+            break;
+        }
+        assert!(Instant::now() < timeout);
+        thread::sleep(Duration::from_millis(25));
+    }
+
+    thread::sleep(Duration::from_secs(2));
+
+    let timeout = Instant::now() + Duration::from_secs(3);
+    loop {
+        let show = pizauth_cmd(&xdg_dir, ["show", ACCOUNT]).output().unwrap();
+        if show.status.success() {
+            assert_eq!(
+                String::from_utf8(show.stdout).unwrap(),
+                format!("{RENEWED_ACCESS_TOKEN}\n")
+            );
+            break;
+        }
+        assert!(Instant::now() < timeout);
+        thread::sleep(Duration::from_millis(25));
+    }
+
+    oauths.join();
 }
