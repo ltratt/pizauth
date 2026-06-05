@@ -7,6 +7,7 @@ a command-line interface which can be used by programs such as
 [fdm](https://github.com/nicm/fdm) and [msmtp](https://marlam.de/msmtp/) to
 authenticate with OAuth2.
 
+
 ## Quick setup
 
 pizauth's configuration file is `~/.config/pizauth.conf`. You need to specify
@@ -91,16 +92,18 @@ is opened in the user's default web browser.
 
 ### Running pizauth
 
-You need to start the pizauth server (alternatively, start `pizauth.service`)
+You need to start the pizauth server:
 
 ```sh
 $ pizauth server
 ```
 
-and configure software to request OAuth2 tokens with `pizauth show officesmtp`.
-The first time that `pizauth show officesmtp` is executed, it will print an
-error to stderr that includes an authorisation URL (and, if `auth_notify_cmd`
-is set, it will also execute that command):
+systemd users can, alternatively, start `pizauth.service`.
+
+You then need to configure software to request OAuth2 tokens with `pizauth show
+officesmtp`. The first time that `pizauth show officesmtp` is executed, it will
+print an error to stderr that includes an authorisation URL (and, if
+`auth_notify_cmd` is set, it will also execute that command):
 
 ```
 $ pizauth show officesmtp
