@@ -57,7 +57,7 @@ distrib:
 	    COPYRIGHT LICENSE-APACHE LICENSE-MIT \
 	    CHANGES.md README.md \
 	    pizauth.1 pizauth.conf.5 \
-	    examples lib share src \
+	    examples lib share src tests \
 	      pizauth-$$v \
 	  && tar cfz pizauth-$$v.tgz pizauth-$$v \
 	  && rm -rf pizauth-$$v
