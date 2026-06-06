@@ -1121,7 +1121,7 @@ checksum = "a89322df9ebe1c1578d689c92318e070967d1042b512afbe49518723f4e6d5cd"
 
 [[package]]
 name = "pizauth"
-version = "1.0.11"
+version = "1.1.0"
 dependencies = [
  "base64",
  "boot-time",
