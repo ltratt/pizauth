@@ -12,6 +12,10 @@ use boot_time::Instant;
 use log::debug;
 use log::{error, info};
 use serde_json::Value;
+use ureq::{
+    tls::{RootCerts, TlsConfig},
+    Agent,
+};
 
 use crate::{
     server::{
@@ -212,10 +216,15 @@ impl Refresher {
         }
 
         drop(ct_lk);
-        let agent_conf = ureq::Agent::config_builder()
+        let agent_conf = Agent::config_builder()
             .timeout_global(Some(UREQ_TIMEOUT))
+            .tls_config(
+                TlsConfig::builder()
+                    .root_certs(RootCerts::PlatformVerifier)
+                    .build(),
+            )
             .build();
-        let body = match ureq::Agent::new_with_config(agent_conf)
+        let body = match Agent::new_with_config(agent_conf)
             .post(token_uri.as_str())
             .send_form(pairs)
         {
