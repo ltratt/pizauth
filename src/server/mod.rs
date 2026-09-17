@@ -382,6 +382,16 @@ pub fn server(conf_path: PathBuf, conf: Config, cache_path: &Path) -> Result<(),
     #[cfg(target_os = "openbsd")]
     unveil("/dev/random", "rx")?;
     #[cfg(target_os = "openbsd")]
+    unveil("/etc/ssl/cert.pem", "r")?;
+    #[cfg(target_os = "openbsd")]
+    if let Ok(x) = env::var("SSL_CERT_DIR") {
+        unveil(x, "r")?;
+    }
+    #[cfg(target_os = "openbsd")]
+    if let Ok(x) = env::var("SSL_CERT_FILE") {
+        unveil(x, "r")?;
+    }
+    #[cfg(target_os = "openbsd")]
     unveil("", "")?;
 
     #[cfg(target_os = "openbsd")]

@@ -306,22 +306,6 @@ fn main() {
                 fs::remove_file(&sock_path).ok();
             }
 
-            // The XDG spec says of `$XDG_RUNTIME_DIR` (where our socket file will live):
-            //   Files in this directory MAY be subjected to periodic clean-up. To ensure that your files
-            //   are not removed, they should have their access time timestamp modified at least once every
-            //   6 hours of monotonic time
-            let sock_path_cl = sock_path;
-            thread::spawn(move || loop {
-                thread::sleep(Duration::from_hours(6));
-                let _ = utimensat(
-                    AT_FDCWD,
-                    &sock_path_cl,
-                    &TimeSpec::UTIME_NOW,
-                    &TimeSpec::UTIME_NOW,
-                    UtimensatFlags::NoFollowSymlink,
-                );
-            });
-
             let conf_path = conf_path(&matches);
             let conf = Config::from_path(&conf_path).unwrap_or_else(|m| fatal(&m));
 
@@ -352,6 +336,23 @@ fn main() {
                     .init()
                     .unwrap();
             }
+
+            // The XDG spec says of `$XDG_RUNTIME_DIR` (where our socket file will live):
+            //   Files in this directory MAY be subjected to periodic clean-up. To ensure that your files
+            //   are not removed, they should have their access time timestamp modified at least once every
+            //   6 hours of monotonic time
+            let sock_path_cl = sock_path;
+            thread::spawn(move || loop {
+                thread::sleep(Duration::from_hours(6));
+                let _ = utimensat(
+                    AT_FDCWD,
+                    &sock_path_cl,
+                    &TimeSpec::UTIME_NOW,
+                    &TimeSpec::UTIME_NOW,
+                    UtimensatFlags::NoFollowSymlink,
+                );
+            });
+
             if let Err(e) = server::server(conf_path, conf, cache_path.as_path()) {
                 error!("{e:}");
                 process::exit(1);

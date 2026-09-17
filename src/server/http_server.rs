@@ -10,6 +10,10 @@ use std::{
 use boot_time::Instant;
 use log::warn;
 use serde_json::Value;
+use ureq::{
+    tls::{RootCerts, TlsConfig},
+    Agent,
+};
 use url::Url;
 
 use rcgen::{generate_simple_self_signed, CertifiedKey, KeyPair};
@@ -150,11 +154,16 @@ fn request<T: Read + Write>(
     // request that partially makes a connection but does not then fully succeed is an error (since
     // we can't reuse authentication codes), and we'll have to start again entirely.
     let mut body = None;
-    let agent_conf = ureq::Agent::config_builder()
+    let agent_conf = Agent::config_builder()
         .timeout_global(Some(UREQ_TIMEOUT))
+        .tls_config(
+            TlsConfig::builder()
+                .root_certs(RootCerts::PlatformVerifier)
+                .build(),
+        )
         .build();
     for _ in 0..RETRY_POST {
-        match ureq::Agent::new_with_config(agent_conf.clone())
+        match Agent::new_with_config(agent_conf.clone())
             .post(token_uri.as_str())
             .send_form(pairs.clone())
         {
