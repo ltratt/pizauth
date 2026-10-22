@@ -1,6 +1,6 @@
 # pizauth 1.1.1 (2026-10-22)
 
-* Use the system trust store to verify HTTP certificates.
+* Use the system trust store to verify HTTPS certificates.
 
 * On OS X start the thread which periodically `touch`es pizauth's control
   socket (to avoid it being garbage collected) after daemonisation.
