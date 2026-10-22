@@ -1,3 +1,14 @@
+# pizauth 1.1.1 (2026-10-22)
+
+* Use the system trust store to verify HTTP certificates.
+
+* On OS X start the thread which periodically `touch`es pizauth's control
+  socket (to avoid it being garbage collected) after daemonisation.
+
+* Fix the `Makefile` so systemd support is builtin automatically if a systemd
+  platform is detected.
+
+
 # pizauth 1.1.0 (2026-06-06)
 
 * Improved `systemd` support. When compiled with the `systemd` feature,
