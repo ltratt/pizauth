@@ -1,4 +1,4 @@
-# pizauth 1.1.0 (2026-06-06)
+# pizauth 1.1.0 (2026-10-22)
 
 * Improved `systemd` support. When compiled with the `systemd` feature,
   `pizauth` automatically notifies `systemd` that it has started. The
