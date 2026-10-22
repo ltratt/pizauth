@@ -359,6 +359,12 @@ fn startup_cmd(cmd: String) {
 }
 
 pub fn server(conf_path: PathBuf, conf: Config, cache_path: &Path) -> Result<(), Box<dyn Error>> {
+    // Set a process-wide default crypto provider for outgoing https requests
+    // and the optional local https server.
+    rustls::crypto::ring::default_provider()
+        .install_default()
+        .map_err(|_| "Failed to install rustls crypto provider")?;
+
     let sock_path = sock_path(cache_path);
 
     #[cfg(target_os = "openbsd")]
